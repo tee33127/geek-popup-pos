@@ -16,7 +16,7 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 
 ## งานถัดไป (ขั้น 0 → 1)
 1. ~~แยกต้นแบบเป็นโมดูล~~ เสร็จแล้ว อยู่ใน `app/`
-2. ~~ทำ `printer-test/`~~ เสร็จแล้ว ยังต้องโฮสต์ผ่าน https (เช่น GitHub Pages) ก่อนวันได้ของ เพราะ WebUSB ใช้ได้เฉพาะ https หรือ localhost
+2. ~~ทำ `printer-test/`~~ เสร็จแล้ว ออนไลน์ที่ https://tee33127.github.io/geek-popup-pos/printer-test/ (WebUSB ใช้ได้เฉพาะ https หรือ localhost)
 3. รอผลเช็กลิสต์ขั้น 1 แล้วตัดสินใจ PWA vs แอป Android (Capacitor)
 
 ## โครงสร้างโฟลเดอร์
@@ -68,6 +68,9 @@ app/
   js/printer.js     ← มีแล้ว เหลือต่อเข้ากับ ui/print.js (ตั๋วจากบิลจริง + fallback window.print())
   js/promptpay.js   ← สร้าง payload EMVCo + CRC16 + QR
 ```
+
+## GitHub
+repo สาธารณะ https://github.com/tee33127/geek-popup-pos · GitHub Pages เสิร์ฟจาก `main` ที่ root (push แล้วขึ้นเว็บใน 1-2 นาที) · ห้าม commit ข้อมูลยอดขายจริง เอกสารงบ หรือ PIN จริง
 
 ## คำสั่ง
 ```bash

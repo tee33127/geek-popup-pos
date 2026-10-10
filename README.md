@@ -3,6 +3,8 @@
 POS เขียนเองสำหรับร้าน Geek Yogurt & Smoothie Bar สาขา pop-up ทำงานบนแท็บเล็ต Android พิมพ์ตั๋วด้วยปริ้นเตอร์ความร้อน 80 มม. ใช้งานได้แม้ไม่มีอินเทอร์เน็ต
 
 ## ดูต้นแบบ
+ออนไลน์: [ต้นแบบ DEMO](https://tee33127.github.io/geek-popup-pos/prototype/pos-demo.html) · [หน้าทดสอบปริ้นเตอร์](https://tee33127.github.io/geek-popup-pos/printer-test/)
+
 เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ (มีข้อมูลตัวอย่าง) → ปุ่ม 📊 สรุปยอด → PIN `1234`
 ตัวจริงที่ยังไม่มีข้อมูลคือ `prototype/pos.html` · ซอร์สที่แยกไฟล์แล้วอยู่ใน `app/` (เปิด `app/index.html` ได้เหมือนกัน)
 
