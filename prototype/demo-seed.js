@@ -40,8 +40,8 @@ function seedDemo(force){
       sales.push(sale);
     }
   });
-  saveSales(sales);
+  clearSales(); saveSales(sales);
   try{ localStorage.setItem(SEEDKEY, cur); }catch(e){}
 }
-seedDemo(false);
+storeReady.then(() => seedDemo(false));
 $('btnReseed').onclick = () => askConfirm({msg:'สร้างข้อมูลตัวอย่างใหม่?', sub:'บิลใน DEMO ทั้งหมดจะถูกแทนที่', yes:'สร้างใหม่', ok:true, onYes:() => { seedDemo(true); updateNext(); toast('สร้างข้อมูลตัวอย่างแล้ว ✓'); }});

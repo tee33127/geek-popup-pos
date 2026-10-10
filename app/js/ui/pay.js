@@ -28,7 +28,7 @@ function renderPay(){
   }
 }
 function confirmPay(){
-  if(!pay.dining) return;
+  if(!pay.dining || STORE_MODE === 'loading') return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now);
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
   const sale = {

@@ -12,7 +12,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 ## สถานะตอนนี้
 - **ขั้น 0 — เตรียมตัว** (ดู `docs/project-plan.md`) ฮาร์ดแวร์ยืนยันแล้ว รอซื้อ
 - ซอร์สอยู่ใน `app/` แยกเป็นโมดูลแล้ว (ขั้น 0 ข้อ 1 เสร็จ) และ build เป็น `prototype/pos.html` ไฟล์เดียว ผ่านเทสต์ทั้งหมด: หน้าขาย, กติกาท็อปปิ้ง, ชำระเงิน, เลขออเดอร์, พิมพ์ผ่าน `window.print()`, สรุปยอด 5 แท็บ, ยกเลิก/นำกลับบิล, CSV
-- ยังไม่มี: พิมพ์ตรงผ่าน USB (ESC/POS), เปิดลิ้นชัก, QR PromptPay, IndexedDB, PWA/offline, หน้าตั้งค่าเมนู
+- **ขั้น 2 เริ่มแล้ว**: เก็บยอดขายใน IndexedDB เสร็จ (ย้ายข้อมูลจาก localStorage อัตโนมัติ + สำรองใน localStorage)
+- ยังไม่มี: พิมพ์ตรงผ่าน USB (ESC/POS) ในแอป, เปิดลิ้นชัก, QR PromptPay, PWA/offline, หน้าตั้งค่าเมนู
 
 ## งานถัดไป (ขั้น 0 → 1)
 1. ~~แยกต้นแบบเป็นโมดูล~~ เสร็จแล้ว อยู่ใน `app/`
@@ -35,7 +36,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง PIN
   js/core.js              ← baht/esc/pad, bizDate, addDays, ป้ายข้อความรายการ, csvText (ไม่แตะ DOM)
   js/pricing.js           ← priceItem(menu, state) ฟังก์ชันล้วน + priceSel() สำหรับหน้าจอ
-  js/store.js             ← loadSales/saveSales (localStorage + โหมดหน่วยความจำ), nextNo
+  js/store.js             ← loadSales/saveSales (sync, ถือข้อมูลในหน่วยความจำ) เขียนลง IndexedDB เบื้องหลัง + สำรอง localStorage · storeReady ต้องรอก่อนใช้ · saveSales ไม่ลบบิล · clearSales ใช้เฉพาะ DEMO
   js/reports.js           ← buildReport, รอบขาย/ช่วงวันที่ (REP)
   js/ui/modal.js          ← $, toast, openModal, askConfirm, askPin
   js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว ผ่าน window.print()
@@ -52,11 +53,14 @@ assets/menu/              ← รูปเมนูจริง (ต้นฉบ
 tests/
   run-tests.js            ← รันทุกเทสต์
   app/pricing.test.js     ← คิดราคาใน vm เปล่า ไม่มี DOM
+  app/store.test.js       ← IndexedDB จำลอง (fake-indexeddb): migration, เปิดหน้าใหม่, รวมสองแหล่ง, พื้นที่เต็ม, โหมดสำรอง
   app/app-files.test.js   ← เปิด app/index.html แบบแยกไฟล์ แล้วขาย 1 บิล
   app/printer.test.js     ← byte ESC/POS + raster ใน vm เปล่า
   app/printer-test-page.test.js ← หน้า printer-test กับปริ้นเตอร์ปลอม (jsdom ไม่มี canvas จึงไม่ได้เทสต์ภาพตั๋ว)
   prototype/*.test.js     ← เทสต์ pos.html ด้วย jsdom (กติการาคา, รายงาน, void/restore/CSV, รอบ 23:00)
 ```
+
+**ที่เก็บข้อมูล**: IndexedDB ชื่อเดียวกับ `KEY` (DEMO ใช้ชื่อแยก) object store `sales` keyPath `id` · ตอนเปิดหน้าอ่านทั้ง IndexedDB และ localStorage มารวมกัน ถ้าบิลเดียวกันต่างกัน ใช้ฉบับที่ `log` ยาวกว่า · jsdom ไม่มี IndexedDB เทสต์ prototype จึงวิ่งโหมด localStorage ส่วนโหมด IndexedDB เทสต์ใน `store.test.js` · ถ้าเทสต์ต้องใส่บิลหลังเปิดหน้า ให้เรียก `saveSales` ห้ามเขียน localStorage ตรง (หน้าไม่อ่านซ้ำ)
 
 **วิธีแยกไฟล์ใน `app/`**: ใช้ `<script src>` ธรรมดา (ไม่ใช่ ES module) เพื่อให้เปิดจาก `file://` ได้ ทุกไฟล์แชร์ตัวแปร global ร่วมกัน (`sel`, `cart`, `REP` ฯลฯ) และเทสต์เรียกผ่าน `w.eval` ได้ · โค้ดที่รันตอนโหลดไฟล์ (เช่น `$('x').onclick = fn`) ใช้ได้เฉพาะของที่ประกาศในไฟล์ก่อนหน้าหรือไฟล์เดียวกัน ถ้าเพิ่มไฟล์ใหม่ต้องใส่ใน `index.html` ตามลำดับ
 
@@ -64,7 +68,6 @@ tests/
 ```
 app/
   manifest.webmanifest, sw.js
-  js/store.js       ← เปลี่ยนเป็น IndexedDB + migration จาก localStorage ของต้นแบบ
   js/printer.js     ← มีแล้ว เหลือต่อเข้ากับ ui/print.js (ตั๋วจากบิลจริง + fallback window.print())
   js/promptpay.js   ← สร้าง payload EMVCo + CRC16 + QR
 ```
@@ -74,7 +77,7 @@ repo สาธารณะ https://github.com/tee33127/geek-popup-pos · GitHub 
 
 ## คำสั่ง
 ```bash
-npm install                 # ครั้งแรก (jsdom สำหรับเทสต์)
+npm install                 # ครั้งแรก (jsdom + fake-indexeddb สำหรับเทสต์)
 npm test                    # build prototype/ จาก app/ แล้วรันเทสต์ทั้งหมด
 npm run build:prototype     # build อย่างเดียว (ใช้แค่ Node ไม่ต้องมี Python)
 ```

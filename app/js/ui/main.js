@@ -45,4 +45,5 @@ $('modal').onclick = e => {
 /* ---------- Init ---------- */
 $('pageStyle').textContent = '@page{size:' + CONFIG.paperMm + 'mm auto;margin:0}';
 document.documentElement.style.setProperty('--paper', CONFIG.paperMm + 'mm');
-renderBuilder(); renderCart(); updateNext();
+renderBuilder(); renderCart();
+storeReady.then(updateNext);   // เลขออเดอร์ต้องรอโหลดบิลจาก IndexedDB ก่อน

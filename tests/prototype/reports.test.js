@@ -20,7 +20,7 @@ const sales = [
   mk(4, 4, today, 'dinein', 'cash', [greek], 154, {void:true}),            // ยกเลิก: ต้องไม่นับ
   mk(5, 1, yday, 'dinein', 'cash', [{...bch, qty:2}], 298),                // เมื่อวาน
 ];
-w.localStorage.setItem('geek_popup_sales_v2', JSON.stringify(sales));
+ev(`saveSales(${JSON.stringify(sales)})`);
 const open = () => { click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk'); };
 const rowsOf = () => $$('#modal table tr').map(tr => [...tr.children].map(c => c.textContent.replace(/\s+/g,' ').trim()));
 const stat = () => $$('.stat b').map(e => e.textContent);
