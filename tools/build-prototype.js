@@ -1,13 +1,25 @@
 /* สร้างต้นแบบไฟล์เดียวจาก app/ : npm run build:prototype
    - prototype/pos.html      = app/index.html ที่รวม CSS, JS และรูปไว้ในไฟล์เดียว (เปิดได้เลย ไม่ต้องมีโฟลเดอร์ app)
    - prototype/pos-demo.html = เหมือน pos.html + ข้อมูลตัวอย่าง (prototype/demo-seed.js) เก็บแยก key */
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..'), APP = path.join(ROOT, 'app'), OUT = path.join(ROOT, 'prototype');
 const read = f => fs.readFileSync(f, 'utf8');
 
 let html = read(path.join(APP, 'index.html'));
 const once = (s, a, b) => { if(s.split(a).length !== 2) throw new Error('ต้องเจอพอดี 1 ครั้ง: ' + a); return s.replace(a, () => b); };
 
+/* app/sw.js: รายการไฟล์ทั้งหมดใน app/ + VERSION จาก hash เนื้อหา (ไฟล์เปลี่ยน → แท็บเล็ตโหลดชุดใหม่) */
+const appFiles = (dir, pre = '') => fs.readdirSync(dir, {withFileTypes:true}).flatMap(e =>
+  e.isDirectory() ? appFiles(path.join(dir, e.name), pre + e.name + '/') : [pre + e.name]).sort();
+const swFiles = appFiles(APP).filter(f => f !== 'sw.js' && !f.endsWith('.svg') && !f.startsWith('.'));
+const hash = crypto.createHash('sha256');
+swFiles.forEach(f => hash.update(f + '\0').update(fs.readFileSync(path.join(APP, f))));
+const swPath = path.join(APP, 'sw.js'), sw = read(swPath);
+const sw2 = sw.replace(/^const VERSION = .*$/m, `const VERSION = '${hash.digest('hex').slice(0, 12)}';`)
+  .replace(/^const FILES = .*$/m, `const FILES = ${JSON.stringify(['./', ...swFiles])};`);
+if(sw2 !== sw) fs.writeFileSync(swPath, sw2);
+
+html = html.replace(/<link rel="(manifest|icon)"[^>]*>\n/g, '');   // ต้นแบบไฟล์เดียวไม่ใช่ PWA
 html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, f) => `<style>\n${read(path.join(APP, f))}</style>`);
 html = html.replace(/<!--.*?-->\n/g, '');
 html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, f) => {

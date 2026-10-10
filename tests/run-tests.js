@@ -6,6 +6,7 @@ const runs = [
   ['app/pricing.test.js'],
   ['app/app-files.test.js'],
   ['app/store.test.js'],
+  ['app/pwa.test.js'],
   ['app/printer.test.js'],
   ['app/printer-test-page.test.js'],
   // ต้นแบบไฟล์เดียวที่ build แล้ว

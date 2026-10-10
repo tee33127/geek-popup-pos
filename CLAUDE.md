@@ -13,7 +13,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - **ขั้น 0 — เตรียมตัว** (ดู `docs/project-plan.md`) ฮาร์ดแวร์ยืนยันแล้ว รอซื้อ
 - ซอร์สอยู่ใน `app/` แยกเป็นโมดูลแล้ว (ขั้น 0 ข้อ 1 เสร็จ) และ build เป็น `prototype/pos.html` ไฟล์เดียว ผ่านเทสต์ทั้งหมด: หน้าขาย, กติกาท็อปปิ้ง, ชำระเงิน, เลขออเดอร์, พิมพ์ผ่าน `window.print()`, สรุปยอด 5 แท็บ, ยกเลิก/นำกลับบิล, CSV
 - **ขั้น 2 เริ่มแล้ว**: เก็บยอดขายใน IndexedDB เสร็จ (ย้ายข้อมูลจาก localStorage อัตโนมัติ + สำรองใน localStorage)
-- ยังไม่มี: พิมพ์ตรงผ่าน USB (ESC/POS) ในแอป, เปิดลิ้นชัก, QR PromptPay, PWA/offline, หน้าตั้งค่าเมนู
+- PWA เสร็จ: ติดตั้งบนแท็บเล็ตได้ เปิดได้แม้ออฟไลน์ (`app/manifest.webmanifest`, `app/sw.js`) วิธีติดตั้งอยู่ใน README
+- ยังไม่มี: พิมพ์ตรงผ่าน USB (ESC/POS) ในแอป, เปิดลิ้นชัก, QR PromptPay, หน้าตั้งค่าเมนู
 
 ## งานถัดไป (ขั้น 0 → 1)
 1. ~~แยกต้นแบบเป็นโมดูล~~ เสร็จแล้ว อยู่ใน `app/`
@@ -32,6 +33,9 @@ docs/
 app/                      ← ซอร์สจริง (แก้ที่นี่) เปิด app/index.html ได้เลย
   index.html              ← markup + ลำดับ <script> (ลำดับสำคัญ ดูด้านล่าง)
   css/pos.css
+  manifest.webmanifest    ← PWA: ชื่อแอป ไอคอน สีแบรนด์
+  sw.js                   ← service worker เก็บไฟล์แอปทั้งหมดไว้ใช้ออฟไลน์ · VERSION/FILES สร้างโดย build ห้ามแก้มือ
+  icons/                  ← icon.svg (ต้นฉบับ) → icon-192/512.png
   img/*.jpg               ← รูปเมนูย่อแล้ว 420×420 (ต้นฉบับอยู่ assets/menu/)
   js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง PIN
   js/core.js              ← baht/esc/pad, bizDate, addDays, ป้ายข้อความรายการ, csvText (ไม่แตะ DOM)
@@ -44,7 +48,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
   js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ยังไม่ได้ใส่ในแอป ใช้ใน printer-test ก่อน
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
-tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป)
+tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
 prototype/
   pos.html                ← ไฟล์ build (ห้ามแก้ตรง) ไฟล์เดียว เปิดได้เลย
   pos-demo.html           ← เหมือน pos.html + ข้อมูลตัวอย่าง 3 รอบขาย (เก็บข้อมูลแยก key)
@@ -53,6 +57,7 @@ assets/menu/              ← รูปเมนูจริง (ต้นฉบ
 tests/
   run-tests.js            ← รันทุกเทสต์
   app/pricing.test.js     ← คิดราคาใน vm เปล่า ไม่มี DOM
+  app/pwa.test.js         ← manifest, ไอคอน, รายการไฟล์ใน sw.js ครบ, จำลองติดตั้งแล้วตัดเน็ต
   app/store.test.js       ← IndexedDB จำลอง (fake-indexeddb): migration, เปิดหน้าใหม่, รวมสองแหล่ง, พื้นที่เต็ม, โหมดสำรอง
   app/app-files.test.js   ← เปิด app/index.html แบบแยกไฟล์ แล้วขาย 1 บิล
   app/printer.test.js     ← byte ESC/POS + raster ใน vm เปล่า
@@ -67,10 +72,11 @@ tests/
 ### ส่วนที่ยังไม่ได้สร้าง (เพิ่มใน app/ ตามขั้นถัดไป)
 ```
 app/
-  manifest.webmanifest, sw.js
   js/printer.js     ← มีแล้ว เหลือต่อเข้ากับ ui/print.js (ตั๋วจากบิลจริง + fallback window.print())
   js/promptpay.js   ← สร้าง payload EMVCo + CRC16 + QR
 ```
+
+**PWA**: แก้ไฟล์ใน `app/` แล้วต้องรัน `npm test` (หรือ build) ก่อน commit เสมอ ไม่งั้น `sw.js` ไม่เปลี่ยน VERSION แท็บเล็ตจะไม่โหลดไฟล์ใหม่ · ไฟล์ใหม่ใน `app/` ถูกใส่ใน cache อัตโนมัติ · service worker ใช้ skipWaiting หน้าที่เปิดอยู่ใช้โค้ดเดิมจนเปิดใหม่ (ทุกไฟล์โหลดตอนเริ่ม จึงไม่มีโค้ดปนเวอร์ชัน)
 
 ## GitHub
 repo สาธารณะ https://github.com/tee33127/geek-popup-pos · GitHub Pages เสิร์ฟจาก `main` ที่ root (push แล้วขึ้นเว็บใน 1-2 นาที) · ห้าม commit ข้อมูลยอดขายจริง เอกสารงบ หรือ PIN จริง

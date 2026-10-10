@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Geek Pop-up POS</title>
+<meta name="theme-color" content="#1A00B8">
 <style id="pageStyle"></style>
 <style>
 :root{
@@ -963,6 +964,8 @@ $('pageStyle').textContent = '@page{size:' + CONFIG.paperMm + 'mm auto;margin:0}
 document.documentElement.style.setProperty('--paper', CONFIG.paperMm + 'mm');
 renderBuilder(); renderCart();
 storeReady.then(updateNext);   // เลขออเดอร์ต้องรอโหลดบิลจาก IndexedDB ก่อน
+/* PWA: ใช้งานออฟไลน์ได้ (ต้องเปิดผ่าน https หรือ localhost · ต้นแบบไฟล์เดียวไม่มี manifest จึงข้าม) */
+if('serviceWorker' in navigator && document.querySelector('link[rel="manifest"]')) navigator.serviceWorker.register('sw.js').catch(e => console.warn('service worker', e));
 </script>
 </body>
 </html>
