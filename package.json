@@ -1,0 +1,13 @@
+{
+  "name": "geek-popup-pos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "POS สำหรับร้าน Geek Yogurt & Smoothie Bar สาขา pop-up",
+  "scripts": {
+    "build:prototype": "node tools/build-prototype.js",
+    "test": "node tools/build-prototype.js && node tests/run-tests.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

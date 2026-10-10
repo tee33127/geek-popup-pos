@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+# ข้อมูลยอดขายจริงห้าม commit
+exports/
+*.csv
+# เอกสารงบ/shopping list ที่เสนอเจ้าของร้าน เก็บในเครื่องเท่านั้น (repo เป็นสาธารณะ)
+docs/purchasing/

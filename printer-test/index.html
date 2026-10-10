@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ทดสอบปริ้นเตอร์ · Geek Pop-up POS</title>
+<style>
+  :root{
+    --blue:#1A00B8; --blue-soft:#ECE9FF; --orange:#F7941D; --orange-soft:#FFF1DE;
+    --ink:#1b1b2f; --mute:#6b6b80; --line:#e3e3ee; --bg:#f6f6fb; --ok:#14804a; --bad:#c62828;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Thai","Sarabun",system-ui,sans-serif;font-size:17px}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  button:disabled{opacity:.4;cursor:default}
+  header{background:var(--blue);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  header h1{margin:0;font-size:19px}
+  header h1 span{color:var(--orange)}
+  #status{margin-left:auto;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:20px;font-size:15px;font-weight:700}
+  #status.on{background:var(--ok)}
+  main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:16px;max-width:1200px;margin:0 auto;align-items:start}
+  .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(20,0,120,.08);margin-bottom:16px}
+  h2{margin:0 0 12px;font-size:18px}
+  .env{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:15px}
+  .env b{white-space:nowrap}
+  .ok{color:var(--ok);font-weight:700} .bad{color:var(--bad);font-weight:700}
+  .warn{background:var(--orange-soft);border-radius:12px;padding:10px 12px;margin-top:12px;font-size:15px}
+  .connect{width:100%;background:var(--blue);color:#fff;font-weight:700;font-size:20px;padding:16px;border-radius:16px;min-height:56px}
+  .tests{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+  .tests button{background:var(--blue-soft);color:var(--blue);font-weight:700;padding:14px 10px;border-radius:14px;min-height:64px;line-height:1.3}
+  .tests button small{display:block;font-weight:400;color:var(--mute);font-size:13px}
+  .ghost{background:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;min-height:48px}
+  details{margin-top:14px}
+  summary{font-weight:700;color:var(--mute);cursor:pointer;padding:6px 0}
+  label{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+  select,input[type=range]{font:inherit;padding:8px;border:2px solid var(--line);border-radius:10px;min-height:44px}
+  .check{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0}
+  .check span{flex:1;font-size:15px}
+  .check button{padding:8px 12px;border-radius:10px;background:var(--bg);font-weight:700;font-size:14px;min-height:44px}
+  .check button.on[data-v="pass"]{background:var(--ok);color:#fff}
+  .check button.on[data-v="fail"]{background:var(--bad);color:#fff}
+  #log{font:14px/1.45 ui-monospace,Menlo,monospace;background:#11112a;color:#e8e8ff;border-radius:12px;padding:12px;height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0}
+  .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  #preview{display:flex;gap:12px;overflow-x:auto;padding:4px 0;align-items:flex-start}
+  #preview canvas{width:260px;height:auto;border:1px solid var(--line);background:#fff;flex:none}
+  .hint{color:var(--mute);font-size:14px;margin:8px 0 0}
+  @media(max-width:900px){ main{grid-template-columns:minmax(0,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Geek <span>Pop-up</span> · ทดสอบปริ้นเตอร์</h1>
+  <span id="status">ยังไม่เชื่อม</span>
+</header>
+
+<main>
+  <div>
+    <section class="card">
+      <h2>1. เครื่องนี้พร้อมไหม</h2>
+      <div class="env" id="env"></div>
+      <div class="warn" id="envWarn" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2>2. เชื่อมแล้วทดสอบทีละปุ่ม</h2>
+      <button class="connect" id="btnConnect">🔌 เชื่อมปริ้นเตอร์</button>
+      <div class="tests">
+        <button data-test="text" disabled>🔤 ข้อความอังกฤษ<small>เช็กว่าส่งข้อมูลได้</small></button>
+        <button data-test="slips" disabled>🧾 ตั๋วภาษาไทย<small>ใบเสร็จ + ตั๋วครัว ตัดแยก</small></button>
+        <button data-test="ruler" disabled>📏 ความกว้างกระดาษ<small>ต้องเห็นกรอบครบ 2 ข้าง</small></button>
+        <button data-test="cut" disabled>✂️ ตัดกระดาษ</button>
+        <button data-test="drawer" disabled>💰 เปิดลิ้นชัก<small>ไม่มีลิ้นชักก็กดได้ ไม่เสียหาย</small></button>
+        <button data-test="disconnect" disabled>⏏️ ตัดการเชื่อม</button>
+      </div>
+      <details>
+        <summary>ตั้งค่าขั้นสูง (ใช้เมื่อพิมพ์ออกมาไม่ถูก)</summary>
+        <label>ความกว้างพิมพ์ <select id="optDots"><option value="576">576 จุด (80 มม.)</option><option value="512">512 จุด</option><option value="384">384 จุด (58 มม.)</option></select></label>
+        <label>ความเข้ม <input type="range" id="optThr" min="100" max="230" step="10" value="160"> <b id="thrVal">160</b></label>
+        <label>ส่งข้อมูลครั้งละ <select id="optChunk"><option value="4096">4096 byte</option><option value="1024">1024 byte</option><option value="256">256 byte</option></select></label>
+        <label>วิธีตัด <select id="optCut"><option value="partial">เหลือติดนิดหน่อย (GS V 66)</option><option value="full">ตัดขาด (GS V 65)</option></select></label>
+        <label>ขาลิ้นชัก <select id="optPin"><option value="0">ขา 2 (ปกติ)</option><option value="1">ขา 5</option></select></label>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>ตัวอย่างตั๋วบนจอ</h2>
+      <div id="preview"></div>
+      <div class="row"><button class="ghost" id="btnPreview">👀 ดูตัวอย่าง (ไม่ต้องมีปริ้นเตอร์)</button></div>
+      <p class="hint">ภาพขาวดำนี้คือสิ่งที่ส่งไปปริ้นเตอร์จริง (เปลี่ยนความเข้มในตั้งค่าขั้นสูงแล้วกดดูใหม่ได้) ถ้าบนจอถูกแต่กระดาษผิด ให้ถ่ายรูปทั้งสองอย่างส่งมา</p>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <h2>3. เช็กลิสต์วันแรก</h2>
+      <div id="checklist"></div>
+    </section>
+
+    <section class="card">
+      <h2>4. Log (ถ่ายรูปหรือคัดลอกส่งให้ Claude)</h2>
+      <pre id="log"></pre>
+      <div class="row"><button class="ghost" id="btnCopy">📋 คัดลอก log + เช็กลิสต์</button><button class="ghost" id="btnClearLog">🗑️ ล้าง log</button></div>
+    </section>
+  </div>
+</main>
+
+<script src="../app/js/printer.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const now = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+function log(msg, kind){
+  const line = `${now()} ${kind === 'ok' ? '✅' : kind === 'bad' ? '❌' : '·'} ${msg}`;
+  const el = $('log'); el.textContent += line + '\n'; el.scrollTop = el.scrollHeight;
+}
+const opt = () => ({dots: Number($('optDots').value), thr: Number($('optThr').value), chunk: Number($('optChunk').value),
+  cut: $('optCut').value === 'full' ? ESCPOS.fullCut() : ESCPOS.cut(), pin: Number($('optPin').value)});
+
+/* ---------- 1) สภาพแวดล้อม ---------- */
+function showEnv(){
+  const ua = navigator.userAgent, chrome = (ua.match(/Chrome\/([\d.]+)/) || [])[1], android = (ua.match(/Android ([\d.]+)/) || [])[1];
+  const rows = [
+    ['WebUSB', UsbPrinter.supported(), UsbPrinter.supported() ? 'ใช้ได้' : 'ไม่มี'],
+    ['หน้าเว็บปลอดภัย', window.isSecureContext, window.isSecureContext ? 'ใช่ (' + location.protocol + ')' : 'ไม่ใช่ (' + location.protocol + ')'],
+    ['Android', !!android, android || 'ไม่ใช่ Android'],
+    ['Chrome', !!chrome, chrome || 'ไม่ใช่ Chrome'],
+    ['ตัดคำภาษาไทย', !!(window.Intl && Intl.Segmenter), window.Intl && Intl.Segmenter ? 'มี' : 'ไม่มี (ตัดทีละตัวอักษรแทน)'],
+    ['จอ', true, `${screen.width}×${screen.height} @${devicePixelRatio}x`],
+  ];
+  $('env').innerHTML = rows.map(([k, ok, v]) => `<b>${k}</b><span class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${v}</span>`).join('');
+  log(`เริ่มหน้าทดสอบ · ${ua}`);
+  log(`WebUSB ${UsbPrinter.supported() ? 'มี' : 'ไม่มี'} · secure context ${window.isSecureContext} · ${location.href}`);
+  if(!UsbPrinter.supported()){
+    $('envWarn').hidden = false;
+    $('envWarn').innerHTML = window.isSecureContext
+      ? 'เบราว์เซอร์นี้ไม่มี WebUSB ใช้ <b>Chrome บน Android</b> หรือ Chrome/Edge บนคอมพิวเตอร์ (iPad/iPhone ใช้ไม่ได้)'
+      : 'WebUSB ต้องเปิดหน้านี้ผ่าน <b>https://</b> (เช่นลิงก์ GitHub Pages) หรือ <b>http://localhost</b> เท่านั้น';
+    $('btnConnect').disabled = true;
+  }
+}
+
+/* ---------- 2) เชื่อมต่อ ---------- */
+const P = new UsbPrinter();
+function setConnected(){
+  const on = P.connected;
+  $('status').textContent = on ? 'เชื่อมแล้ว · ' + (P.dev.productName || 'USB') : 'ยังไม่เชื่อม';
+  $('status').classList.toggle('on', on);
+  $('btnConnect').textContent = on ? '🔌 เปลี่ยนเครื่อง' : '🔌 เชื่อมปริ้นเตอร์';
+  document.querySelectorAll('[data-test]').forEach(b => b.disabled = !on);
+}
+function explain(e){
+  const m = {
+    NotFoundError: 'ไม่ได้เลือกเครื่อง หรือไม่เจออุปกรณ์ USB (เช็กสาย OTG / เปิดปริ้นเตอร์)',
+    SecurityError: 'เบราว์เซอร์ไม่อนุญาตให้ใช้อุปกรณ์นี้',
+    NetworkError: 'เชื่อมไม่ได้: อุปกรณ์อาจถูกแอปอื่นหรือระบบใช้อยู่ หรือสายหลุด',
+    InvalidStateError: 'อุปกรณ์อยู่ในสถานะที่ใช้ไม่ได้ ลองถอดสายแล้วเสียบใหม่',
+  }[e && e.name];
+  return (m ? m + ' · ' : '') + `[${e && e.name}] ${e && e.message}`;
+}
+async function connected(how){
+  log(`เชื่อมสำเร็จ (${how})`, 'ok');
+  log(UsbPrinter.describe(P.dev));
+  log(`ใช้ interface ${P.found.iface} class ${P.found.cls}${P.found.cls === 7 ? ' (Printer)' : ''} · ส่งทาง ep${P.found.ep} packet ${P.found.packet}B`);
+  setConnected();
+}
+$('btnConnect').onclick = async () => {
+  try{
+    if(P.connected) await P.close();
+    log('เปิดหน้าต่างเลือกอุปกรณ์…');
+    await P.request(); await connected('เลือกเอง');
+  }catch(e){ log(explain(e), 'bad'); setConnected(); }
+};
+async function tryReconnect(why){
+  if(!UsbPrinter.supported() || P.connected) return;
+  try{
+    const list = await navigator.usb.getDevices();
+    log(`${why}: เครื่องที่เคยอนุญาตไว้ ${list.length} เครื่อง`);
+    if(!list.length) return;
+    await P.reconnect(); await connected(why + ' · ไม่ต้องเลือกใหม่');
+  }catch(e){ log(`เชื่อมอัตโนมัติไม่ได้ · ${explain(e)}`, 'bad'); setConnected(); }
+}
+if(UsbPrinter.supported()){
+  navigator.usb.addEventListener('disconnect', e => {
+    log(`ถอดอุปกรณ์ USB: ${e.device.productName || hex4(e.device.vendorId)}`, e.device === P.dev ? 'bad' : '');
+    if(e.device === P.dev){ P.forget(); setConnected(); }
+  });
+  navigator.usb.addEventListener('connect', e => { log(`เสียบอุปกรณ์ USB: ${e.device.productName || hex4(e.device.vendorId)}`); tryReconnect('เสียบสายใหม่'); });
+}
+
+/* ---------- ตั๋วตัวอย่าง (เลย์เอาต์เดียวกับ app/js/ui/print.js) ---------- */
+function sampleSlips(){
+  const d = new Date(), ts = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const receipt = [
+    {text:'Geek Yogurt & Smoothie Bar', size:32, bold:true, align:'center'}, {text:'Pop-up Store', align:'center'}, {rule:'dash'},
+    {left:'ออเดอร์ #042', right:'กินเลย', bold:true}, {text:ts}, {rule:'dash'},
+    {left:'Greek Yogurt · 2 สกู๊ป', right:'154'}, {text:'  Banana ×3, Mango (+15), Granola (+10)', size:22}, {text:'  น้ำผึ้ง: ราดปกติ', size:22},
+    {left:'Acai ×2', right:'378'}, {text:'  Mango (แทน Banana), ไม่รับ Strawberries, Blueberries, Granola, Flaxseeds', size:22}, {text:'  น้ำผึ้ง: ไม่รับ', size:22},
+    {rule:'dash'}, {left:'รวม', right:'฿532', size:32, bold:true}, {left:'ชำระด้วย', right:'เงินสด'}, {left:'รับเงิน', right:'฿1,000'}, {left:'เงินทอน', right:'฿468'},
+    {rule:'dash'}, {text:'ขอบคุณที่อุดหนุนครับ/ค่ะ', align:'center'},
+    {text:'ทดสอบสระ: กี่ ปู่ ญี่ปุ่น ฐ ฎ ฏ ฤ ฦ ๆ ฯ ๑๒๓ ปั๊ม น้ำ', size:22, align:'center'},
+  ];
+  const kitchen = [
+    {text:'#042', size:110, bold:true, align:'center'}, {text:'กินเลย', size:52, bold:true, align:'center', invert:true}, {text:ts, align:'center'}, {rule:'dash'},
+    {text:'1 × Greek Yogurt · 2 สกู๊ป', size:34, bold:true}, {text:'  - Banana ×3'}, {text:'  - Mango (+15)'}, {text:'  - Granola (+10)'}, {text:'  น้ำผึ้ง: ราดปกติ', bold:true}, {text:'  หมายเหตุ: แพ้ถั่ว ไม่เอาถ้วยใหญ่', bold:true},
+    {gap:8}, {text:'2 × Acai', size:34, bold:true}, {text:'  - Mango (เปลี่ยนจาก Banana)', bold:true}, {text:'  - ไม่รับ Strawberries', bold:true}, {text:'  - Blueberries'}, {text:'  - Granola'}, {text:'  - Flaxseeds'}, {text:'  น้ำผึ้ง: ไม่รับ', bold:true},
+  ];
+  const o = opt();
+  return [renderSlip(receipt, o.dots), renderSlip(kitchen, o.dots)];
+}
+function rulerCanvas(dots){
+  const c = document.createElement('canvas'), x = c.getContext('2d'); c.width = dots; c.height = 150;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, dots, 150); x.fillStyle = '#000';
+  x.fillRect(0, 0, dots, 4); x.fillRect(0, 146, dots, 4); x.fillRect(0, 0, 4, 150); x.fillRect(dots - 4, 0, 4, 150);
+  for(let i = 0; i <= dots; i += 8){ const mm = i / 8, h = mm % 10 === 0 ? 40 : mm % 5 === 0 ? 26 : 14; x.fillRect(Math.min(i, dots - 2), 4, 2, h); }
+  x.font = `700 26px ${SLIP_FONT}`; x.textAlign = 'center';
+  for(let mm = 10; mm * 8 < dots - 20; mm += 10) x.fillText(String(mm), mm * 8, 76);
+  x.font = `400 24px ${SLIP_FONT}`; x.fillText(`${dots} จุด ≈ ${dots / 8} มม. · เห็นเส้นขอบครบ 4 ด้าน = ตั้งค่าถูก`, dots / 2, 122);
+  return c;
+}
+/* แสดงภาพขาวดำแบบเดียวกับที่ปริ้นเตอร์ได้รับ (ผ่าน rasterize ตามค่าความเข้ม) */
+function printedView(src, thr){
+  const r = rasterize(src.getContext('2d').getImageData(0, 0, src.width, src.height), thr);
+  const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+  const x = c.getContext('2d'), img = x.createImageData(c.width, c.height);
+  for(let y = 0; y < c.height; y++) for(let i = 0; i < c.width; i++){
+    const v = r.bits[y * r.widthBytes + (i >> 3)] & (0x80 >> (i & 7)) ? 0 : 255, k = (y * c.width + i) * 4;
+    img.data[k] = img.data[k + 1] = img.data[k + 2] = v; img.data[k + 3] = 255;
+  }
+  x.putImageData(img, 0, 0); return c;
+}
+function showPreview(canvases){ const p = $('preview'), thr = opt().thr; p.innerHTML = ''; canvases.forEach(c => p.appendChild(printedView(c, thr))); }
+$('btnPreview').onclick = () => {
+  try{ const t = performance.now(), s = sampleSlips(); showPreview([...s, rulerCanvas(opt().dots)]); log(`วาดตัวอย่าง ${s.map(c => c.width + '×' + c.height).join(', ')} ใช้ ${Math.round(performance.now() - t)} ms`); }
+  catch(e){ log('วาดตัวอย่างไม่ได้ · ' + e.message, 'bad'); }
+};
+
+/* ---------- ปุ่มทดสอบ ---------- */
+async function send(label, data){
+  const o = opt(), t = performance.now();
+  try{
+    await P.send(data, o.chunk);
+    log(`${label}: ส่ง ${data.length.toLocaleString()} byte ใน ${Math.round(performance.now() - t)} ms`, 'ok');
+  }catch(e){ log(`${label}: ${explain(e)}`, 'bad'); if(!P.connected) setConnected(); }
+}
+const TESTS = {
+  text: () => send('ข้อความอังกฤษ', bytes(ESCPOS.init(), ESCPOS.text('Geek Pop-up POS - printer test'), ESCPOS.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789'),
+    ESCPOS.text(new Date().toISOString()), ESCPOS.feed(4))),
+  slips: () => {
+    const o = opt(), s = sampleSlips(); showPreview(s);
+    return send('ตั๋วภาษาไทย (ใบเสร็จ + ตั๋วครัว)', bytes(ESCPOS.init(), canvasCmds(s[0], o.thr), o.cut, canvasCmds(s[1], o.thr), o.cut));
+  },
+  ruler: () => { const o = opt(), c = rulerCanvas(o.dots); showPreview([c]); return send(`ความกว้าง ${o.dots} จุด`, bytes(ESCPOS.init(), canvasCmds(c, o.thr), ESCPOS.feed(4))); },
+  cut: () => send('ตัดกระดาษ', bytes(ESCPOS.feed(1), opt().cut)),
+  drawer: () => send(`เปิดลิ้นชัก (ขา ${opt().pin ? 5 : 2})`, bytes(ESCPOS.drawer(opt().pin))),
+  disconnect: async () => { await P.close(); log('ตัดการเชื่อมแล้ว (เครื่องยังจำการอนุญาตไว้)'); setConnected(); },
+};
+let busy = false;
+document.querySelector('.tests').onclick = async e => {
+  const b = e.target.closest('[data-test]'); if(!b || busy) return;
+  busy = true; b.disabled = true;
+  try{ await TESTS[b.dataset.test](); } finally { busy = false; setConnected(); }
+};
+$('optThr').oninput = e => $('thrVal').textContent = e.target.value;
+['optDots', 'optThr', 'optChunk', 'optCut', 'optPin'].forEach(id => $(id).addEventListener('change', e => log(`ตั้งค่า ${id} = ${e.target.value}`)));
+
+/* ---------- 3) เช็กลิสต์ (ตรงกับ docs/project-plan.md ขั้น 1) ---------- */
+const CHECKS = [
+  'อัปเดต Android และ Chrome เป็นล่าสุด',
+  'กด Feed ค้างตอนเปิดปริ้นเตอร์ → พิมพ์หน้าทดสอบของเครื่อง',
+  'ต่อปริ้นเตอร์ผ่าน OTG → แท็บเล็ตเจออุปกรณ์ USB',
+  'กด "เชื่อมปริ้นเตอร์" → เลือกเครื่องได้ (WebUSB)',
+  'ตั๋วตัวอย่าง: ภาษาไทยอ่านออก เลขออเดอร์ใหญ่ชัด',
+  'ตัดกระดาษอัตโนมัติ และตัดแยกใบเสร็จกับตั๋วครัว',
+  'ถอดสาย/ปิด-เปิดหน้า แล้วยังพิมพ์ได้โดยไม่ต้องเลือกเครื่องใหม่',
+  'โหมดเครื่องบิน: เปิดหน้านี้แล้วพิมพ์ได้',
+  'ถ่ายรูปตั๋วส่งให้ Claude',
+];
+const CK = 'geek_printer_test_v1';
+let marks = {}; try{ marks = JSON.parse(localStorage.getItem(CK)) || {}; }catch(e){}
+function renderChecks(){
+  $('checklist').innerHTML = CHECKS.map((c, i) => `<div class="check"><span>${i + 1}. ${c}</span>` +
+    ['pass', 'fail'].map(v => `<button class="${marks[i] === v ? 'on' : ''}" data-i="${i}" data-v="${v}">${v === 'pass' ? '✓ ผ่าน' : '✗ ไม่ผ่าน'}</button>`).join('') + '</div>').join('');
+}
+$('checklist').onclick = e => {
+  const b = e.target.closest('[data-v]'); if(!b) return;
+  const i = b.dataset.i; marks[i] = marks[i] === b.dataset.v ? undefined : b.dataset.v;
+  try{ localStorage.setItem(CK, JSON.stringify(marks)); }catch(_){}
+  log(`เช็กลิสต์ ${Number(i) + 1}: ${marks[i] === 'pass' ? 'ผ่าน' : marks[i] === 'fail' ? 'ไม่ผ่าน' : 'ยกเลิก'}`); renderChecks();
+};
+
+/* ---------- 4) log ---------- */
+function report(){
+  return 'เช็กลิสต์\n' + CHECKS.map((c, i) => `${marks[i] === 'pass' ? '[✓]' : marks[i] === 'fail' ? '[✗]' : '[ ]'} ${i + 1}. ${c}`).join('\n') + '\n\nLog\n' + $('log').textContent;
+}
+$('btnCopy').onclick = async () => {
+  try{ await navigator.clipboard.writeText(report()); log('คัดลอกแล้ว', 'ok'); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents($('log')); getSelection().removeAllRanges(); getSelection().addRange(r); log('คัดลอกอัตโนมัติไม่ได้ เลือกข้อความไว้ให้แล้ว กดค้างแล้วเลือกคัดลอก', 'bad'); }
+};
+$('btnClearLog').onclick = () => { $('log').textContent = ''; };
+
+showEnv(); renderChecks(); setConnected(); tryReconnect('เปิดหน้า');
+</script>
+</body>
+</html>

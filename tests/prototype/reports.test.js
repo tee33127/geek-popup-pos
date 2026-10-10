@@ -1,0 +1,84 @@
+const {JSDOM} = require('jsdom'); const fs = require('fs');
+const html = fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8');
+let errors = [];
+const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
+  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
+const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
+const ev = c => w.eval(c);
+let fails = 0; const eq = (name, got, exp) => { const ok = JSON.stringify(got) === JSON.stringify(exp); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, ok ? '' : `got ${JSON.stringify(got)} expected ${JSON.stringify(exp)}`); };
+const today = ev('bizDate(new Date())'), yday = ev(`addDays('${ev('bizDate(new Date())')}', -1)`);
+const T = (h, m) => { const x = new Date(); x.setHours(h, m, 0, 0); return x.toISOString(); };
+const mk = (id, no, date, dining, method, items, total, extra={}) => ({id, no, date, ts:T(12, no), dining, method, items, total, received:total, change:0, void:false, ...extra});
+const greek = {menu:'greek', name:'Greek Yogurt', sizeName:'2 สกู๊ป', tops:[{name:'Banana',n:3,extra:0,from:null},{name:'Mango',n:1,extra:15,from:null},{name:'Granola',n:1,extra:10,from:null}], honey:'normal', note:'', unit:154, qty:1};
+const acai = {menu:'acai', name:'Acai', sizeName:'', tops:[{name:'Mango',n:1,extra:0,from:'Banana'},{name:'Strawberries',n:1,extra:0,from:null,removed:true},{name:'Blueberries',n:1,extra:0,from:null},{name:'Granola',n:1,extra:0,from:null},{name:'Flaxseeds',n:1,extra:0,from:null}], honey:'none', note:'', unit:189, qty:2};
+const bch = {menu:'banana', name:'Banana Choco', sizeName:'', tops:['Banana','Cacao peanut butter','Cashew','Chocolate Chips'].map(n => ({name:n,n:1,extra:0,from:null})), honey:'little', note:'', unit:149, qty:1};
+const sales = [
+  mk(1, 1, today, 'dinein', 'cash', [greek], 154),
+  mk(2, 2, today, 'takeaway', 'promptpay', [acai], 378),
+  mk(3, 3, today, 'dinein', 'tcp', [bch], 149),
+  mk(4, 4, today, 'dinein', 'cash', [greek], 154, {void:true}),            // ยกเลิก: ต้องไม่นับ
+  mk(5, 1, yday, 'dinein', 'cash', [{...bch, qty:2}], 298),                // เมื่อวาน
+];
+w.localStorage.setItem('geek_popup_sales_v2', JSON.stringify(sales));
+const open = () => { click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk'); };
+const rowsOf = () => $$('#modal table tr').map(tr => [...tr.children].map(c => c.textContent.replace(/\s+/g,' ').trim()));
+const stat = () => $$('.stat b').map(e => e.textContent);
+
+open();
+eq('KPI today (void excluded)', stat(), ['฿681','3','4','฿227']);
+eq('void note', $('#modal').textContent.includes('ไม่นับบิลที่ยกเลิก 1 บิล'), true);
+
+// 1) สินค้า
+let r = rowsOf().map(x => x.slice(0,3));
+eq('items by menu', r.slice(1,5), [['Greek Yogurt','1','฿154'],['Acai','2','฿378'],['Banana Choco','1','฿149'],['รวม','4','฿681']]);
+eq('items by size row', r.some(x => x[0] === 'Greek Yogurt · 2 สกู๊ป'), true);
+
+// 2) ชำระเงิน
+click('[data-tab="pay"]'); r = rowsOf().map(x => x.slice(0,4));
+eq('payment methods', r.slice(1), [['💵 เงินสด','1','฿154','฿154'],['📱 PromptPay','1','฿378','฿378'],['🤝 ไทยช่วยไทย พลัส','1','฿149','฿149'],['รวม','3','฿681','฿227']]);
+eq('cash drawer note', $('#modal').textContent.includes('฿154'), true);
+
+// 3) ตัวเลือก
+click('[data-tab="opts"]'); const txt = $('#modal').textContent; r = rowsOf().map(x => x.slice(0,3));
+const has = (a, b, c) => r.some(x => x[0] === a && x[1] === b && (c === undefined || x[2] === c));
+eq('size option', has('2 สกู๊ป','1','฿154'), true);
+eq('honey normal', has('ราดปกติ','1','฿154'), true);
+eq('honey none', has('ไม่รับ','2','฿378'), true);
+eq('honey little', has('ราดนิดหน่อย','1','฿149'), true);
+eq('dining dinein', has('กินเลย','2','฿303'), true);
+eq('dining takeaway', has('กลับบ้าน','1','฿378'), true);
+eq('extra Granola', has('Granola','1','฿10'), true);
+eq('over-quota Mango', has('Mango (เกิน 3 ชิ้น)','1','฿15'), true);
+eq('adjust removed', has('Acai: ไม่รับ Strawberries','2','–'), true);
+eq('adjust swapped', has('Acai: เปลี่ยน Banana → Mango','2','–'), true);
+eq('group separation note', txt.includes('ไม่ควรนำยอดขายระหว่างกลุ่มมารวมกัน'), true);
+
+// 4) วัตถุดิบ
+click('[data-tab="ingr"]'); r = rowsOf().map(x => x.slice(0,2));
+const ing = n => (r.find(x => x[0] === n) || [])[1];
+eq('Greek scoops', ing('Greek Yogurt (สกู๊ป)'), '2');
+eq('Acai base', ing('Acai base (ถ้วย)'), '2'); eq('Banana Choco base', ing('Banana Choco base (ถ้วย)'), '1');
+eq('Banana (3 + 1)', ing('Banana'), '4'); eq('Mango (1 + 2 swapped)', ing('Mango'), '3');
+eq('Granola (1 + 2)', ing('Granola'), '3'); eq('Blueberries', ing('Blueberries'), '2'); eq('Flaxseeds', ing('Flaxseeds'), '2');
+eq('removed Strawberries not counted', ing('Strawberries'), undefined);
+eq('Cashew / Choc chips / Cacao PB', [ing('Cashew'), ing('Chocolate Chips'), ing('Cacao peanut butter')], ['1','1','1']);
+eq('honey servings (none excluded)', [ing('น้ำผึ้ง · ราดปกติ'), ing('น้ำผึ้ง · ราดนิดหน่อย'), ing('น้ำผึ้ง · ไม่รับ')], ['1','1',undefined]);
+
+// ช่วงวันที่
+click('[data-range="yday"]'); eq('yesterday KPI', stat(), ['฿298','1','2','฿298']);
+click('[data-tab="ingr"]'); r = rowsOf().map(x => x.slice(0,2)); eq('yesterday Banana Choco base x2', (r.find(x => x[0] === 'Banana Choco base (ถ้วย)')||[])[1], '2');
+click('[data-range="all"]'); eq('all KPI', stat(), ['฿979','4','6','฿245']);
+click('[data-range="7d"]'); eq('7d KPI', stat(), ['฿979','4','6','฿245']);
+$('#repFrom').value = today; $('#repFrom').dispatchEvent(new w.Event('change')); $('#repTo').value = today; $('#repTo').dispatchEvent(new w.Event('change'));
+eq('manual date range', stat(), ['฿681','3','4','฿227']);
+// แท็บบิล + CSV
+click('[data-tab="bills"]'); eq('bills tab lists 4 incl void', $$('#modal table tr').length, 5);
+eq('csv buttons', [$('#csvTab') !== null, $('#csvAll') !== null], [true, true]);
+let saved = null; w.URL.createObjectURL = b => { saved = b; return 'blob:x'; }; 
+click('[data-tab="ingr"]'); click('#csvTab'); click('#csvBack'); eq('ingredient csv rows', ev('repCsv.rows.length > 5 && repCsv.rows[0].join()'), 'หมวด,วัตถุดิบ,จำนวน');
+// empty range
+$('#repFrom').value = '2001-01-01'; $('#repFrom').dispatchEvent(new w.Event('change')); $('#repTo').value = '2001-01-02'; $('#repTo').dispatchEvent(new w.Event('change'));
+eq('empty range shows message', [$('#modal').textContent.includes('ยังไม่มีข้อมูลในช่วงนี้'), stat()], [true, ['฿0','0','0','–']]);
+eq('no runtime errors', errors, []);
+console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);
