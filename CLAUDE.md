@@ -14,7 +14,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - ซอร์สอยู่ใน `app/` แยกเป็นโมดูลแล้ว (ขั้น 0 ข้อ 1 เสร็จ) และ build เป็น `prototype/pos.html` ไฟล์เดียว ผ่านเทสต์ทั้งหมด: หน้าขาย, กติกาท็อปปิ้ง, ชำระเงิน, เลขออเดอร์, พิมพ์ผ่าน `window.print()`, สรุปยอด 5 แท็บ, ยกเลิก/นำกลับบิล, CSV
 - **ขั้น 2 เริ่มแล้ว**: เก็บยอดขายใน IndexedDB เสร็จ (ย้ายข้อมูลจาก localStorage อัตโนมัติ + สำรองใน localStorage)
 - PWA เสร็จ: ติดตั้งบนแท็บเล็ตได้ เปิดได้แม้ออฟไลน์ (`app/manifest.webmanifest`, `app/sw.js`) วิธีติดตั้งอยู่ใน README
-- ยังไม่มี: พิมพ์ตรงผ่าน USB (ESC/POS) ในแอป, เปิดลิ้นชัก, QR PromptPay, หน้าตั้งค่าเมนู
+- พิมพ์ตรงผ่าน USB ในแอปแล้ว: ปุ่ม "เชื่อมปริ้นเตอร์" บนแถบหัว (แสดงเฉพาะเบราว์เซอร์ที่มี WebUSB) · เครื่องที่เคยอนุญาตจะเชื่อมเองตอนเปิดแอป/เสียบสายใหม่ · ไม่ได้เชื่อมหรือส่งไม่สำเร็จ → ใช้ `window.print()` แทน · ยังไม่ได้ทดสอบกับเครื่องจริง
+- ยังไม่มี: เปิดลิ้นชัก, QR PromptPay, หน้าตั้งค่าเมนู
 
 ## งานถัดไป (ขั้น 0 → 1)
 1. ~~แยกต้นแบบเป็นโมดูล~~ เสร็จแล้ว อยู่ใน `app/`
@@ -44,10 +45,10 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/store.js             ← loadSales/saveSales (sync, ถือข้อมูลในหน่วยความจำ) เขียนลง IndexedDB เบื้องหลัง + สำรอง localStorage · storeReady ต้องรอก่อนใช้ · saveSales ไม่ลบบิล · clearSales ใช้เฉพาะ DEMO
   js/reports.js           ← buildReport, รอบขาย/ช่วงวันที่ (REP)
   js/ui/modal.js          ← $, toast, openModal, askConfirm, askPin
-  js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว ผ่าน window.print()
+  js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
   js/ui/builder.js, cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
-  js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ยังไม่ได้ใส่ในแอป ใช้ใน printer-test ก่อน
+  js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
 prototype/
@@ -74,7 +75,6 @@ tests/
 ### ส่วนที่ยังไม่ได้สร้าง (เพิ่มใน app/ ตามขั้นถัดไป)
 ```
 app/
-  js/printer.js     ← มีแล้ว เหลือต่อเข้ากับ ui/print.js (ตั๋วจากบิลจริง + fallback window.print())
   js/promptpay.js   ← สร้าง payload EMVCo + CRC16 + QR
 ```
 
