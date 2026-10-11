@@ -25,11 +25,13 @@ function seedDemo(force){
           sel.size = pick(['g1n','g1','g1','g2','g2']);
           if(sel.size !== 'g1n') for(let t = 1 + Math.floor(rnd() * 4); t > 0; t--) sel.picks.push(rnd() < .2 ? pick(extraNames) : (rnd() < .3 && sel.picks.length ? sel.picks[0] : pick(freeNames)));
         } else {
-          mm.defaults.forEach((dd, i) => { const x = rnd(); if(x < .08) sel.comps[i] = null; else if(x < .18){ const c = pick(swapPool[ITEM[dd].cat].filter(z => !(mm.noSwap || []).includes(z))); if(!sel.comps.includes(c)) sel.comps[i] = c; } });
+          mm.defaults.forEach((dd, i) => { const x = rnd(); if(x < .08) sel.comps[i] = null; else if(x < .18){ const c = pick(swapPool[ITEM[dd].cat]); if(!sel.comps.includes(c)) sel.comps[i] = c; } });
         }
         sel.honey = pick(['normal','normal','normal','lots','little','side','none']);
         const P = priceSel();
-        items.push({menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, honey:sel.honey, note:'', unit:P.unit, qty:1});
+        const it = {menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, honey:sel.honey, note:'', unit:P.unit, qty:1};
+        if(mm.sizes && !P.noTop && P.freeUsed < CONFIG.freeToppingCount) it.fewTops = P.freeUsed;   // เหมือนพนักงานกดยืนยัน "ลูกค้าขอแค่ N อย่าง"
+        items.push(it);
       }
       resetSel();
       const total = items.reduce((a, i) => a + i.unit * i.qty, 0), method = pick(['cash','cash','promptpay','promptpay','promptpay','tcp']);
@@ -44,4 +46,5 @@ function seedDemo(force){
   try{ localStorage.setItem(SEEDKEY, cur); }catch(e){}
 }
 storeReady.then(() => seedDemo(false));
-$('btnReseed').onclick = () => askConfirm({msg:'สร้างข้อมูลตัวอย่างใหม่?', sub:'บิลใน DEMO ทั้งหมดจะถูกแทนที่', yes:'สร้างใหม่', ok:true, onYes:() => { seedDemo(true); updateNext(); toast('สร้างข้อมูลตัวอย่างแล้ว ✓'); }});
+$('btnReseed').innerHTML = icon('refresh', 18) + ' ข้อมูลตัวอย่างใหม่';
+$('btnReseed').onclick = () => askConfirm({msg:'สร้างข้อมูลตัวอย่างใหม่?', sub:'บิลใน DEMO ทั้งหมดจะถูกแทนที่', yes:'สร้างใหม่', ok:true, onYes:() => { seedDemo(true); updateNext(); toast('สร้างข้อมูลตัวอย่างแล้ว', 'check'); }});

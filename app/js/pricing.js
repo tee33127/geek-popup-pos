@@ -16,10 +16,15 @@ function priceItem(m, st){
     });
     return {unit, tops, sizeName: s.name + (s.noTop ? ' · ไม่มีท็อปปิ้ง' : ''), freeUsed:free, noTop:!!s.noTop};
   }
-  const tops = st.comps.map((n, i) => n === null
-    ? {name:m.defaults[i], n:1, extra:0, from:null, removed:true}
-    : {name:n, n:1, extra:0, from: n !== m.defaults[i] ? m.defaults[i] : null});
-  return {unit:m.price, tops, sizeName:'', freeUsed:0, noTop:false};
+  /* Acai / Banana Choco: เปลี่ยนในหมวดเดียวกัน · ของฟรี → ของ Extra คิดตามราคาของ Extra
+     ของ Extra → อย่างอื่น (รวมถึง Extra ด้วยกัน) ฟรี และไม่ลดราคา · ไม่รับ ก็ไม่ลดราคา */
+  const tops = st.comps.map((n, i) => {
+    const d = m.defaults[i];
+    if(n === null) return {name:d, n:1, extra:0, from:null, removed:true};
+    const extra = n !== d && ITEM[n].price > 0 && !(ITEM[d].price > 0) ? ITEM[n].price : 0;
+    return {name:n, n:1, extra, from: n !== d ? d : null};
+  });
+  return {unit: m.price + tops.reduce((a, t) => a + t.extra, 0), tops, sizeName:'', freeUsed:0, noTop:false};
 }
 
 /* คำนวณราคารายการที่กำลังเลือกอยู่บนหน้าจอ */

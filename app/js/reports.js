@@ -29,7 +29,7 @@ function buildReport(from, to){
   const all = loadSales().filter(x => x.date >= from && x.date <= to);
   const ok = all.filter(x => !x.void);
   const R = {all, ok, voided: all.length - ok.length, total: ok.reduce((a, x) => a + x.total, 0), bills: ok.length, cups: 0,
-             items: {}, methods: {}, groups: {}, ingr: {}};
+             items: {}, methods: {}, groups: {}, ingr: {}, topCups: 0, fewCups: 0};
   const grp = (g, unit, o, qty, rev) => { const G = R.groups[g] || (R.groups[g] = {unit, rows:{}}); const r = G.rows[o] || (G.rows[o] = {qty:0, rev:0}); r.qty += qty; r.rev += rev; };
   const ing = (sec, name, qty) => { const k = sec + '|' + name; (R.ingr[k] = R.ingr[k] || {sec, name, qty:0}).qty += qty; };
   CONFIG.methods.forEach(m => R.methods[m.id] = {bills:0, rev:0});
@@ -38,6 +38,9 @@ function buildReport(from, to){
     grp('กินเลย / กลับบ้าน', 'บิล', DINE[sale.dining] ? DINE[sale.dining].name : String(sale.dining), 1, sale.total);
     sale.items.forEach(i => {
       const rev = i.unit * i.qty; R.cups += i.qty;
+      /* Greek ที่มีโควตาท็อปปิ้งฟรี · fewTops = ลูกค้าขอน้อยกว่าโควตา (ไว้เทียบสต็อก) */
+      if(i.menu === 'greek' && !String(i.sizeName).includes('ไม่มีท็อปปิ้ง')) R.topCups += i.qty;
+      if(i.fewTops !== undefined){ R.fewCups += i.qty; grp('ท็อปปิ้งฟรีไม่ครบ ' + CONFIG.freeToppingCount + ' อย่าง', 'แก้ว', i.fewTops ? `เลือก ${i.fewTops} อย่าง` : 'ไม่เอาท็อปปิ้งฟรี', i.qty, rev); }
       const key = itemTitle(i);
       const it = R.items[key] || (R.items[key] = {menu:i.menu, name:key, qty:0, rev:0}); it.qty += i.qty; it.rev += rev;
       if(i.sizeName) grp('ขนาด', 'แก้ว', i.sizeName, i.qty, rev);
@@ -46,13 +49,13 @@ function buildReport(from, to){
       else ing('base', i.name + ' base (ถ้วย)', i.qty);
       i.tops.forEach(t => {
         const n = (t.n || 1) * i.qty;
-        if(t.removed){ grp('การปรับท็อปปิ้ง', 'แก้ว', `${i.name}: ไม่รับ ${t.name}`, i.qty, 0); return; }
-        if(t.from) grp('การปรับท็อปปิ้ง', 'แก้ว', `${i.name}: เปลี่ยน ${t.from} → ${t.name}`, i.qty, 0);
-        ing(ITEM[t.name] ? ITEM[t.name].cat : 'other', t.name, n);
+        if(t.removed){ grp('การปรับท็อปปิ้ง', 'แก้ว', `${i.name}: ไม่รับ ${topName(t.name)}`, i.qty, 0); return; }
+        if(t.from) grp('การปรับท็อปปิ้ง', 'แก้ว', `${i.name}: เปลี่ยน ${topName(t.from)} → ${topName(t.name)}`, i.qty, 0);
+        ing(ITEM[t.name] ? ITEM[t.name].cat : 'other', topName(t.name), n);
         if(t.extra){
           const isExtra = ITEM[t.name] && ITEM[t.name].price > 0;
           const pcs = isExtra ? n : Math.round(t.extra / CONFIG.overToppingPrice) * i.qty;
-          grp('ท็อปปิ้งที่คิดเงินเพิ่ม', 'ชิ้น', isExtra ? t.name : `${t.name} (เกิน ${CONFIG.freeToppingCount} ชิ้น)`, pcs, t.extra * i.qty);
+          grp('ท็อปปิ้งที่คิดเงินเพิ่ม', 'ชิ้น', isExtra ? topName(t.name) : `${topName(t.name)} (เกิน ${CONFIG.freeToppingCount} ชิ้น)`, pcs, t.extra * i.qty);
         }
       });
       if(i.honey !== 'none') ing('honey', 'น้ำผึ้ง · ' + (HONEY[i.honey] ? HONEY[i.honey].name : i.honey), i.qty);

@@ -27,7 +27,7 @@ function tabItems(R){
 function tabPay(R){
   if(!R.bills) return {html:EMPTY, csv:[]};
   const H = [['ช่องทางชำระเงิน'], ['จำนวนบิล', 1], ['ยอดขาย', 1], ['เฉลี่ย/บิล', 1], ['สัดส่วนยอดขาย']];
-  const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [`${m.icon} ${esc(m.name)}`, v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
+  const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [esc(m.name), v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
   return {
     html: tbl(H, rows, ['รวม', R.bills, baht(R.total), baht(Math.round(R.total / R.bills)), '']) +
           `<p class="note2">เงินสดที่ควรมีในลิ้นชัก (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>`,
@@ -45,7 +45,8 @@ function tabOpts(R){
     'น้ำผึ้ง': 'ยอดขาย = ยอดรวมของแก้วที่เลือกระดับน้ำผึ้งนี้ (น้ำผึ้งไม่คิดเงินเพิ่ม)',
     'กินเลย / กลับบ้าน': 'นับเป็นบิล · ยอดขาย = ยอดรวมของบิล',
     'ท็อปปิ้งที่คิดเงินเพิ่ม': 'ยอดขาย = เฉพาะเงินที่คิดเพิ่มจากท็อปปิ้ง (Extra และชิ้นที่เกินโควตาฟรี)',
-    'การปรับท็อปปิ้ง': 'Acai / Banana Choco ที่เปลี่ยนหรือไม่รับท็อปปิ้ง · ไม่คิดเงินเพิ่ม',
+    'การปรับท็อปปิ้ง': 'Acai / Banana Choco ที่เปลี่ยนหรือไม่รับท็อปปิ้ง · เงินที่คิดเพิ่มจากการเปลี่ยนเป็นของ Extra ดูในกลุ่ม "ท็อปปิ้งที่คิดเงินเพิ่ม"',
+    ['ท็อปปิ้งฟรีไม่ครบ ' + CONFIG.freeToppingCount + ' อย่าง']: 'Greek Yogurt ที่พนักงานยืนยันว่าลูกค้าขอน้อยกว่าโควตา · ใช้เทียบกับสต็อกจริง ถ้าสูงผิดปกติให้ตรวจปริมาณที่ตัก',
   };
   let html = '', csv = [['กลุ่มตัวเลือก','ตัวเลือก','หน่วย','จำนวน','ยอดขาย']];
   Object.keys(notes).forEach(g => {
@@ -83,22 +84,22 @@ function tabBills(R){
     return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small></td>
       <td>${x.items.map(i => `${esc(itemTitle(i))} ×${i.qty}`).join('<br>')}<br><small>${esc(DINE[x.dining].name)}</small></td>
       <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small></td>
-      <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">↩︎ นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
+      <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">${icon('undo', 16)} นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
   }).join('');
   return {
     html: list.length ? `<table><tr><th>บิล</th><th>รายการ</th><th>ยอด</th><th></th></tr>${rows}</table>` : EMPTY,
-    csv: billsCsvRows(list), extra: '<button class="ghost" id="csvAll">⬇️ สำรองข้อมูลทั้งหมด</button>'
+    csv: billsCsvRows(list), extra: `<button class="ghost" id="csvAll">${icon('download')} สำรองข้อมูลทั้งหมด</button>`
   };
 }
 
 function renderSummary(){
   if(!REP.from){ const r = defaultRound(); REP.from = REP.to = r.date; REP.fb = r.fallback; }
   const R = buildReport(REP.from, REP.to);
-  const tabs = [['items','🍧 สินค้า'], ['pay','💳 ชำระเงิน'], ['opts','🧩 ตัวเลือก'], ['ingr','🥣 วัตถุดิบ'], ['bills','🧾 บิล']];
+  const tabs = [['items', 'bowl', 'สินค้า'], ['pay', 'card', 'ชำระเงิน'], ['opts', 'sliders', 'ตัวเลือก'], ['ingr', 'box', 'วัตถุดิบ'], ['bills', 'receipt', 'บิล']];
   const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
   openModal(`
-    <h3>📊 สรุปยอดขาย</h3>
+    <h3>${icon('chart', 22)} สรุปยอดขาย</h3>
     <div class="rangebar">
       <input type="date" id="repFrom" value="${REP.from}"><span>ถึง</span><input type="date" id="repTo" value="${REP.to}">
       <button class="chip" data-range="today">วันนี้</button><button class="chip" data-range="yday">เมื่อวาน</button>
@@ -112,10 +113,11 @@ function renderSummary(){
       <div class="stat"><small>จำนวนแก้ว</small><b>${R.cups}</b></div>
       <div class="stat"><small>เฉลี่ยต่อบิล</small><b>${R.bills ? baht(Math.round(R.total / R.bills)) : '–'}</b></div>
     </div>
-    <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${REP.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    ${R.fewCups ? `<div class="note2" style="color:#b45f00">${icon('alert', 16)} Greek Yogurt ท็อปปิ้งฟรีไม่ครบ ${CONFIG.freeToppingCount} อย่าง <b>${R.fewCups} จาก ${R.topCups} แก้ว (${Math.round(R.fewCups / R.topCups * 100)}%)</b> · ดูรายละเอียดที่แท็บตัวเลือก</div>` : ''}
+    <div class="tabs">${tabs.map(([k, ic, l]) => `<button class="tab ${REP.tab === k ? 'on' : ''}" data-tab="${k}">${icon(ic, 18)} ${l}</button>`).join('')}</div>
     ${T.html}
     <div class="row" style="margin-top:16px">
-      ${T.csv.length ? '<button class="ghost" id="csvTab">⬇️ ดาวน์โหลด CSV (แท็บนี้)</button>' : ''}${T.extra || ''}
+      ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
       <button class="pay" id="closeX">ปิด</button>
     </div>
     <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);
@@ -128,12 +130,12 @@ let csvPending = null;
 function downloadCsv(filename, rows, back){
   csvPending = {filename, text: csvText(rows), back: back || null};
   const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], 'a.csv', {type:'text/csv'})]}); }catch(e){ return false; } })());
-  openModal(`<h3>⬇️ ส่งออก CSV</h3>
+  openModal(`<h3>${icon('file', 22)} ส่งออก CSV</h3>
     <p class="note2" style="margin-top:0">${esc(filename)} · ${rows.length - 1} แถว</p>
     <div class="row wrap">
-      <button class="opt" id="csvDl">💾 ดาวน์โหลดไฟล์</button>
-      ${canShare ? '<button class="opt" id="csvShare">📤 แชร์ / บันทึกลง Files</button>' : ''}
-      <button class="opt" id="csvCopy">📋 คัดลอกข้อความ</button>
+      <button class="opt" id="csvDl">${icon('download')} ดาวน์โหลดไฟล์</button>
+      ${canShare ? `<button class="opt" id="csvShare">${icon('share')} แชร์ / บันทึกลง Files</button>` : ''}
+      <button class="opt" id="csvCopy">${icon('copy')} คัดลอกข้อความ</button>
     </div>
     <p class="note2">ถ้ากดดาวน์โหลดแล้วไม่มีไฟล์ (เช่นบน iPad) ให้ใช้ "แชร์ / บันทึกลง Files" หรือ "คัดลอก" แล้ววางใน Google Sheets / Excel</p>
     <textarea class="csvbox" id="csvText" readonly></textarea>
@@ -158,8 +160,8 @@ async function csvShare(){
 }
 async function csvCopy(){
   const c = csvPending; if(!c) return;
-  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว ✓'); }
-  catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว ✓'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
+  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว', 'check'); }
+  catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
 }
 function billsCsvRows(list){
   const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ']];

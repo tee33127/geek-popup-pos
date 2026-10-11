@@ -6,6 +6,8 @@ const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate(
 const fmtDT = ts => { const d = new Date(ts); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
 const ITEM = Object.fromEntries(CONFIG.items.map(x => [x.name, x]));
+/* ชื่อท็อปปิ้งที่แสดง (ภาษาไทย) จากรหัสอังกฤษที่เก็บในบิล · ไม่รู้จักก็แสดงตามที่เก็บ */
+const topName = n => (ITEM[n] && ITEM[n].th) || n;
 const MENU = byId(CONFIG.menus), METHOD = byId(CONFIG.methods), HONEY = byId(CONFIG.honey), DINE = byId(CONFIG.dining);
 
 /* รอบขายเปลี่ยนวันตอน 23:00 น. */
@@ -14,7 +16,7 @@ function bizDate(d){ const x = new Date(d); if(x.getHours() >= CONFIG.resetHour)
 const addDays = (k, n) => { const [y, m, d] = k.split('-').map(Number); return dateKey(new Date(y, m - 1, d + n)); };
 
 const itemTitle = i => i.name + (i.sizeName ? ' · ' + i.sizeName : '');
-const topLabel = t => t.removed ? 'ไม่รับ ' + t.name : t.name + (t.n > 1 ? ' ×' + t.n : '') + (t.from ? ` (แทน ${t.from})` : '') + (t.extra ? ` (+${t.extra})` : '');
+const topLabel = t => t.removed ? 'ไม่รับ ' + topName(t.name) : topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.from ? ` (แทน ${topName(t.from)})` : '') + (t.extra ? ` (+${t.extra})` : '');
 function itemLines(i){
   const L = [];
   if(i.tops.length) L.push(i.tops.map(topLabel).join(', '));

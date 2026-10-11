@@ -1,7 +1,7 @@
 /* ---------- ตัวช่วยหน้าจอ: $, toast, modal, ยืนยัน, PIN ---------- */
 const $ = id => document.getElementById(id);
 
-function toast(msg){ const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(()=> t.style.display='none', 1800); }
+function toast(msg, ic){ const t = $('toast'); t.innerHTML = (ic ? icon(ic, 18) + ' ' : '') + esc(msg); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(()=> t.style.display='none', 1800); }
 
 /* ---------- Modal ---------- */
 function openModal(html, wide){ $('modal').innerHTML = `<div class="box ${wide?'wide':''}">${html}</div>`; $('modal').classList.add('show'); }

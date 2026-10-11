@@ -3,8 +3,8 @@
    - ไฟล์ใน app/ เปลี่ยนเมื่อไร VERSION เปลี่ยน → เบราว์เซอร์โหลดชุดใหม่เบื้องหลังตอนออนไลน์
      หน้าที่เปิดอยู่ใช้ชุดเดิมต่อจนกว่าจะปิดแล้วเปิดใหม่ (ไม่สลับกลางการขาย)
    - ข้อมูลยอดขายอยู่ใน IndexedDB ไม่เกี่ยวกับ cache นี้ อัปเดตแอปแล้วข้อมูลไม่หาย */
-const VERSION = '905b5cde8714';
-const FILES = ["./","css/pos.css","icons/icon-192.png","icons/icon-512.png","img/acai.jpg","img/banana-choco.jpg","img/greek-yogurt.jpg","index.html","js/config.js","js/core.js","js/pricing.js","js/printer.js","js/reports.js","js/store.js","js/ui/builder.js","js/ui/cart.js","js/ui/main.js","js/ui/modal.js","js/ui/pay.js","js/ui/print.js","js/ui/summary.js","manifest.webmanifest"];
+const VERSION = 'cc89864c0542';
+const FILES = ["./","css/pos.css","icons/icon-192.png","icons/icon-512.png","img/acai.jpg","img/banana-choco.jpg","img/greek-yogurt.jpg","img/promptpay.png","img/thai-chuay-thai.png","index.html","js/config.js","js/core.js","js/icons.js","js/pricing.js","js/printer.js","js/reports.js","js/store.js","js/ui/builder.js","js/ui/cart.js","js/ui/main.js","js/ui/modal.js","js/ui/pay.js","js/ui/print.js","js/ui/summary.js","manifest.webmanifest"];
 const CACHE = 'geek-pos-' + VERSION;
 
 self.addEventListener('install', e => {

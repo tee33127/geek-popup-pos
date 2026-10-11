@@ -16,8 +16,9 @@ function receiptHtml(s){
 function kitchenHtml(s){
   const items = s.items.map(i => {
     let l = '';
-    if(i.tops.length) i.tops.forEach(t => { l += t.removed ? `<div class="kl"><b>- ไม่รับ ${esc(t.name)}</b></div>` : `<div class="kl">- ${esc(t.name)}${t.n > 1 ? ` <b>×${t.n}</b>` : ''}${t.from ? ` <b>(เปลี่ยนจาก ${esc(t.from)})</b>` : ''}${t.extra ? ` (+${t.extra})` : ''}</div>`; });
+    if(i.tops.length) i.tops.forEach(t => { l += t.removed ? `<div class="kl"><b>- ไม่รับ ${esc(topName(t.name))}</b></div>` : `<div class="kl">- ${esc(topName(t.name))}${t.n > 1 ? ` <b>×${t.n}</b>` : ''}${t.from ? ` <b>(เปลี่ยนจาก ${esc(topName(t.from))})</b>` : ''}${t.extra ? ` (+${t.extra})` : ''}</div>`; });
     else if(i.menu === 'greek') l += '<div class="kl">- ไม่มีท็อปปิ้ง</div>';
+    if(i.fewTops !== undefined) l += `<div class="kl"><b>** ${i.fewTops ? `ลูกค้าเลือก ${i.fewTops} อย่าง` : 'ลูกค้าไม่เอาท็อปปิ้งฟรี'} · ตักปริมาณปกติ **</b></div>`;
     l += `<div class="kl">น้ำผึ้ง: <b>${esc(HONEY[i.honey].name)}</b></div>`;
     if(i.note) l += `<div class="kl"><b>หมายเหตุ: ${esc(i.note)}</b></div>`;
     return `<div class="kt">${i.qty} × ${esc(itemTitle(i))}</div>${l}`;

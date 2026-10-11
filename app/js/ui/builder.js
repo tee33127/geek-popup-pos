@@ -12,37 +12,55 @@ function pickMenu(id){
 
 function sec(n, title, body, right=''){ return `<div class="sec"><p class="step"><b>${n}</b> ${title}${right}</p>${body}</div>`; }
 
+/* ตัวนับโควตาฟรี + ป้ายส้ม "คิดเพิ่ม" รวมทุกชิ้นที่คิดเงิน (กลุ่มฟรีที่เกินโควตา + กลุ่ม Extra) = ยอดที่พนักงานบอกลูกค้า */
+function topCounter(P){
+  const q = CONFIG.freeToppingCount, over = Math.max(0, P.freeUsed - q);
+  const pcs = over + P.tops.filter(t => ITEM[t.name] && ITEM[t.name].price > 0).reduce((a, t) => a + t.n, 0);
+  const money = P.tops.reduce((a, t) => a + t.extra, 0);
+  return `<span class="cnts"><span class="cnt">ฟรี ${Math.min(P.freeUsed, q)}/${q}</span>` +
+    (pcs ? `<span class="cnt over">คิดเพิ่ม ${pcs} ชิ้น +${baht(money)}</span>` : '') + `</span>`;
+}
+
 function greekTopsHtml(P){
   const chip = it => {
     const t = P.tops.find(x => x.name === it.name), cnt = t ? t.n : 0;
-    let tag;
-    if(cnt) tag = t.extra ? '+' + t.extra : 'ฟรี';
+    /* บรรทัดล่าง: จำนวน (×2) และเงินที่คิดเพิ่ม ไม่เขียนว่า "ฟรี" เพราะเลือกเกินโควตาแล้วจะไม่ฟรี
+       ปุ่มสูงคงที่ (CSS) ไม่มีอะไรจะบอกก็ไม่ใส่บรรทัดล่าง ชื่อจึงอยู่กลางปุ่ม */
+    let tag = '';
+    if(cnt) tag = [cnt > 1 ? '×' + cnt : '', t.extra ? '+' + t.extra : ''].filter(Boolean).join(' · ');
     else if(it.price > 0) tag = '+' + it.price;
-    else tag = P.freeUsed >= CONFIG.freeToppingCount ? '+' + CONFIG.overToppingPrice : 'ฟรี';
-    return `<div class="topw"><button class="top ${cnt ? 'on':''} ${cnt && t.extra ? 'over':''}" data-pick="${esc(it.name)}">${esc(it.name)}${cnt > 1 ? ' ×' + cnt : ''}<small>${tag}</small></button>` +
-      (cnt ? `<button class="minus" data-less="${esc(it.name)}" aria-label="ลด">−</button>` : '') + `</div>`;
+    else if(P.freeUsed >= CONFIG.freeToppingCount) tag = '+' + CONFIG.overToppingPrice;
+    /* แตะ = เลือก 1 ชิ้น · แตะซ้ำ = เอาออกทั้งหมด · ปรับจำนวนในแถบ "ท็อปปิ้งที่เลือก" ด้านล่าง ปุ่มนี้จึงไม่เปลี่ยนขนาด */
+    return `<div class="topw ${cnt ? 'on':''} ${cnt && t.extra ? 'over':''}"><button class="top" data-pick="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span>${tag ? `<small>${tag}</small>` : ''}</button></div>`;
   };
   let h = '';
   CONFIG.cats.forEach(c => {
     const list = CONFIG.items.filter(i => i.cat === c.id && i.price === 0);
-    h += `<div class="gt">${c.name} · ฟรี</div><div class="tops">${list.map(chip).join('')}</div>`;
+    h += `<div class="gt">${c.th || c.name}</div><div class="tops">${list.map(chip).join('')}</div>`;
   });
   h += `<div class="gt">Extra · คิดเพิ่มตามราคา</div><div class="tops">${CONFIG.items.filter(i => i.price > 0).map(chip).join('')}</div>`;
-  h += `<p class="hint">แตะซ้ำเพื่อเพิ่มจำนวน (เช่น Banana ×3) · กดปุ่ม − เพื่อลด<br>ฟรี ${CONFIG.freeToppingCount} ชิ้นแรก · ชิ้นที่ ${CONFIG.freeToppingCount+1} ขึ้นไป +${CONFIG.overToppingPrice} บาท/ชิ้น · Extra คิดตามราคาต่อชิ้น</p>`;
+  /* แถบสรุป: เรียงตามลำดับที่เลือก · − จนเหลือ 0 = เอาออก */
+  if(P.tops.length) h += `<div class="gt">ท็อปปิ้งที่เลือก</div><div class="tsel">` + P.tops.map(t => { const nm = esc(t.name);
+    return `<div class="trow ${t.extra ? 'over':''}"><span class="nm">${esc(topName(t.name))}</span>${t.extra ? `<span class="px">+${t.extra}</span>` : ''}` +
+      `<div class="tqty"><button data-less="${nm}" aria-label="ลด ${esc(topName(t.name))}">−</button><b>${t.n}</b><button data-more="${nm}" aria-label="เพิ่ม ${esc(topName(t.name))}">+</button></div></div>`; }).join('') + `</div>`;
+  h += `<p class="hint">แตะเพื่อเลือก แตะอีกครั้งเพื่อเอาออก · เพิ่มหรือลดจำนวนที่ "ท็อปปิ้งที่เลือก"<br>ฟรี ${CONFIG.freeToppingCount} ชิ้นแรก · ชิ้นที่ ${CONFIG.freeToppingCount+1} ขึ้นไป +${CONFIG.overToppingPrice} บาท/ชิ้น · Extra คิดตามราคาต่อชิ้น</p>`;
   return h;
 }
 function presetHtml(m){
-  let h = '<p class="hint" style="margin:0 0 4px">เปลี่ยนท็อปปิ้งได้ฟรีในหมวดเดียวกัน (แต่ไม่แนะนำให้เปลี่ยน)</p>';
+  const P = priceSel();
+  let h = '<p class="hint" style="margin:0 0 4px">เปลี่ยนได้ในหมวดเดียวกัน · เปลี่ยนเป็นของ Extra คิดเงินเพิ่มตามราคา (แต่ไม่แนะนำให้เปลี่ยน)</p>';
   m.defaults.forEach((d, i) => {
     const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d;
-    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''}"><div class="nm">${esc(removed ? d : cur)}<small>${removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(d) : 'มาพร้อมเมนู'}</small></div>` +
+    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
          (ch || removed ? `<button class="skip" data-reset="${i}">${removed ? 'ใส่กลับ' : 'คืนค่า'}</button>` : '') +
          (!removed ? `<button class="skip" data-skip="${i}">ไม่รับ</button>` : '') +
          `<button data-swap="${i}">${sel.swapSlot === i ? 'ปิด' : 'เปลี่ยน'}</button></div>`;
     if(sel.swapSlot === i){
-      const cat = ITEM[d].cat, used = sel.comps.filter((c, j) => j !== i && c !== null), banned = m.noSwap || [];
-      const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur && !used.includes(it.name) && !banned.includes(it.name));
-      h += `<div class="tops swapgrid">` + (opts.map(it => `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}">${esc(it.name)}<small>ฟรี</small></button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
+      /* เลือกซ้ำกับช่องอื่นได้ (เช่น Acai กล้วย → สตรอว์เบอร์รี่ = สตรอว์เบอร์รี่ 2 ส่วน) ราคาตามกติกาเดิม */
+      const cat = ITEM[d].cat;
+      const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur);
+      const cost = it => it.name !== d && it.price > 0 && !(ITEM[d].price > 0) ? it.price : 0;   // ตรงกับ priceItem
+      h += `<div class="tops swapgrid">` + (opts.map(it => `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
     }
   });
   return h;
@@ -56,7 +74,7 @@ function renderBuilder(){
       h += sec(++n, 'เลือกขนาด', '<div class="sizes">' + m.sizes.map(s =>
         `<button class="size ${sel.size === s.id ? 'on':''}" data-size="${s.id}">${esc(s.name)}<small>${esc(s.sub)}</small><small><b>${baht(s.price)}</b></small></button>`).join('') + '</div>');
       if(P.noTop) h += sec(++n, 'ท็อปปิ้ง', '<div class="empty" style="padding:6px 0">ขนาดนี้ไม่มีท็อปปิ้ง</div>');
-      else h += sec(++n, 'ท็อปปิ้ง', greekTopsHtml(P), `<span class="cnt">ฟรี ${Math.min(P.freeUsed, CONFIG.freeToppingCount)}/${CONFIG.freeToppingCount}</span>`);
+      else h += sec(++n, 'ท็อปปิ้ง', greekTopsHtml(P), topCounter(P));
     } else {
       h += sec(++n, 'ท็อปปิ้งที่มากับเมนู', presetHtml(m));
     }
@@ -74,7 +92,8 @@ $('builder').onclick = e => {
   if(el = g('menu')) pickMenu(el.dataset.menu);
   else if(el = g('size')){ sel.size = el.dataset.size; if(MENU[sel.menu].sizes.find(s => s.id === sel.size).noTop) sel.picks = []; }
   else if(el = g('less')){ const i = sel.picks.lastIndexOf(el.dataset.less); if(i >= 0) sel.picks.splice(i, 1); }
-  else if(el = g('pick')) sel.picks.push(el.dataset.pick);
+  else if(el = g('more')) sel.picks.push(el.dataset.more);
+  else if(el = g('pick')){ const n = el.dataset.pick; if(sel.picks.includes(n)) sel.picks = sel.picks.filter(x => x !== n); else sel.picks.push(n); }
   else if(el = g('choose')){ sel.comps[Number(el.dataset.slot)] = el.dataset.choose; sel.swapSlot = null; }
   else if(el = g('reset')){ const i = Number(el.dataset.reset); sel.comps[i] = MENU[sel.menu].defaults[i]; if(sel.swapSlot === i) sel.swapSlot = null; }
   else if(el = g('skip')){ const i = Number(el.dataset.skip); sel.comps[i] = null; if(sel.swapSlot === i) sel.swapSlot = null; }
@@ -85,12 +104,39 @@ $('builder').onclick = e => {
 };
 $('builder').addEventListener('input', e => { if(e.target.id === 'note') sel.note = e.target.value; });
 
-$('btnAdd').onclick = () => {
+/* เพิ่มรายการที่เลือกอยู่ลงตะกร้า · fewTops = จำนวนท็อปปิ้งฟรีที่ลูกค้าขอ เมื่อน้อยกว่าโควตาและพนักงานยืนยันแล้ว
+   (ใช้พิมพ์เตือนบนตั๋วครัว และนับในรายงานเพื่อเทียบสต็อก) */
+function addSel(fewTops){
   const m = curMenu(); if(!m) return;
   const P = priceSel();
   const item = {menu:m.id, name:m.name, sizeName:P.sizeName, tops:P.tops, honey:sel.honey, note:sel.note.trim(), unit:P.unit, qty:1};
+  if(fewTops !== undefined) item.fewTops = fewTops;
   item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from]), item.honey, item.note]);
   const found = cart.find(i => i.key === item.key);
   if(found) found.qty++; else cart.push(item);
-  resetSel(); renderBuilder(); renderCart(); toast('เพิ่มแล้ว ✓');
+  resetSel(); renderBuilder(); renderCart(); toast('เพิ่มแล้ว', 'check');
+}
+/* Greek: ท็อปปิ้งฟรีไม่ครบโควตา → ต้องยืนยันก่อน (กึ่งบังคับ ไม่บล็อก เพื่อให้บันทึกตรงกับที่ลูกค้าได้จริง)
+   ปุ่มหลัก = กลับไปเลือกเพิ่ม · ไม่มีท็อปปิ้งเลยและมีขนาด "ไม่มีท็อปปิ้ง" → เสนอเปลี่ยนขนาดแทน (ลูกค้าไม่ต้องจ่ายเกิน) */
+let fewPending = null;
+function askFewTops(m, P){
+  const q = CONFIG.freeToppingCount, n = P.freeUsed;
+  const cur = m.sizes.find(s => s.id === sel.size), plain = m.sizes.find(s => s.noTop && s.name === cur.name);
+  fewPending = {n, plain: !P.tops.length && plain ? plain.id : null};
+  openModal(`<h3 class="warn">${icon('alert', 22)} ท็อปปิ้งฟรีเลือกไป ${n} จาก ${q} อย่าง</h3>
+    <button class="pay" id="fewBack">กลับไปเลือกเพิ่ม</button>
+    ${fewPending.plain
+      ? `<button class="ghost wide" id="fewPlain">เปลี่ยนเป็น ${esc(plain.name)} ไม่มีท็อปปิ้ง · ${baht(plain.price)}</button>`
+      : `<button class="ghost wide" id="fewOk">${n ? `ลูกค้าขอแค่ ${n} อย่าง` : 'ลูกค้าไม่เอาท็อปปิ้งฟรี'}</button>`}`);
+}
+function fewTopsAnswer(id){
+  const f = fewPending; fewPending = null; closeModal(); if(!f) return;
+  if(id === 'fewOk') addSel(f.n);
+  else if(id === 'fewPlain'){ sel.size = f.plain; sel.picks = []; addSel(); }
+}
+$('btnAdd').onclick = () => {
+  const m = curMenu(); if(!m) return;
+  const P = priceSel();
+  if(m.sizes && !P.noTop && P.freeUsed < CONFIG.freeToppingCount) return askFewTops(m, P);
+  addSel();
 };

@@ -15,12 +15,12 @@ function storeBanner(id, text){
   if(document.getElementById(id)) return;
   const b = document.createElement('div'); b.id = id;
   b.style.cssText = 'background:#c62828;color:#fff;text-align:center;padding:6px 10px;font-size:14px';
-  b.textContent = text;
+  b.innerHTML = icon('alert', 16) + ' ' + esc(text);
   document.body.prepend(b);
 }
 function memMode(){
   STORE_MODE = 'memory';
-  storeBanner('memBanner', '⚠️ เบราว์เซอร์นี้ไม่ให้บันทึกข้อมูลถาวร ยอดขายจะหายเมื่อปิดหน้า กรุณาส่งออก CSV ก่อนปิด');
+  storeBanner('memBanner', 'เบราว์เซอร์นี้ไม่ให้บันทึกข้อมูลถาวร ยอดขายจะหายเมื่อปิดหน้า กรุณาส่งออก CSV ก่อนปิด');
 }
 
 /* บิลที่ log ยาวกว่าคือฉบับใหม่กว่า (log เพิ่มได้อย่างเดียว) เท่ากันใช้ตัวแรก */
@@ -51,7 +51,7 @@ function dbWrite(list, clear){
 }
 function dbFailed(){
   DB_FAILS++; console.error('IndexedDB write failed');
-  if(!LS_OK) storeBanner('dbBanner', '⚠️ บันทึกยอดขายลงเครื่องไม่สำเร็จ กรุณาส่งออก CSV ทันที แล้วแจ้งผู้ดูแล');
+  if(!LS_OK) storeBanner('dbBanner', 'บันทึกยอดขายลงเครื่องไม่สำเร็จ กรุณาส่งออก CSV ทันที แล้วแจ้งผู้ดูแล');
 }
 function lsRead(){
   try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ LS_OK = false; return null; }

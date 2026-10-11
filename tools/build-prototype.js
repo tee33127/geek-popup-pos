@@ -23,8 +23,8 @@ html = html.replace(/<link rel="(manifest|icon)"[^>]*>\n/g, '');   // ต้น�
 html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, f) => `<style>\n${read(path.join(APP, f))}</style>`);
 html = html.replace(/<!--.*?-->\n/g, '');
 html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, f) => {
-  const js = read(path.join(APP, f)).replace(/'(img\/[^']+\.jpg)'/g, (_, img) =>
-    `'data:image/jpeg;base64,${fs.readFileSync(path.join(APP, img)).toString('base64')}'`);
+  const js = read(path.join(APP, f)).replace(/'(img\/[^']+\.(jpg|png))'/g, (_, img, ext) =>
+    `'data:image/${ext === 'png' ? 'png' : 'jpeg'};base64,${fs.readFileSync(path.join(APP, img)).toString('base64')}'`);
   return `<script>\n/* ===== ${f} ===== */\n${js}</script>`;
 });
 fs.writeFileSync(path.join(OUT, 'pos.html'), html);
@@ -35,7 +35,7 @@ for(const [a, b] of [
   ['autoPrint: true,', 'autoPrint: false,'],
   ['<h1>Geek <span>Pop-up</span> POS</h1>', '<h1>Geek <span>Pop-up</span> POS · DEMO</h1>'],
   ['<title>Geek Pop-up POS</title>', '<title>Geek Pop-up POS (DEMO)</title>'],
-  ['<button class="hbtn" id="btnSummary">', '<button class="hbtn" id="btnReseed" style="margin-right:6px">🔄 ข้อมูลตัวอย่างใหม่</button>\n  <button class="hbtn" id="btnSummary">'],
+  ['<button class="hbtn" id="btnSummary">', '<button class="hbtn" id="btnReseed" style="margin-right:6px">ข้อมูลตัวอย่างใหม่</button>\n  <button class="hbtn" id="btnSummary">'],
   ['<script>\n/* ===== js/ui/main.js', `<script>\n/* ===== demo-seed.js ===== */\n${read(path.join(OUT, 'demo-seed.js'))}</script>\n<script>\n/* ===== js/ui/main.js`],
 ]) demo = once(demo, a, b);
 fs.writeFileSync(path.join(OUT, 'pos-demo.html'), demo);

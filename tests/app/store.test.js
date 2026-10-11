@@ -2,7 +2,7 @@
 // จำลอง "เปิดหน้าใหม่" ด้วยการสร้าง context ใหม่ที่ใช้ IndexedDB และ localStorage ชุดเดิม
 const vm = require('vm'), fs = require('fs'), path = require('path');
 const {IDBFactory} = require('fake-indexeddb');
-const SRC = ['config.js', 'core.js', 'store.js'].map(f => [f, fs.readFileSync(path.join(__dirname, '../../app/js', f), 'utf8')]);
+const SRC = ['config.js', 'core.js', 'icons.js', 'store.js'].map(f => [f, fs.readFileSync(path.join(__dirname, '../../app/js', f), 'utf8')]);
 const KEY = 'geek_popup_sales_v2';
 
 class MemStorage {

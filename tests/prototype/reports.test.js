@@ -36,7 +36,7 @@ eq('items by size row', r.some(x => x[0] === 'Greek Yogurt · 2 สกู๊ป'
 
 // 2) ชำระเงิน
 click('[data-tab="pay"]'); r = rowsOf().map(x => x.slice(0,4));
-eq('payment methods', r.slice(1), [['💵 เงินสด','1','฿154','฿154'],['📱 PromptPay','1','฿378','฿378'],['🤝 ไทยช่วยไทย พลัส','1','฿149','฿149'],['รวม','3','฿681','฿227']]);
+eq('payment methods', r.slice(1), [['เงินสด','1','฿154','฿154'],['PromptPay','1','฿378','฿378'],['ไทยช่วยไทย พลัส','1','฿149','฿149'],['รวม','3','฿681','฿227']]);
 eq('cash drawer note', $('#modal').textContent.includes('฿154'), true);
 
 // 3) ตัวเลือก
@@ -48,10 +48,10 @@ eq('honey none', has('ไม่รับ','2','฿378'), true);
 eq('honey little', has('ราดนิดหน่อย','1','฿149'), true);
 eq('dining dinein', has('กินเลย','2','฿303'), true);
 eq('dining takeaway', has('กลับบ้าน','1','฿378'), true);
-eq('extra Granola', has('Granola','1','฿10'), true);
-eq('over-quota Mango', has('Mango (เกิน 3 ชิ้น)','1','฿15'), true);
-eq('adjust removed', has('Acai: ไม่รับ Strawberries','2','–'), true);
-eq('adjust swapped', has('Acai: เปลี่ยน Banana → Mango','2','–'), true);
+eq('extra Granola', has('กราโนล่า','1','฿10'), true);
+eq('over-quota Mango', has('มะม่วง (เกิน 3 ชิ้น)','1','฿15'), true);
+eq('adjust removed', has('Acai: ไม่รับ สตรอว์เบอร์รี่','2','–'), true);
+eq('adjust swapped', has('Acai: เปลี่ยน กล้วย → มะม่วง','2','–'), true);
 eq('group separation note', txt.includes('ไม่ควรนำยอดขายระหว่างกลุ่มมารวมกัน'), true);
 
 // 4) วัตถุดิบ
@@ -59,10 +59,10 @@ click('[data-tab="ingr"]'); r = rowsOf().map(x => x.slice(0,2));
 const ing = n => (r.find(x => x[0] === n) || [])[1];
 eq('Greek scoops', ing('Greek Yogurt (สกู๊ป)'), '2');
 eq('Acai base', ing('Acai base (ถ้วย)'), '2'); eq('Banana Choco base', ing('Banana Choco base (ถ้วย)'), '1');
-eq('Banana (3 + 1)', ing('Banana'), '4'); eq('Mango (1 + 2 swapped)', ing('Mango'), '3');
-eq('Granola (1 + 2)', ing('Granola'), '3'); eq('Blueberries', ing('Blueberries'), '2'); eq('Flaxseeds', ing('Flaxseeds'), '2');
-eq('removed Strawberries not counted', ing('Strawberries'), undefined);
-eq('Cashew / Choc chips / Cacao PB', [ing('Cashew'), ing('Chocolate Chips'), ing('Cacao peanut butter')], ['1','1','1']);
+eq('Banana (3 + 1)', ing('กล้วย'), '4'); eq('Mango (1 + 2 swapped)', ing('มะม่วง'), '3');
+eq('Granola (1 + 2)', ing('กราโนล่า'), '3'); eq('Blueberries', ing('บลูเบอร์รี่'), '2'); eq('Flaxseeds', ing('เมล็ดแฟลกซ์'), '2');
+eq('removed Strawberries not counted', ing('สตรอว์เบอร์รี่'), undefined);
+eq('Cashew / Choc chips / Cacao PB', [ing('เม็ดมะม่วงหิมพานต์'), ing('ช็อกโกแลตชิพ'), ing('เนยถั่วคาเคา')], ['1','1','1']);
 eq('honey servings (none excluded)', [ing('น้ำผึ้ง · ราดปกติ'), ing('น้ำผึ้ง · ราดนิดหน่อย'), ing('น้ำผึ้ง · ไม่รับ')], ['1','1',undefined]);
 
 // ช่วงวันที่

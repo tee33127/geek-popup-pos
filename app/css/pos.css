@@ -2,6 +2,10 @@
   --blue:#1A00B8; --blue-soft:#ECE9FF; --orange:#F7941D; --orange-soft:#FFF1DE;
   --ink:#1b1b2f; --mute:#6b6b80; --line:#e3e3ee; --bg:#f6f6fb; --ok:#14804a; --bad:#c62828;
 }
+/* ไอคอนเส้น (icons.js) จัดให้อยู่กลางบรรทัดข้อความ */
+.ic{display:inline-block;vertical-align:-.2em;flex-shrink:0}
+.big .ic{color:var(--ok)}
+h3.warn .ic{color:var(--orange)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Thai","Sarabun",system-ui,-apple-system,sans-serif;font-size:17px}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
@@ -15,7 +19,9 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .step{display:flex;align-items:center;gap:10px;font-weight:700;margin:0 0 12px;font-size:18px}
 .step b{background:var(--blue);color:#fff;min-width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:15px}
 .step small{font-weight:400;color:var(--mute);font-size:14px}
-.step .cnt{margin-left:auto;background:var(--blue-soft);color:var(--blue);font-weight:700;padding:3px 10px;border-radius:20px;font-size:14px}
+.step .cnts{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.step .cnt{background:var(--blue-soft);color:var(--blue);font-weight:700;padding:3px 10px;border-radius:20px;font-size:14px}
+.step .cnt.over{background:var(--orange-soft);color:#b45f00}
 .sec{margin-bottom:22px}
 .hint{color:var(--mute);font-size:14px;margin:8px 0 0}
 .gt{font-weight:700;color:var(--mute);font-size:15px;margin:14px 0 8px}
@@ -30,7 +36,7 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .size small{display:block;color:var(--mute);font-weight:400;margin-top:2px;font-size:13px}
 .size small b{color:var(--ink);font-size:17px}
 .size.on{border-color:var(--orange);background:var(--orange-soft)}
-.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:8px}   /* 152px: ชื่อยาวสุด (เม็ดมะม่วงหิมพานต์ 131px ที่ 17px) อยู่ในบรรทัดเดียว */
 .top{border:2px solid var(--line);border-radius:12px;padding:11px 6px;text-align:center;background:#fff;line-height:1.25}
 .top small{display:block;color:var(--mute);font-size:13px}
 .top.on{border-color:var(--blue);background:var(--blue-soft);font-weight:700}
@@ -39,19 +45,38 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .top.on.over{border-color:var(--orange);background:var(--orange-soft)}
 .top.on.over small{color:#b45f00}
 .swapgrid{margin:-2px 0 12px;padding:10px;background:var(--bg);border-radius:12px}
+.swapgrid .top{height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap}   /* ปุ่มตัวเลือกสูงเท่ากัน มีราคาหรือไม่ก็ตาม */
 .comp{display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
 .comp.changed{border-color:var(--orange);background:var(--orange-soft)}
 .comp .nm{flex:1;font-weight:700}
 .comp .nm small{display:block;font-weight:400;color:var(--mute);font-size:14px}
+.comp .px{color:#b45f00}
 .comp button{background:var(--bg);padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px}
 .comp button.skip{background:none;color:var(--mute);font-weight:400;font-size:13px;text-decoration:underline;padding:8px 6px}
 .comp.removed{background:var(--bg)}
 .comp.removed .nm{color:var(--mute)}
 .comp.removed .nm{text-decoration:line-through}
 .comp.removed .nm small{text-decoration:none}
-.topw{position:relative}
-.topw .top{width:100%;height:100%}
-.minus{position:absolute;top:-7px;right:-5px;width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;font-size:22px;line-height:1;font-weight:700;display:grid;place-items:center;z-index:1}
+/* ปุ่มท็อปปิ้ง Greek: สูงเท่ากันทุกปุ่มทุกสถานะ · ✓ เป็นวงกลมที่มุมซ้ายบนตำแหน่งเดียวกันทุกปุ่ม */
+.topw{position:relative;height:64px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.topw .top{border:0;background:none;width:100%;height:100%;padding:6px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.topw .tn{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* ชื่อไม่ขึ้นบรรทัดใหม่ */
+.topw.on{border-color:var(--blue);background:var(--blue-soft)}
+.topw.on .top small{color:var(--blue)}
+.topw.on::before{content:"✓";position:absolute;top:-8px;left:-8px;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center;pointer-events:none;z-index:1}
+.topw.on.over{border-color:var(--orange);background:var(--orange-soft)}
+.topw.on.over::before{background:var(--orange)}
+.topw.on.over .top small{color:#b45f00}
+.tsel{border:2px solid var(--line);border-radius:12px;overflow:hidden}
+.trow{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;background:#fff}
+.trow + .trow{border-top:1px solid var(--line)}
+.trow.over{background:var(--orange-soft)}
+.trow .nm{flex:1;font-weight:700}
+.trow .px{color:#b45f00;font-weight:700}
+.tqty{display:flex;align-items:center;gap:4px}
+.tqty button{width:48px;height:48px;border-radius:10px;background:#fff;border:2px solid var(--blue);color:var(--blue);font-size:24px;font-weight:700;line-height:1;font-family:system-ui,sans-serif}
+.trow.over .tqty button{border-color:var(--orange);color:#b45f00}
+.tqty b{min-width:34px;text-align:center;font-size:20px}
 .honey{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px}
 .hon{border:3px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center;font-weight:700;background:#fff}
 .hon.on{border-color:var(--orange);background:var(--orange-soft)}
@@ -65,7 +90,8 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .line .d{color:var(--mute);font-size:14.5px;margin:2px 0 6px}
 .qty{display:flex;align-items:center;gap:10px}
 .qty button{width:38px;height:38px;border-radius:10px;background:var(--bg);font-size:22px;font-weight:700}
-.qty .rm{margin-left:auto;width:auto;padding:0 12px;font-size:14px;color:var(--bad);background:none}
+.qty .rm{margin-left:auto;width:48px;height:48px;display:grid;place-items:center;color:var(--bad);background:none;border-radius:10px}
+.qty .rm:active{background:#fdecea}
 .total{display:flex;justify-content:space-between;font-size:24px;font-weight:800;padding:14px 0 10px}
 .pay{width:100%;background:var(--blue);color:#fff;font-weight:700;font-size:20px;padding:16px;border-radius:16px}
 .pay:disabled{background:#c9c9de}
@@ -97,12 +123,22 @@ tr.tot td{font-weight:800;border-top:2px solid var(--ink)}
 .row.wrap>*{flex:1 1 140px}
 .opt{border:3px solid var(--line);border-radius:14px;padding:14px 8px;font-weight:700;text-align:center}
 .opt.on{border-color:var(--blue);background:var(--blue-soft)}
+.opt:disabled{opacity:.4;cursor:not-allowed}
+/* ปุ่มวิธีชำระเงิน: โลโก้หรือไอคอนสูงเท่ากัน + ชื่อด้านล่าง */
+.opt[data-method]{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 8px}
+.opt .mlogo{height:44px;max-width:100%;object-fit:contain;display:grid;place-items:center}
+.opt[data-method] span:last-child{font-size:15px}
+.payrow .ghost{flex:0 0 120px}
+.payrow .pay{flex:1}
+.q2 small{font-weight:400;color:var(--mute)}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .quick button{background:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700}
 input.num{width:100%;font-size:26px;padding:12px;border:2px solid var(--line);border-radius:12px;text-align:right;font-family:inherit}
 .change{font-size:30px;font-weight:800;color:var(--ok);text-align:center;margin:12px 0}
 .big{font-size:56px;text-align:center}
 .ghost{background:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700}
+.linkbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:48px;margin-top:6px;color:var(--mute);font-size:14px;text-decoration:underline}
+.ghost.wide{display:block;width:100%;margin-top:10px;min-height:52px;font-size:17px}
 table{width:100%;border-collapse:collapse;font-size:15px}
 th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 tr.void td{color:#aaa;text-decoration:line-through}

@@ -36,9 +36,10 @@ app/                      ← ซอร์สจริง (แก้ที่น
   manifest.webmanifest    ← PWA: ชื่อแอป ไอคอน สีแบรนด์
   sw.js                   ← service worker เก็บไฟล์แอปทั้งหมดไว้ใช้ออฟไลน์ · VERSION/FILES สร้างโดย build ห้ามแก้มือ
   icons/                  ← icon.svg (ต้นฉบับ) → icon-192/512.png
-  img/*.jpg               ← รูปเมนูย่อแล้ว 420×420 (ต้นฉบับอยู่ assets/menu/)
-  js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง PIN
+  img/*.jpg, *.png        ← รูปเมนูย่อแล้ว 420×420 (ต้นฉบับอยู่ assets/menu/) + โลโก้วิธีชำระเงิน
+  js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง PIN · ท็อปปิ้งมี name (รหัสอังกฤษที่เก็บในบิล ห้ามเปลี่ยน) + th (ชื่อที่แสดง ผ่าน topName())
   js/core.js              ← baht/esc/pad, bizDate, addDays, ป้ายข้อความรายการ, csvText (ไม่แตะ DOM)
+  js/icons.js             ← ไอคอน SVG (icon('check')) ใช้แทนอีโมจิทั้งแอป · ห้ามใช้อีโมจิ (มีเทสต์ตรวจใน pwa.test.js)
   js/pricing.js           ← priceItem(menu, state) ฟังก์ชันล้วน + priceSel() สำหรับหน้าจอ
   js/store.js             ← loadSales/saveSales (sync, ถือข้อมูลในหน่วยความจำ) เขียนลง IndexedDB เบื้องหลัง + สำรอง localStorage · storeReady ต้องรอก่อนใช้ · saveSales ไม่ลบบิล · clearSales ใช้เฉพาะ DEMO
   js/reports.js           ← buildReport, รอบขาย/ช่วงวันที่ (REP)
@@ -54,6 +55,7 @@ prototype/
   pos-demo.html           ← เหมือน pos.html + ข้อมูลตัวอย่าง 3 รอบขาย (เก็บข้อมูลแยก key)
   demo-seed.js            ← โค้ดสร้างข้อมูลตัวอย่าง (ใส่เฉพาะ pos-demo.html)
 assets/menu/              ← รูปเมนูจริง (ต้นฉบับ)
+assets/payment/           ← โลโก้ PromptPay / ไทยช่วยไทย ต้นฉบับ (Tee ให้มา) → ย่อเป็น app/img/promptpay.png, thai-chuay-thai.png
 tests/
   run-tests.js            ← รันทุกเทสต์
   app/pricing.test.js     ← คิดราคาใน vm เปล่า ไม่มี DOM

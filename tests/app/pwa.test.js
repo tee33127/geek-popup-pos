@@ -26,6 +26,14 @@ eq('every used file is cached', used.filter(f => !FILES.includes(f)), []);
 eq('every cached file exists', FILES.filter(f => f !== './' && !fs.existsSync(path.join(APP, f))), []);
 eq('start page cached', FILES.includes('./') && FILES.includes('index.html'), true);
 
+/* ไม่มีอีโมจิในแอป (ใช้ไอคอน SVG จาก js/icons.js แทน) */
+const emoji = FILES.filter(f => /\.(js|html|css)$/.test(f)).flatMap(f => [...read(f).matchAll(/\p{Extended_Pictographic}/gu)].map(m => f + ' ' + m[0]));
+eq('no emoji in app source', emoji, []);
+const ic = vm.createContext({}); vm.runInContext(read('js/icons.js').replace(/const /g, 'var '), ic);
+const usedIcons = [...new Set(FILES.filter(f => f.endsWith('.js')).concat('../prototype/demo-seed.js').flatMap(f => [...read(f).matchAll(/icon\('(\w+)'/g)].map(m => m[1])))];
+eq('every icon used exists', usedIcons.filter(n => !ic.ICONS[n]), []);
+eq('icons found in code', usedIcons.length >= 10, true);
+
 /* จำลอง service worker: ติดตั้ง → ตัดเน็ต → ยังเปิดได้ */
 (async () => {
   const stores = new Map(), handlers = {}; let online = true, fetched = [];

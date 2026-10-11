@@ -10,7 +10,7 @@ function renderCart(){
       <div class="d">${itemLines(i).map(esc).join('<br>')}</div>
       <div class="qty">
         <button data-m="${idx}">−</button><b>${i.qty}</b><button data-p="${idx}">+</button>
-        <button class="rm" data-r="${idx}">ลบ</button>
+        <button class="rm" data-r="${idx}" aria-label="ลบรายการ" title="ลบรายการ">${icon('trash', 22)}</button>
       </div>
     </div>`).join('');
   const t = cartTotal(), n = cart.reduce((s, i) => s + i.qty, 0);
