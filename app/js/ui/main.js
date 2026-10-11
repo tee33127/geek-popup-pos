@@ -40,6 +40,9 @@ $('modal').onclick = e => {
   else if(id === 'payOk') confirmPay();
   else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
   else if(id === 'prTest') printTest();
+  else if(id === 'setOpen') openSettings();
+  else if(id === 'setSave') settingsSave();
+  else if(id === 'setBack') renderSummary();
   else if(id === 'prOff') disconnectPrinter();
 };
 

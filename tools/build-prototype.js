@@ -32,6 +32,7 @@ fs.writeFileSync(path.join(OUT, 'pos.html'), html);
 let demo = html;
 for(const [a, b] of [
   ["const KEY = 'geek_popup_sales_v2';", "const KEY = 'geek_popup_sales_DEMO2';"],
+  ["const SETTINGS_KEY = 'geek_popup_settings';", "const SETTINGS_KEY = 'geek_popup_settings_DEMO';"],
   ['autoPrint: true,', 'autoPrint: false,'],
   ['<h1>Geek <span>Pop-up</span> POS</h1>', '<h1>Geek <span>Pop-up</span> POS · DEMO</h1>'],
   ['<title>Geek Pop-up POS</title>', '<title>Geek Pop-up POS (DEMO)</title>'],

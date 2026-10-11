@@ -182,3 +182,11 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
   #printArea .slip{width:var(--paper,80mm);padding:2mm 3mm;font-size:12px;line-height:1.35;break-after:page;page-break-after:always}
   #printArea .slip:last-child{break-after:auto;page-break-after:auto}
 }
+/* QR PromptPay (หน้าชำระเงิน + ตั้งค่า) */
+.ppqr{text-align:center;margin:12px 0 4px}
+.ppqr .qr{display:block;margin:0 auto;max-width:100%;height:auto}
+.ppamt{font-size:28px;font-weight:800;color:var(--blue);margin-top:4px}
+.ppmsg{min-height:24px;margin:8px 0 0;font-size:15px}
+.ppmsg .ic{vertical-align:-3px}
+.ppwarn{background:#fff4e5;color:#8a4b00;border-radius:12px;padding:10px 12px;margin:12px 0 0;font-size:15px}
+.ppwarn .ic{vertical-align:-4px}

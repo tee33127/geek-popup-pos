@@ -9,6 +9,8 @@ const runs = [
   ['app/pwa.test.js'],
   ['app/printer.test.js'],
   ['app/printer-usb.test.js'],
+  ['app/promptpay.test.js'],
+  ['app/promptpay-ui.test.js'],
   ['app/printer-test-page.test.js'],
   // ต้นแบบไฟล์เดียวที่ build แล้ว
   ['prototype/toppings-and-cart.test.js'],

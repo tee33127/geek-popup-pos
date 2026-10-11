@@ -118,6 +118,7 @@ function renderSummary(){
     ${T.html}
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
+      <button class="ghost" id="setOpen">${icon('settings')} ตั้งค่า</button>
       <button class="pay" id="closeX">ปิด</button>
     </div>
     <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);

@@ -15,7 +15,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - **ขั้น 2 เริ่มแล้ว**: เก็บยอดขายใน IndexedDB เสร็จ (ย้ายข้อมูลจาก localStorage อัตโนมัติ + สำรองใน localStorage)
 - PWA เสร็จ: ติดตั้งบนแท็บเล็ตได้ เปิดได้แม้ออฟไลน์ (`app/manifest.webmanifest`, `app/sw.js`) วิธีติดตั้งอยู่ใน README
 - พิมพ์ตรงผ่าน USB ในแอปแล้ว: ปุ่ม "เชื่อมปริ้นเตอร์" บนแถบหัว (แสดงเฉพาะเบราว์เซอร์ที่มี WebUSB) · เครื่องที่เคยอนุญาตจะเชื่อมเองตอนเปิดแอป/เสียบสายใหม่ · ไม่ได้เชื่อมหรือส่งไม่สำเร็จ → ใช้ `window.print()` แทน · ยังไม่ได้ทดสอบกับเครื่องจริง
-- ยังไม่มี: เปิดลิ้นชัก, QR PromptPay, หน้าตั้งค่าเมนู
+- QR PromptPay ใส่ยอดเสร็จแล้ว: เลข PromptPay ตั้งในแอป (สรุปยอด → ตั้งค่า) เก็บใน localStorage ของเครื่อง (`geek_popup_settings`) **ห้ามใส่เลขจริงในโค้ดหรือเทสต์** · เทสต์เทียบ payload กับ `promptpay-qr` และสแกนกลับด้วย `jsqr`
+- ยังไม่มี: เปิดลิ้นชัก, หน้าตั้งค่าเมนู
 
 ## งานถัดไป (ขั้น 0 → 1)
 1. ~~แยกต้นแบบเป็นโมดูล~~ เสร็จแล้ว อยู่ใน `app/`
@@ -48,6 +49,10 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
   js/ui/builder.js, cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
+  js/promptpay.js         ← PP.payload(id, amount) EMVCo + CRC16 (ฟังก์ชันล้วน), เช็กเลข 13 หลัก, qrSvg วาด QR
+  js/vendor/qrcode.js     ← qrcode-generator 1.4.4 (MIT) คัดลอกมาไว้ใช้ออฟไลน์ ห้ามแก้
+  js/settings.js          ← SETTINGS / saveSettings ตั้งค่าเฉพาะเครื่อง (localStorage)
+  js/ui/settings-ui.js    ← หน้าตั้งค่า (เปิดจากหน้าสรุปยอด)
   js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
@@ -71,12 +76,6 @@ tests/
 **ที่เก็บข้อมูล**: IndexedDB ชื่อเดียวกับ `KEY` (DEMO ใช้ชื่อแยก) object store `sales` keyPath `id` · ตอนเปิดหน้าอ่านทั้ง IndexedDB และ localStorage มารวมกัน ถ้าบิลเดียวกันต่างกัน ใช้ฉบับที่ `log` ยาวกว่า · jsdom ไม่มี IndexedDB เทสต์ prototype จึงวิ่งโหมด localStorage ส่วนโหมด IndexedDB เทสต์ใน `store.test.js` · ถ้าเทสต์ต้องใส่บิลหลังเปิดหน้า ให้เรียก `saveSales` ห้ามเขียน localStorage ตรง (หน้าไม่อ่านซ้ำ)
 
 **วิธีแยกไฟล์ใน `app/`**: ใช้ `<script src>` ธรรมดา (ไม่ใช่ ES module) เพื่อให้เปิดจาก `file://` ได้ ทุกไฟล์แชร์ตัวแปร global ร่วมกัน (`sel`, `cart`, `REP` ฯลฯ) และเทสต์เรียกผ่าน `w.eval` ได้ · โค้ดที่รันตอนโหลดไฟล์ (เช่น `$('x').onclick = fn`) ใช้ได้เฉพาะของที่ประกาศในไฟล์ก่อนหน้าหรือไฟล์เดียวกัน ถ้าเพิ่มไฟล์ใหม่ต้องใส่ใน `index.html` ตามลำดับ
-
-### ส่วนที่ยังไม่ได้สร้าง (เพิ่มใน app/ ตามขั้นถัดไป)
-```
-app/
-  js/promptpay.js   ← สร้าง payload EMVCo + CRC16 + QR
-```
 
 **PWA**: แก้ไฟล์ใน `app/` แล้วต้องรัน `npm test` (หรือ build) ก่อน commit เสมอ ไม่งั้น `sw.js` ไม่เปลี่ยน VERSION แท็บเล็ตจะไม่โหลดไฟล์ใหม่ · ไฟล์ใหม่ใน `app/` ถูกใส่ใน cache อัตโนมัติ · service worker ใช้ skipWaiting หน้าที่เปิดอยู่ใช้โค้ดเดิมจนเปิดใหม่ (ทุกไฟล์โหลดตอนเริ่ม จึงไม่มีโค้ดปนเวอร์ชัน)
 

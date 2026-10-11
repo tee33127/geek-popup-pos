@@ -17,7 +17,12 @@ function renderPay(){
     h += `<div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
       <input class="num" id="recv" inputmode="numeric" placeholder="รับเงินมา" value="${pay.received || ''}">
       <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
+  } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
+    h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}
+      <div class="ppamt">${baht(total)}</div>
+      <p class="note2">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
+    if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · หัวหน้าตั้งได้ที่ สรุปยอด → ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
   h += `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
