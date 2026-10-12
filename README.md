@@ -19,6 +19,7 @@ POS เขียนเองสำหรับร้าน Geek Yogurt & Smoothi
 - [กติกาธุรกิจ เมนู ราคา](docs/business-rules.md)
 - [แผนพัฒนา 6 ขั้น](docs/project-plan.md)
 - [ฮาร์ดแวร์](docs/hardware.md)
+- [เช็กลิสต์ตรวจก่อนปล่อย](docs/qa-checklist.md) · ใน Claude Code พิมพ์ `/check-all`
 - Shopping list / งบ (PDF) อยู่ใน `docs/purchasing/` เฉพาะในเครื่อง ไม่ขึ้น GitHub
 
 ## สำหรับนักพัฒนา

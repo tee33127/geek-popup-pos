@@ -31,11 +31,14 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 ## โครงสร้างโฟลเดอร์
 ```
 CLAUDE.md                 ← ไฟล์นี้
+.claude/commands/check-all.md ← คำสั่ง /check-all ตรวจงานทั้งหมดตาม docs/qa-checklist.md (ตรวจอย่างเดียว ไม่แก้ app/)
 README.md                 ← ภาพรวมสำหรับคน
 docs/
   business-rules.md       ← แหล่งความจริงของเมนู ราคา กติกา (+ คำถามที่ยังเปิด)
   project-plan.md         ← แผน 6 ขั้น เช็กลิสต์ทดสอบฮาร์ดแวร์ ความเสี่ยง
   hardware.md             ← อุปกรณ์ที่ยืนยันแล้ว + คำสั่ง ESC/POS
+  qa-checklist.md         ← เช็กลิสต์ตรวจก่อนปล่อย (รหัส Z/P/PR/C/U/V/R/E/K/D/X/H/UI) · แก้กติกาใน business-rules.md ต้องแก้ค่าคาดหวังที่นี่ด้วย
+  qa/                     ← รายงานผลตรวจ report-YYYY-MM-DD.md (screens/ อยู่ใน .gitignore)
   purchasing/*.pdf        ← shopping list และงบที่เสนอเจ้าของร้าน (อยู่ใน .gitignore ห้าม commit เพราะ repo เป็น public)
 app/                      ← ซอร์สจริง (แก้ที่นี่) เปิด app/index.html ได้เลย
   index.html              ← markup + ลำดับ <script> (ลำดับสำคัญ ดูด้านล่าง)
@@ -102,6 +105,7 @@ npm install                 # ครั้งแรก (jsdom + fake-indexeddb �
 npm test                    # build prototype/ จาก app/ แล้วรันเทสต์ทั้งหมด
 npm run build:prototype     # build อย่างเดียว (ใช้แค่ Node ไม่ต้องมี Python)
 ```
+ตรวจงานทั้งหมดก่อนปล่อย: พิมพ์ `/check-all` ใน Claude Code (หรือ `/check-all pricing promo` เฉพาะหมวด) → รายงานที่ `docs/qa/`
 เปิดดูต้นแบบ: เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ → ใส่รหัส DEMO (เจ้าของ `1234` · พนักงาน `1111` · รหัสกู้คืน `12345678`)
 
 ## กฎการทำงาน

@@ -6,3 +6,5 @@ exports/
 *.csv
 # เอกสารงบ/shopping list ที่เสนอเจ้าของร้าน เก็บในเครื่องเท่านั้น (repo เป็นสาธารณะ)
 docs/purchasing/
+# screenshot จากการตรวจ /check-all เก็บในเครื่องเท่านั้น
+docs/qa/screens/
