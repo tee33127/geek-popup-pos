@@ -7,6 +7,7 @@ $('modal').onclick = e => {
   if(el = g('dine')){ pay.dining = el.dataset.dine; renderPay(); return; }
   if(el = g('method')){ if(!pay.dining) return; pay.method = el.dataset.method; if(pay.method !== 'cash') pay.received = 0; renderPay(); return; }
   if(el = g('q')){ pay.received = Number(el.dataset.q); renderPay(); return; }
+  if(el = g('fq')){ $('floatIn').value = el.dataset.fq; floatInput(); return; }
   if(el = g('pid')){ promoPick(el.dataset.pid); return; }
   if(el = g('ptarget')){ promoTarget(Number(el.dataset.ptarget)); return; }
   if(el = g('v') || g('restore')){
@@ -47,7 +48,7 @@ $('modal').onclick = e => {
   else if(id === 'csvDl') csvDownload();
   else if(id === 'csvShare') csvShare();
   else if(id === 'csvCopy') csvCopy();
-  else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(b) renderSummary(); else closeModal(); }
+  else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(typeof b === 'function') b(); else if(b) renderSummary(); else closeModal(); }
   else if(id === 'csvAll') exportCsv();
   else if(id === 'payOk') confirmPay();
   else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
@@ -55,6 +56,17 @@ $('modal').onclick = e => {
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();
   else if(id === 'setBack') openSettings();
+  else if(id === 'floatOk') floatSave();
+  else if(id === 'floatSkip') closeModal();
+  else if(id === 'closeDay') openClose();
+  else if(id === 'clBack'){ closeDraft = null; renderSummary(); }
+  else if(id === 'clSave') closeSave();
+  else if(id === 'clLogout') $('btnUser').onclick();
+  else if(id === 'bkNow') openBackup(null);
+  else if(id === 'bkSet') openBackup(openSettings);
+  else if(id === 'rsOpen') openRestore(false);
+  else if(id === 'rsApply') restoreApply();
+  else if(id === 'rsCancel'){ RS = null; openSettings(); }
   else if(id === 'usrAdd') openUserForm(null);
   else if(id === 'usrSave') userFormSave();
   else if(id === 'usrCancel') openSettings();

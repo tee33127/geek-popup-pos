@@ -55,6 +55,15 @@ function seedDemo(force){
   });
   clearSales(); saveSales(sales);
   try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(slog)); }catch(e){}
+  /* นับเงินปิดร้านของรอบที่ขายจบแล้ว (เมื่อวานขาด 20) · รอบวันนี้ยังไม่ปิด */
+  const cash = [];
+  [2, 1].forEach(back => {
+    const D = addDays(lastFull, -back), [y, m, d] = D.split('-').map(Number), who = back === 1 ? DEMO_OWNER : DEMO_STAFF;
+    cash.push({type:'open', date:D, at:new Date(y, m - 1, d, 9, 52).toISOString(), by:who, float:1000});
+    const c = cashCount(D, 1000, 0); c.counted = c.expected - (back === 1 ? 20 : 0); c.diff = c.counted - c.expected;
+    cash.push({type:'close', date:D, at:new Date(y, m - 1, d, 21, 40).toISOString(), by:who, float:1000, ...c, note: back === 1 ? 'ทอนเกินลูกค้า 20' : ''});
+  });
+  saveCashLog(cash);
   try{ localStorage.setItem(SEEDKEY, cur); }catch(e){}
 }
 storeReady.then(() => seedDemo(false));

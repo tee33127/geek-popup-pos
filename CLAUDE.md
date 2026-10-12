@@ -19,6 +19,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - โปรโมชัน 3 แบบ (1 แถม 1, ลด 30, ฟรี 1 ท็อปปิ้ง) 1 บิล 1 โปร: `js/promo.js` คำนวณ, `js/ui/promo-ui.js` ปุ่ม+หน้าต่าง, ตั้งค่าโปรใน `CONFIG.promos` · `cartTotal()` = ยอดหลังหักโปร, ราคาในรายการ (`unit`) เป็นราคาเต็มเสมอ
 - เข้าใช้งานด้วยรหัส (`js/auth.js` + `js/ui/login.js`): ครั้งแรกตั้งเจ้าของ + รหัสกู้คืน · ผู้ใช้เก็บใน `SETTINGS.users` (รหัสเป็น sha256(salt:รหัส) ห้ามเก็บตัวเลข) · สิทธิ์อยู่ที่ `CAN` เช็กด้วย `can('void')` ฯลฯ · `USER` = คนที่เข้าอยู่ · บิลเก็บ `staff`, `staffId` · log ยกเลิกเก็บ `by` · เข้า/ออกเก็บใน `<SETTINGS_KEY>_staff_log` · ตารางสิทธิ์อยู่ใน business-rules.md §6.5 · ไม่มี PIN ในโค้ดแล้ว
 - ตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง กดแล้วใช้ทันที + เลข PromptPay · ของหมดเก็บใน `SETTINGS.out = {menus, items}` แล้ว `applyOut` ใส่ `out:true` ใน CONFIG · **ราคาแก้ในแอปไม่ได้โดยตั้งใจ** (Tee 2026-10-12 กลัวกดผิด) แก้ราคาที่ CONFIG เท่านั้น
+- เปิด/ปิดร้าน (`js/cash.js` + `js/ui/close-ui.js`): เข้าระบบด้วยรหัสแล้วรอบนี้ยังไม่มีเงินทอนตั้งต้น → ถาม (ข้ามได้) · สรุปยอด → ปิดร้าน / นับเงิน เทียบ นับได้ กับ ตั้งต้น + ขายเงินสด · เก็บใน `<SETTINGS_KEY>_cash` ต่อท้ายอย่างเดียว ใช้ครั้งล่าสุดของรอบ · ตารางอยู่แท็บชำระเงิน
+- สำรอง/นำข้อมูลกลับ (`js/backup.js`): ไฟล์ JSON เดียว (บิล + settings + staff log + cash) · นำกลับ = รวม ไม่ลบ บิลซ้ำใช้ `newerSale` · ใช้พนักงาน/รหัสจากไฟล์เมื่อเลือก หรือเมื่อทำจากหน้าตั้งค่าครั้งแรก (เครื่องใหม่) · ทุกคนสำรองได้ นำกลับได้เฉพาะเจ้าของ · `SETTINGS.lastBackup`
 - ยังไม่มี: เปิดลิ้นชัก
 
 ## งานถัดไป (ขั้น 0 → 1)
@@ -59,6 +61,9 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/settings.js          ← SETTINGS / saveSettings ตั้งค่าเฉพาะเครื่อง (localStorage) + applyOut/setOut (ของหมด) · โหลดต่อจาก config.js ทันที
   js/ui/settings-ui.js    ← หน้าตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด + เลข PromptPay / พนักงาน / รหัสกู้คืน (เจ้าของ)
   js/auth.js              ← ผู้ใช้ สิทธิ์ (CAN) sha256 แบบ sync (crypto.subtle ใช้ไม่ได้บน file://) session รายวัน log เข้า/ออก
+  js/cash.js              ← เงินทอนตั้งต้น / นับเงินปิดร้าน (cashLog, addCash, dayFloat, cashSales, cashCount)
+  js/backup.js            ← backupData / parseBackup / applyBackup (ไม่แตะ DOM)
+  js/ui/close-ui.js       ← ถามเงินทอนตั้งต้น, หน้าปิดร้าน, สำรอง (exportFile ใน summary.js), นำข้อมูลกลับ (restoreText ให้เทสต์เรียกตรง)
   js/ui/login.js          ← หน้าเข้าใช้งานเต็มจอ (ตั้งครั้งแรก / แป้นรหัส / รหัสกู้คืน) + ปุ่มผู้ใช้บนแถบหัว + needUser()
   js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ

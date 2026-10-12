@@ -78,7 +78,9 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   eq('staff sale stores staff', ev('loadSales()')[1].staff, 'แพร');
   click('#btnSummary');
   click('[data-tab="bills"]'); eq('staff: today only, no date range, no full backup', [!!$('#repFrom'), !!$('[data-range]'), !!$('#csvAll'), $('#modal').textContent.includes('พนักงานดูได้เฉพาะรอบขายวันนี้'), !!$('#csvTab')], [false, false, false, true, true]);
-  ev("REP.from = REP.to = '2020-01-01'; renderSummary()"); eq('staff cannot force another day', ev('REP.from') === ev('bizDate(new Date())'), true);
+  ev(`saveSales([{...loadSales()[0], id:9e12, no:1, date:addDays(bizDate(new Date()), -1), total:999}])`);   // บิลเมื่อวาน
+  ev("REP.from = addDays(bizDate(new Date()), -1); REP.to = bizDate(new Date()); renderSummary()");
+  eq('staff cannot force another day (range + totals)', [ev('REP.from') === ev('bizDate(new Date())'), $$('.stat b')[0].textContent, $$('.stat b')[1].textContent], [true, '฿338', '2']);
   click('[data-tab="bills"]');
   eq('bills tab shows who', $('#modal').textContent.includes('แพร') && $('#modal').textContent.includes('ตี๋'), true);
   click($$('[data-v]')[0]);
@@ -94,7 +96,7 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   click('[data-tab="bills"]'); eq('history shows who voided', $('#modal').textContent.includes('โดย ตี๋'), true);
   click('[data-tab="staff"]');
   eq('staff tab: per-person totals + login log', [$$('#modal tr').some(tr => tr.textContent.includes('ตี๋') && tr.textContent.includes('฿189')), $$('#modal tr').some(tr => /แพร.*เข้า/.test(tr.textContent))], [true, true]);
-  eq('CSV has staff column', ev('billsCsvRows(loadSales())').map(r => r[11]), ['พนักงาน', 'ตี๋', 'แพร']);
+  eq('CSV has staff column', ev('billsCsvRows(loadSales().filter(s => s.id !== 9e12))').map(r => r[11]), ['พนักงาน', 'ตี๋', 'แพร']);
   click('#closeX');
   click('#btnSettings');
   eq('staff settings: stock only', [!!$('[data-stock]'), !!$('#ppOpen'), !!$('#usrAdd'), !!$('#rcNew'), $('#modal').textContent.includes('เจ้าของเป็นคนตั้ง')], [true, false, false, false, true]);

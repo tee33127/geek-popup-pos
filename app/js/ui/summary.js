@@ -28,13 +28,26 @@ function tabItems(R){
     csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]))
   };
 }
+/* การนับเงินปิดร้านของช่วงที่เลือก (ครั้งล่าสุดของแต่ละรอบ) */
+function cashTable(){
+  const byDate = {};
+  cashLog().filter(c => c.type === 'close' && c.date >= REP.from && c.date <= REP.to).forEach(c => { byDate[c.date] = c; });
+  const rows = Object.values(byDate).sort((a, b) => b.date.localeCompare(a.date));
+  const multi = REP.from !== REP.to;
+  return `<div class="sec2">นับเงินปิดร้าน</div>` + (rows.length
+    ? tbl([['รอบ'], ['ตั้งต้น', 1], ['ขายเงินสด', 1], ['ควรมี', 1], ['นับได้', 1], ['ต่าง', 1], ['คนนับ']], rows.map(c => [
+        (multi ? thDate(c.date) + '<br>' : '') + `<small>${fmtDT(c.at).slice(-5)}</small>`, baht(c.float), baht(c.cashSales), baht(c.expected), baht(c.counted),
+        `<b style="color:${c.diff === 0 ? 'var(--ok)' : 'var(--bad)'}">${c.diff === 0 ? 'ตรง' : (c.diff > 0 ? '+' : '-') + baht(Math.abs(c.diff))}</b>`,
+        esc(c.by) + (c.note ? `<br><small>${esc(c.note)}</small>` : '')]))
+    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ด้านล่าง</p>`);
+}
 function tabPay(R){
-  if(!R.bills) return {html:EMPTY, csv:[]};
+  if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
   const H = [['ช่องทางชำระเงิน'], ['จำนวนบิล', 1], ['ยอดขาย', 1], ['เฉลี่ย/บิล', 1], ['สัดส่วนยอดขาย']];
   const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [esc(m.name), v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
   return {
     html: tbl(H, rows, ['รวม', R.bills, baht(R.total), baht(Math.round(R.total / R.bills)), '']) +
-          `<p class="note2">เงินสดที่ควรมีในลิ้นชัก (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>`,
+          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable(),
     csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }))
   };
 }
@@ -121,8 +134,8 @@ function tabStaff(R){
 
 function renderSummary(){
   if(!REP.from){ const r = defaultRound(); REP.from = REP.to = r.date; REP.fb = r.fallback; }
+  if(!can('pastReports')){ const today = bizDate(new Date()); REP.from = REP.to = today; REP.fb = false; }   // พนักงาน: วันนี้เท่านั้น (ก่อนคำนวณยอด)
   const R = buildReport(REP.from, REP.to);
-  if(!can('pastReports')){ const today = bizDate(new Date()); REP.from = REP.to = today; REP.fb = false; }   // พนักงาน: วันนี้เท่านั้น
   const tabs = [['items', 'bowl', 'สินค้า'], ['pay', 'card', 'ชำระเงิน'], ['opts', 'sliders', 'ตัวเลือก'], ['ingr', 'box', 'วัตถุดิบ'], ['bills', 'receipt', 'บิล'], ['staff', 'users', 'พนักงาน']];
   const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills, staff:tabStaff}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
@@ -146,9 +159,10 @@ function renderSummary(){
     ${T.html}
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
+      <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
       <button class="pay" id="closeX">ปิด</button>
     </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, true);
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
@@ -157,40 +171,50 @@ let csvPending = null;
 
 /* เปิดหน้าต่างส่งออกแทนการดาวน์โหลดทันที เพื่อไม่ให้หน้า POS ถูกเปลี่ยนเป็นหน้าว่าง (จอขาว) */
 function downloadCsv(filename, rows, back){
-  csvPending = {filename, text: csvText(rows), back: back || null};
-  const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], 'a.csv', {type:'text/csv'})]}); }catch(e){ return false; } })());
-  openModal(`<h3>${icon('file', 22)} ส่งออก CSV</h3>
-    <p class="note2" style="margin-top:0">${esc(filename)} · ${rows.length - 1} แถว</p>
+  exportFile({filename, text:csvText(rows), type:'text/csv', bom:true, back, title:'ส่งออก CSV', size:`${rows.length - 1} แถว`,
+    tip:'ถ้ากดดาวน์โหลดแล้วไม่มีไฟล์ (เช่นบน iPad) ให้ใช้ "แชร์ / บันทึกลง Files" หรือ "คัดลอก" แล้ววางใน Google Sheets / Excel'});
+}
+/* ส่งออกไฟล์ (CSV / ไฟล์สำรอง JSON) · back = true กลับหน้าสรุป · back = ฟังก์ชัน เรียกตอนกดกลับ · onDone = เรียกเมื่อส่งออกสำเร็จ */
+function exportFile(o){
+  csvPending = {filename:o.filename, text:o.text, back:o.back || null, type:o.type, bom:!!o.bom, onDone:o.onDone || null};
+  const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], o.filename, {type:o.type})]}); }catch(e){ return false; } })());
+  const filename = o.filename;
+  openModal(`<h3>${icon('file', 22)} ${esc(o.title)}</h3>
+    <p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
     <div class="row wrap">
       <button class="opt" id="csvDl">${icon('download')} ดาวน์โหลดไฟล์</button>
       ${canShare ? `<button class="opt" id="csvShare">${icon('share')} แชร์ / บันทึกลง Files</button>` : ''}
       <button class="opt" id="csvCopy">${icon('copy')} คัดลอกข้อความ</button>
     </div>
-    <p class="note2">ถ้ากดดาวน์โหลดแล้วไม่มีไฟล์ (เช่นบน iPad) ให้ใช้ "แชร์ / บันทึกลง Files" หรือ "คัดลอก" แล้ววางใน Google Sheets / Excel</p>
-    <textarea class="csvbox" id="csvText" readonly></textarea>
-    <div class="row"><button class="pay" id="csvBack">${back ? 'กลับไปหน้าสรุป' : 'ปิด'}</button></div>`);
-  $('csvText').value = csvPending.text;
+    <p class="note2">${esc(o.tip)}</p>
+    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}
+    <div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`);
+  if($('csvText')) $('csvText').value = csvPending.text;   // ไฟล์สำรองอาจใหญ่มาก ไม่แสดงในหน้าจอ
 }
+const exportDone = () => { const c = csvPending; if(c && c.onDone) c.onDone(); };
 function csvDownload(){
   const c = csvPending; if(!c) return;
   try{
-    const url = URL.createObjectURL(new Blob(['﻿' + c.text], {type:'text/csv;charset=utf-8'}));
+    const url = URL.createObjectURL(new Blob([(c.bom ? '﻿' : '') + c.text], {type:c.type + ';charset=utf-8'}));
     const a = document.createElement('a');
     a.href = url; a.download = c.filename; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
-    toast('กำลังดาวน์โหลด…');
+    toast('กำลังดาวน์โหลด…'); exportDone();
   }catch(e){ toast('ดาวน์โหลดไม่ได้ ลองใช้ "คัดลอก" แทน'); }
 }
 async function csvShare(){
   const c = csvPending; if(!c) return;
-  try{ await navigator.share({files:[new File(['﻿' + c.text], c.filename, {type:'text/csv'})], title:c.filename}); }
+  try{ await navigator.share({files:[new File([(c.bom ? '﻿' : '') + c.text], c.filename, {type:c.type})], title:c.filename}); exportDone(); }
   catch(e){ if(e && e.name !== 'AbortError') toast('แชร์ไม่สำเร็จ ลองใช้ "คัดลอก" แทน'); }
 }
 async function csvCopy(){
   const c = csvPending; if(!c) return;
-  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว', 'check'); }
-  catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
+  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว', 'check'); exportDone(); }
+  catch(e){
+    const t = $('csvText'); if(!t){ toast('คัดลอกไม่ได้ ใช้ "ดาวน์โหลดไฟล์" แทน'); return; }
+    t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); exportDone(); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); }
+  }
 }
 function billsCsvRows(list){
   const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ','โปรโมชัน','ส่วนลด','พนักงาน']];

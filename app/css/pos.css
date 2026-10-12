@@ -268,3 +268,22 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .srow .ghost{padding:8px 12px}
 .ghost.danger{color:var(--bad)}
 #btnUser small{opacity:.8;font-size:12px}
+/* เปิด/ปิดร้าน · นับเงิน · นำข้อมูลกลับ */
+.cashbox{border:2px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:52px}
+.crow + .crow{border-top:1px solid var(--line)}
+.crow small{color:var(--mute);font-weight:400;font-size:13px}
+.crow small.need{color:var(--bad);font-weight:700}
+.crow.tot{background:var(--blue-soft);font-weight:700}
+.crow.tot b{font-size:20px}
+.cnum{width:150px;font:inherit;font-size:20px;font-weight:700;padding:8px 10px;border:2px solid var(--line);border-radius:10px;text-align:right}
+.cldiff{text-align:center;font-size:22px;font-weight:800;min-height:34px;margin:4px 0 8px;color:var(--mute)}
+.cldiff.ok{color:var(--ok)}
+.cldiff.bad{color:var(--bad)}
+.cldiff.over{color:#b45f00}
+.big.warn .ic{color:var(--bad)}
+.rsfile{display:block;width:100%;padding:12px;border:2px dashed var(--line);border-radius:12px;font:inherit;margin:6px 0}
+.rscheck{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:15px}
+.rscheck input{width:22px;height:22px;flex:none;margin-top:2px}
+.rscheck small{display:block;color:var(--mute);font-size:13px}
+.lgbox.lgwide{max-width:540px;text-align:left}

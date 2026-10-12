@@ -277,6 +277,25 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .srow .ghost{padding:8px 12px}
 .ghost.danger{color:var(--bad)}
 #btnUser small{opacity:.8;font-size:12px}
+/* เปิด/ปิดร้าน · นับเงิน · นำข้อมูลกลับ */
+.cashbox{border:2px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:52px}
+.crow + .crow{border-top:1px solid var(--line)}
+.crow small{color:var(--mute);font-weight:400;font-size:13px}
+.crow small.need{color:var(--bad);font-weight:700}
+.crow.tot{background:var(--blue-soft);font-weight:700}
+.crow.tot b{font-size:20px}
+.cnum{width:150px;font:inherit;font-size:20px;font-weight:700;padding:8px 10px;border:2px solid var(--line);border-radius:10px;text-align:right}
+.cldiff{text-align:center;font-size:22px;font-weight:800;min-height:34px;margin:4px 0 8px;color:var(--mute)}
+.cldiff.ok{color:var(--ok)}
+.cldiff.bad{color:var(--bad)}
+.cldiff.over{color:#b45f00}
+.big.warn .ic{color:var(--bad)}
+.rsfile{display:block;width:100%;padding:12px;border:2px dashed var(--line);border-radius:12px;font:inherit;margin:6px 0}
+.rscheck{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:15px}
+.rscheck input{width:22px;height:22px;flex:none;margin-top:2px}
+.rscheck small{display:block;color:var(--mute);font-size:13px}
+.lgbox.lgwide{max-width:540px;text-align:left}
 </style>
 </head>
 <body>
@@ -599,6 +618,7 @@ const ICONS = {
   user:     '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   lock:     '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   users:    '<circle cx="9" cy="8" r="4"/><path d="M1 21a8 8 0 0 1 16 0"/><path d="M16 4a4 4 0 0 1 0 8M19 21a8 8 0 0 0-3-6.3"/>',
+  upload:   '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
   trash:    '<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
 };
 const icon = (name, size = 20) => `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -759,6 +779,85 @@ function clearSales(){
   dbWrite([], true); LS_OK = true; lsWrite();
 }
 function nextNo(){ const biz = bizDate(new Date()); return (loadSales().filter(s => s.date === biz).length % 999) + 1; }
+</script>
+<script>
+/* ===== js/cash.js ===== */
+/* เงินในลิ้นชัก (ไม่แตะ DOM): เงินทอนตั้งต้นตอนเปิดร้าน + นับเงินตอนปิดร้าน · เก็บต่อท้ายอย่างเดียว ไม่แก้ของเดิม
+   รายการ = {type:'open', date, at, by, float} หรือ {type:'close', date, at, by, float, cashSales, cashBills, expected, counted, diff, note}
+   ใช้ค่าล่าสุดของแต่ละรอบขาย (นับซ้ำได้ เช่นขายต่อหลังนับ) */
+const CASH_KEY = SETTINGS_KEY + '_cash';
+let CASH_MEM = [];   // เบราว์เซอร์บล็อกที่เก็บข้อมูล
+function cashLog(){ try{ return JSON.parse(localStorage.getItem(CASH_KEY)) || []; }catch(e){ return CASH_MEM; } }
+function saveCashLog(list){
+  CASH_MEM = list;
+  try{ localStorage.setItem(CASH_KEY, JSON.stringify(list)); return true; }
+  catch(e){ try{ localStorage.getItem(CASH_KEY); return false; }catch(_){ return true; } }
+}
+function addCash(entry){
+  const now = new Date();
+  return saveCashLog(cashLog().concat({...entry, at:now.toISOString(), date: entry.date || bizDate(now), by: USER ? USER.name : ''}));
+}
+const lastCash = (date, type) => cashLog().filter(c => c.date === date && c.type === type).pop() || null;
+/* เงินทอนตั้งต้นของรอบ: ใช้ที่ตั้งตอนเปิดร้าน หรือที่แก้ตอนนับเงิน (อันหลังสุด) */
+const dayFloat = date => { const c = cashLog().filter(x => x.date === date && x.float !== undefined).pop(); return c ? c.float : null; };
+/* เงินสดจากการขายของรอบ (ไม่นับบิลที่ยกเลิก) */
+function cashSales(date){
+  const bills = loadSales().filter(s => s.date === date && !s.void && s.method === 'cash');
+  return {total: bills.reduce((a, s) => a + s.total, 0), bills: bills.length};
+}
+/* สรุปการนับเงิน: ต่าง > 0 = เกิน · < 0 = ขาด */
+function cashCount(date, float, counted){
+  const cs = cashSales(date), expected = (float || 0) + cs.total;
+  return {cashSales:cs.total, cashBills:cs.bills, expected, counted, diff: counted - expected};
+}
+const diffText = d => d === 0 ? 'เงินตรง' : d > 0 ? `เกิน ${baht(d)}` : `ขาด ${baht(-d)}`;
+</script>
+<script>
+/* ===== js/backup.js ===== */
+/* สำรอง / นำข้อมูลกลับ (ไม่แตะ DOM) · ไฟล์ JSON เดียว: บิล + ตั้งค่า (พนักงาน รหัสแบบ hash PromptPay ของหมด) + เข้า/ออกระบบ + นับเงิน
+   นำกลับ = รวมกับของเดิม ไม่ลบอะไร · บิลเดียวกัน (id ตรง) ใช้ฉบับที่ log ยาวกว่า (newerSale ใน store.js) */
+const BACKUP_APP = 'geek-popup-pos', BACKUP_VER = 1;
+const SETTINGS_FROM_FILE = ['users', 'recovery', 'promptpay', 'out'];
+
+function backupData(){
+  return {app:BACKUP_APP, ver:BACKUP_VER, at:new Date().toISOString(), by: USER ? USER.name : '',
+    sales:loadSales(), settings:{...SETTINGS}, staffLog:staffLog(), cash:cashLog()};
+}
+const backupName = () => { const d = new Date(); return `geek-popup-backup-${dateKey(d)}-${pad(d.getHours())}${pad(d.getMinutes())}.json`; };
+function markBackup(){ saveSettings({...SETTINGS, lastBackup:new Date().toISOString()}); }
+
+/* อ่านไฟล์ → {ok:false, why} หรือ {ok:true, data, info} (ยังไม่เปลี่ยนอะไรในเครื่อง) */
+function parseBackup(text){
+  let d; try{ d = JSON.parse(text); }catch(e){ return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป (อ่านไม่ได้)'}; }
+  if(!d || d.app !== BACKUP_APP || !Array.isArray(d.sales)) return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป'};
+  if(d.ver > BACKUP_VER) return {ok:false, why:'ไฟล์มาจากแอปเวอร์ชันใหม่กว่า กรุณาอัปเดตแอปก่อน'};
+  const bad = d.sales.find(s => !s || typeof s.id !== 'number' || !s.date || !Array.isArray(s.items));
+  if(bad) return {ok:false, why:'ข้อมูลบิลในไฟล์ไม่ครบ'};
+  const have = new Set(loadSales().map(s => s.id)), dates = d.sales.map(s => s.date).sort();
+  const st = d.settings || {};
+  return {ok:true, data:d, info:{at:d.at, by:d.by || '', bills:d.sales.length, newBills:d.sales.filter(s => !have.has(s.id)).length,
+    from:dates[0] || null, to:dates[dates.length - 1] || null, users:(st.users || []).length, promptpay:!!st.promptpay}};
+}
+/* รวมเข้าเครื่อง · withSettings = ใช้พนักงาน/รหัส/PromptPay/ของหมดจากไฟล์แทนของเครื่อง */
+function applyBackup(d, withSettings){
+  const cur = new Map(loadSales().map(s => [s.id, s]));
+  let added = 0, updated = 0;
+  const list = d.sales.slice().sort((a, b) => a.id - b.id).map(s => {
+    if(!cur.has(s.id)){ added++; return s; }
+    const n = newerSale(cur.get(s.id), s); if(n !== cur.get(s.id)) updated++; return n;
+  });
+  saveSales(list);
+  /* เข้า/ออกระบบ และนับเงิน: รวมแบบไม่ซ้ำ (เวลา + ชื่อ + ชนิด) */
+  const merge = (a, b, k) => { const seen = new Set(a.map(k)); return a.concat((b || []).filter(x => !seen.has(k(x)))).sort((x, y) => x.at.localeCompare(y.at)); };
+  try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(merge(staffLog(), d.staffLog, x => x.at + x.name + x.act))); }catch(e){}
+  saveCashLog(merge(cashLog(), d.cash, x => x.at + x.type + x.by));
+  if(withSettings && d.settings){
+    const next = {...SETTINGS};
+    SETTINGS_FROM_FILE.forEach(k => { if(d.settings[k] !== undefined) next[k] = d.settings[k]; else delete next[k]; });
+    saveSettings(next); applyOut();
+  }
+  return {added, updated};
+}
 </script>
 <script>
 /* ===== js/reports.js ===== */
@@ -3957,13 +4056,26 @@ function tabItems(R){
     csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]))
   };
 }
+/* การนับเงินปิดร้านของช่วงที่เลือก (ครั้งล่าสุดของแต่ละรอบ) */
+function cashTable(){
+  const byDate = {};
+  cashLog().filter(c => c.type === 'close' && c.date >= REP.from && c.date <= REP.to).forEach(c => { byDate[c.date] = c; });
+  const rows = Object.values(byDate).sort((a, b) => b.date.localeCompare(a.date));
+  const multi = REP.from !== REP.to;
+  return `<div class="sec2">นับเงินปิดร้าน</div>` + (rows.length
+    ? tbl([['รอบ'], ['ตั้งต้น', 1], ['ขายเงินสด', 1], ['ควรมี', 1], ['นับได้', 1], ['ต่าง', 1], ['คนนับ']], rows.map(c => [
+        (multi ? thDate(c.date) + '<br>' : '') + `<small>${fmtDT(c.at).slice(-5)}</small>`, baht(c.float), baht(c.cashSales), baht(c.expected), baht(c.counted),
+        `<b style="color:${c.diff === 0 ? 'var(--ok)' : 'var(--bad)'}">${c.diff === 0 ? 'ตรง' : (c.diff > 0 ? '+' : '-') + baht(Math.abs(c.diff))}</b>`,
+        esc(c.by) + (c.note ? `<br><small>${esc(c.note)}</small>` : '')]))
+    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ด้านล่าง</p>`);
+}
 function tabPay(R){
-  if(!R.bills) return {html:EMPTY, csv:[]};
+  if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
   const H = [['ช่องทางชำระเงิน'], ['จำนวนบิล', 1], ['ยอดขาย', 1], ['เฉลี่ย/บิล', 1], ['สัดส่วนยอดขาย']];
   const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [esc(m.name), v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
   return {
     html: tbl(H, rows, ['รวม', R.bills, baht(R.total), baht(Math.round(R.total / R.bills)), '']) +
-          `<p class="note2">เงินสดที่ควรมีในลิ้นชัก (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>`,
+          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable(),
     csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }))
   };
 }
@@ -4050,8 +4162,8 @@ function tabStaff(R){
 
 function renderSummary(){
   if(!REP.from){ const r = defaultRound(); REP.from = REP.to = r.date; REP.fb = r.fallback; }
+  if(!can('pastReports')){ const today = bizDate(new Date()); REP.from = REP.to = today; REP.fb = false; }   // พนักงาน: วันนี้เท่านั้น (ก่อนคำนวณยอด)
   const R = buildReport(REP.from, REP.to);
-  if(!can('pastReports')){ const today = bizDate(new Date()); REP.from = REP.to = today; REP.fb = false; }   // พนักงาน: วันนี้เท่านั้น
   const tabs = [['items', 'bowl', 'สินค้า'], ['pay', 'card', 'ชำระเงิน'], ['opts', 'sliders', 'ตัวเลือก'], ['ingr', 'box', 'วัตถุดิบ'], ['bills', 'receipt', 'บิล'], ['staff', 'users', 'พนักงาน']];
   const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills, staff:tabStaff}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
@@ -4075,9 +4187,10 @@ function renderSummary(){
     ${T.html}
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
+      <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
       <button class="pay" id="closeX">ปิด</button>
     </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, true);
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
@@ -4086,40 +4199,50 @@ let csvPending = null;
 
 /* เปิดหน้าต่างส่งออกแทนการดาวน์โหลดทันที เพื่อไม่ให้หน้า POS ถูกเปลี่ยนเป็นหน้าว่าง (จอขาว) */
 function downloadCsv(filename, rows, back){
-  csvPending = {filename, text: csvText(rows), back: back || null};
-  const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], 'a.csv', {type:'text/csv'})]}); }catch(e){ return false; } })());
-  openModal(`<h3>${icon('file', 22)} ส่งออก CSV</h3>
-    <p class="note2" style="margin-top:0">${esc(filename)} · ${rows.length - 1} แถว</p>
+  exportFile({filename, text:csvText(rows), type:'text/csv', bom:true, back, title:'ส่งออก CSV', size:`${rows.length - 1} แถว`,
+    tip:'ถ้ากดดาวน์โหลดแล้วไม่มีไฟล์ (เช่นบน iPad) ให้ใช้ "แชร์ / บันทึกลง Files" หรือ "คัดลอก" แล้ววางใน Google Sheets / Excel'});
+}
+/* ส่งออกไฟล์ (CSV / ไฟล์สำรอง JSON) · back = true กลับหน้าสรุป · back = ฟังก์ชัน เรียกตอนกดกลับ · onDone = เรียกเมื่อส่งออกสำเร็จ */
+function exportFile(o){
+  csvPending = {filename:o.filename, text:o.text, back:o.back || null, type:o.type, bom:!!o.bom, onDone:o.onDone || null};
+  const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], o.filename, {type:o.type})]}); }catch(e){ return false; } })());
+  const filename = o.filename;
+  openModal(`<h3>${icon('file', 22)} ${esc(o.title)}</h3>
+    <p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
     <div class="row wrap">
       <button class="opt" id="csvDl">${icon('download')} ดาวน์โหลดไฟล์</button>
       ${canShare ? `<button class="opt" id="csvShare">${icon('share')} แชร์ / บันทึกลง Files</button>` : ''}
       <button class="opt" id="csvCopy">${icon('copy')} คัดลอกข้อความ</button>
     </div>
-    <p class="note2">ถ้ากดดาวน์โหลดแล้วไม่มีไฟล์ (เช่นบน iPad) ให้ใช้ "แชร์ / บันทึกลง Files" หรือ "คัดลอก" แล้ววางใน Google Sheets / Excel</p>
-    <textarea class="csvbox" id="csvText" readonly></textarea>
-    <div class="row"><button class="pay" id="csvBack">${back ? 'กลับไปหน้าสรุป' : 'ปิด'}</button></div>`);
-  $('csvText').value = csvPending.text;
+    <p class="note2">${esc(o.tip)}</p>
+    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}
+    <div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`);
+  if($('csvText')) $('csvText').value = csvPending.text;   // ไฟล์สำรองอาจใหญ่มาก ไม่แสดงในหน้าจอ
 }
+const exportDone = () => { const c = csvPending; if(c && c.onDone) c.onDone(); };
 function csvDownload(){
   const c = csvPending; if(!c) return;
   try{
-    const url = URL.createObjectURL(new Blob(['﻿' + c.text], {type:'text/csv;charset=utf-8'}));
+    const url = URL.createObjectURL(new Blob([(c.bom ? '﻿' : '') + c.text], {type:c.type + ';charset=utf-8'}));
     const a = document.createElement('a');
     a.href = url; a.download = c.filename; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
     document.body.appendChild(a); a.click();
     setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
-    toast('กำลังดาวน์โหลด…');
+    toast('กำลังดาวน์โหลด…'); exportDone();
   }catch(e){ toast('ดาวน์โหลดไม่ได้ ลองใช้ "คัดลอก" แทน'); }
 }
 async function csvShare(){
   const c = csvPending; if(!c) return;
-  try{ await navigator.share({files:[new File(['﻿' + c.text], c.filename, {type:'text/csv'})], title:c.filename}); }
+  try{ await navigator.share({files:[new File([(c.bom ? '﻿' : '') + c.text], c.filename, {type:c.type})], title:c.filename}); exportDone(); }
   catch(e){ if(e && e.name !== 'AbortError') toast('แชร์ไม่สำเร็จ ลองใช้ "คัดลอก" แทน'); }
 }
 async function csvCopy(){
   const c = csvPending; if(!c) return;
-  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว', 'check'); }
-  catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
+  try{ await navigator.clipboard.writeText(c.text); toast('คัดลอกแล้ว', 'check'); exportDone(); }
+  catch(e){
+    const t = $('csvText'); if(!t){ toast('คัดลอกไม่ได้ ใช้ "ดาวน์โหลดไฟล์" แทน'); return; }
+    t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); exportDone(); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); }
+  }
 }
 function billsCsvRows(list){
   const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ','โปรโมชัน','ส่วนลด','พนักงาน']];
@@ -4162,6 +4285,9 @@ function openSettings(){
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
     <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${SETTINGS.recovery ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
   else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
+  h += `<div class="q2">ข้อมูล</div><div class="slist">
+    <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
+    ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;
   h += `<div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
   openModal(h);
   if(top) $('modal').querySelector('.box').scrollTop = top;   // กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
@@ -4291,7 +4417,7 @@ function renderLogin(){
       <label>ใส่รหัสอีกครั้ง<input id="lgCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
       <div class="lgmsg">${esc(LG.msg)}</div>
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
-      ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : ''}
+      ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
   else if(LG.mode === 'setupDone') h = `${head}
     <div class="lgform">
@@ -4317,7 +4443,7 @@ function keySubmit(){
   if(LG.buf.length !== len) return;
   if(LG.mode === 'code'){
     const u = userByCode(LG.buf);
-    if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); return; }
+    if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
     LG.msg = 'รหัสไม่ถูกต้อง';
   } else if(LG.mode === 'recover'){
     if(recoveryOk(LG.buf)){ LG = {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
@@ -4337,7 +4463,7 @@ function loginSave(){
     LG = {mode:'setupDone', buf:'', msg:'', recovery: rc || ''}; renderLogin();
   } else {
     const o = owners()[0], e2 = saveUser({...o}, code); if(e2){ LG.msg = e2; return renderLogin(); }
-    signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check');
+    signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }
 $('login').onclick = e => {
@@ -4347,7 +4473,8 @@ $('login').onclick = e => {
   else if(id === 'lgBack'){ LG = {mode:'code', buf:'', msg:''}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
-  else if(id === 'lgDone') hideLogin();
+  else if(id === 'lgDone'){ hideLogin(); askFloat(); }
+  else if(id === 'lgRestore') openRestore(true);
 };
 document.addEventListener('keydown', e => {
   if(!$('login').classList.contains('show') || !(LG.mode === 'code' || LG.mode === 'recover')) return;
@@ -4368,6 +4495,144 @@ $('btnUser').onclick = () => askConfirm({msg:`ออกจากระบบ ${U
 function needUser(){ if(loadSession()) return true; showLogin(); return false; }
 setInterval(() => { if(USER && !loadSession()) showLogin(); }, 60000);
 storeReady.then(() => { if(loadSession()) renderUser(); else showLogin(); });
+</script>
+<script>
+/* ===== js/ui/close-ui.js ===== */
+/* ---------- เปิดร้าน (เงินทอนตั้งต้น) · ปิดร้าน (นับเงิน) · สำรอง / นำข้อมูลกลับ ---------- */
+
+/* หลังเข้าระบบด้วยรหัส: รอบนี้ยังไม่มีเงินทอนตั้งต้น → ถาม · ข้ามได้ (ตอนนับเงินใส่ได้อีกครั้ง) */
+function askFloat(){
+  if(dayFloat(bizDate(new Date())) !== null) return;
+  openModal(`<h3>${icon('cash', 22)} เปิดร้าน · เงินทอนตั้งต้น</h3>
+    <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
+    <div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
+    <input class="num" id="floatIn" inputmode="numeric" autocomplete="off" placeholder="เงินทอนตั้งต้น (บาท)">
+    <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`);
+  $('floatIn').oninput = floatInput;
+}
+function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
+function floatSave(){
+  const v = $('floatIn').value; if(v === '') return;
+  if(!addCash({type:'open', float:Number(v)})){ toast('บันทึกไม่สำเร็จ', 'alert'); return; }
+  closeModal(); toast(`เงินทอนตั้งต้น ${baht(Number(v))}`, 'check');
+}
+
+/* ---------- ปิดร้าน: เทียบเงินที่นับได้กับที่ควรมี (ตั้งต้น + ขายเงินสด) ---------- */
+let closeDraft = null;
+function openClose(){
+  if(!needUser()) return;
+  const date = bizDate(new Date());
+  closeDraft = {date, float:dayFloat(date), counted:null};
+  renderClose();
+}
+function renderClose(){
+  const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
+  openModal(`<h3>${icon('cash', 22)} ปิดร้าน · นับเงิน</h3>
+    <div class="note2" style="margin-top:-6px"><b>${roundLabel(d.date, d.date)}</b></div>
+    ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
+    <div class="cashbox">
+      <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
+      <div class="crow"><span>เงินสดจากการขาย <small>(${c.cashBills} บิล)</small></span><b>${baht(c.cashSales)}</b></div>
+      <div class="crow tot"><span>ควรมีในลิ้นชัก</span><b id="clExp">${d.float === null ? '–' : baht(c.expected)}</b></div>
+      <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
+    </div>
+    <div class="cldiff" id="clDiff">&nbsp;</div>
+    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">
+    <div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`);
+  $('clFloat').oninput = $('clCount').oninput = closeInput;
+}
+/* พิมพ์ตัวเลข: อัปเดตยอดโดยไม่วาดใหม่ (คีย์บอร์ดไม่หาย) */
+function closeInput(){
+  const d = closeDraft, f = $('clFloat'), n = $('clCount');
+  f.value = f.value.replace(/\D/g, ''); n.value = n.value.replace(/\D/g, '');
+  d.float = f.value === '' ? null : Number(f.value); d.counted = n.value === '' ? null : Number(n.value);
+  const c = cashCount(d.date, d.float, d.counted || 0), ready = d.float !== null && d.counted !== null;
+  $('clExp').textContent = d.float === null ? '–' : baht(c.expected);
+  $('clDiff').className = 'cldiff ' + (!ready ? '' : c.diff === 0 ? 'ok' : c.diff < 0 ? 'bad' : 'over');
+  $('clDiff').textContent = !ready ? (d.float === null ? 'ใส่เงินทอนตั้งต้นก่อน' : ' ') : diffText(c.diff);
+  $('clSave').disabled = !ready;
+}
+function closeSave(){
+  const d = closeDraft; if(!d || d.float === null || d.counted === null) return;
+  const c = cashCount(d.date, d.float, d.counted);
+  if(!addCash({type:'close', date:d.date, float:d.float, ...c, note:$('clNote').value.trim()})){ toast('บันทึกไม่สำเร็จ', 'alert'); return; }
+  closeDraft = null;
+  const last = SETTINGS.lastBackup;
+  openModal(`<div class="big ${c.diff === 0 ? '' : 'warn'}">${icon(c.diff === 0 ? 'checkCircle' : 'alert', 64)}</div>
+    <h3 style="text-align:center">บันทึกการนับเงินแล้ว</h3>
+    <div class="change" style="color:${c.diff === 0 ? 'var(--ok)' : 'var(--bad)'}">${diffText(c.diff)}</div>
+    <p class="note2" style="text-align:center">ควรมี ${baht(c.expected)} · นับได้ ${baht(c.counted)}</p>
+    <div class="q2">ขั้นต่อไป: สำรองข้อมูลเก็บไว้นอกเครื่อง</div>
+    <p class="note2" style="margin-top:0">${last ? `สำรองล่าสุด ${fmtDT(last)}` : 'เครื่องนี้ยังไม่เคยสำรองข้อมูล'}</p>
+    <button class="pay" id="bkNow">${icon('download', 20)} สำรองข้อมูล</button>
+    <button class="ghost wide" id="clLogout">ออกจากระบบ</button>
+    <button class="linkbtn" id="closeX">ปิด</button>`);
+}
+
+/* ---------- สำรองข้อมูล: ไฟล์ JSON เดียว (ทุกตำแหน่งทำได้ · ปิดร้านแล้วควรทำทุกวัน) ---------- */
+function openBackup(back){
+  const text = JSON.stringify(backupData());
+  exportFile({filename:backupName(), text, type:'application/json', back, title:'สำรองข้อมูล', onDone:markBackup,
+    size:`${loadSales().length} บิล · ${Math.max(1, Math.round(text.length / 1024))} KB`,
+    tip:'เก็บไฟล์ไว้นอกแท็บเล็ต เช่น แชร์เข้า Google Drive หรือ LINE ของเจ้าของ · แท็บเล็ตหายหรือเปลี่ยนเครื่อง ใช้ไฟล์นี้นำข้อมูลกลับได้ · ไฟล์มียอดขายและรายชื่อพนักงาน อย่าส่งให้คนนอก'});
+}
+const backupLabel = () => SETTINGS.lastBackup ? `สำรองล่าสุด ${fmtDT(SETTINGS.lastBackup)}` : 'ยังไม่เคยสำรองข้อมูล';
+
+/* ---------- นำข้อมูลกลับ: เจ้าของ (ตั้งค่า) หรือเครื่องใหม่ก่อนตั้งเจ้าของ (หน้าเข้าใช้งาน) ---------- */
+let RS = null;   // {inLogin, parsed, err}
+function restoreHtml(){
+  const r = RS, p = r.parsed, i = p && p.info;
+  let h = `<p class="note2" style="margin-top:0">เลือกไฟล์ geek-popup-backup-….json · บิลจะรวมกับของในเครื่อง ไม่มีอะไรถูกลบ</p>
+    <input type="file" id="rsFile" accept=".json,application/json" class="rsfile">`;
+  if(r.err) h += `<div class="ppmsg"><span style="color:var(--bad)">${icon('alert', 16)} ${esc(r.err)}</span></div>`;
+  if(i) h += `<div class="cashbox">
+      <div class="crow"><span>ไฟล์สำรองเมื่อ</span><b>${i.at ? fmtDT(i.at) : '–'}${i.by ? ` · ${esc(i.by)}` : ''}</b></div>
+      <div class="crow"><span>บิลในไฟล์</span><b>${i.bills}${i.from ? ` <small>(${thDate(i.from)} – ${thDate(i.to)})</small>` : ''}</b></div>
+      <div class="crow tot"><span>บิลที่เครื่องนี้ยังไม่มี</span><b>${i.newBills}</b></div>
+      <div class="crow"><span>พนักงานในไฟล์</span><b>${i.users} คน</b></div></div>` +
+    (r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
+      : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
+  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  return h;
+}
+function openRestore(inLogin){
+  if(!inLogin && !can('users')) return;
+  RS = {inLogin:!!inLogin, parsed:null, err:''};
+  renderRestore();
+}
+function renderRestore(){
+  const h = `<h3>${icon('upload', 22)} นำข้อมูลกลับจากไฟล์สำรอง</h3>` + restoreHtml();
+  if(RS.inLogin){ $('login').innerHTML = `<div class="lgbox lgwide">${h}</div>`; } else openModal(h);
+}
+/* อ่านข้อความในไฟล์ (แยกจาก FileReader ให้เทสต์เรียกตรงได้) */
+function restoreText(text){
+  const p = parseBackup(text);
+  RS.parsed = p.ok ? p : null; RS.err = p.ok ? '' : p.why;
+  renderRestore();
+}
+function restoreApply(){
+  const r = RS; if(!r || !r.parsed) return;
+  const withSettings = r.inLogin ? true : !!($('rsSettings') && $('rsSettings').checked);
+  const res = applyBackup(r.parsed.data, withSettings);
+  RS = null;
+  toast(`นำข้อมูลกลับแล้ว · บิลใหม่ ${res.added}${res.updated ? ` · อัปเดต ${res.updated}` : ''}`, 'check');
+  renderBuilder(); updateNext();
+  if(r.inLogin || (withSettings && !loadSession())) return showLogin();   // รายชื่อเปลี่ยน → เข้าด้วยรหัสในไฟล์
+  renderUser(); openSettings();
+}
+document.addEventListener('change', e => {
+  if(e.target.id !== 'rsFile' || !RS) return;
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => restoreText(String(rd.result));
+  rd.onerror = () => { RS.err = 'อ่านไฟล์ไม่ได้'; renderRestore(); };
+  rd.readAsText(f);
+});
+$('login').addEventListener('click', e => {
+  const id = (e.target.closest('button') || {}).id;
+  if(id === 'rsApply') restoreApply();
+  else if(id === 'rsCancel'){ RS = null; showLogin(); }
+});
 </script>
 <script>
 /* ===== demo-seed.js ===== */
@@ -4428,6 +4693,15 @@ function seedDemo(force){
   });
   clearSales(); saveSales(sales);
   try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(slog)); }catch(e){}
+  /* นับเงินปิดร้านของรอบที่ขายจบแล้ว (เมื่อวานขาด 20) · รอบวันนี้ยังไม่ปิด */
+  const cash = [];
+  [2, 1].forEach(back => {
+    const D = addDays(lastFull, -back), [y, m, d] = D.split('-').map(Number), who = back === 1 ? DEMO_OWNER : DEMO_STAFF;
+    cash.push({type:'open', date:D, at:new Date(y, m - 1, d, 9, 52).toISOString(), by:who, float:1000});
+    const c = cashCount(D, 1000, 0); c.counted = c.expected - (back === 1 ? 20 : 0); c.diff = c.counted - c.expected;
+    cash.push({type:'close', date:D, at:new Date(y, m - 1, d, 21, 40).toISOString(), by:who, float:1000, ...c, note: back === 1 ? 'ทอนเกินลูกค้า 20' : ''});
+  });
+  saveCashLog(cash);
   try{ localStorage.setItem(SEEDKEY, cur); }catch(e){}
 }
 storeReady.then(() => seedDemo(false));
@@ -4445,6 +4719,7 @@ $('modal').onclick = e => {
   if(el = g('dine')){ pay.dining = el.dataset.dine; renderPay(); return; }
   if(el = g('method')){ if(!pay.dining) return; pay.method = el.dataset.method; if(pay.method !== 'cash') pay.received = 0; renderPay(); return; }
   if(el = g('q')){ pay.received = Number(el.dataset.q); renderPay(); return; }
+  if(el = g('fq')){ $('floatIn').value = el.dataset.fq; floatInput(); return; }
   if(el = g('pid')){ promoPick(el.dataset.pid); return; }
   if(el = g('ptarget')){ promoTarget(Number(el.dataset.ptarget)); return; }
   if(el = g('v') || g('restore')){
@@ -4485,7 +4760,7 @@ $('modal').onclick = e => {
   else if(id === 'csvDl') csvDownload();
   else if(id === 'csvShare') csvShare();
   else if(id === 'csvCopy') csvCopy();
-  else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(b) renderSummary(); else closeModal(); }
+  else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(typeof b === 'function') b(); else if(b) renderSummary(); else closeModal(); }
   else if(id === 'csvAll') exportCsv();
   else if(id === 'payOk') confirmPay();
   else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
@@ -4493,6 +4768,17 @@ $('modal').onclick = e => {
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();
   else if(id === 'setBack') openSettings();
+  else if(id === 'floatOk') floatSave();
+  else if(id === 'floatSkip') closeModal();
+  else if(id === 'closeDay') openClose();
+  else if(id === 'clBack'){ closeDraft = null; renderSummary(); }
+  else if(id === 'clSave') closeSave();
+  else if(id === 'clLogout') $('btnUser').onclick();
+  else if(id === 'bkNow') openBackup(null);
+  else if(id === 'bkSet') openBackup(openSettings);
+  else if(id === 'rsOpen') openRestore(false);
+  else if(id === 'rsApply') restoreApply();
+  else if(id === 'rsCancel'){ RS = null; openSettings(); }
   else if(id === 'usrAdd') openUserForm(null);
   else if(id === 'usrSave') userFormSave();
   else if(id === 'usrCancel') openSettings();

@@ -33,7 +33,7 @@ function renderLogin(){
       <label>ใส่รหัสอีกครั้ง<input id="lgCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
       <div class="lgmsg">${esc(LG.msg)}</div>
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
-      ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : ''}
+      ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
   else if(LG.mode === 'setupDone') h = `${head}
     <div class="lgform">
@@ -59,7 +59,7 @@ function keySubmit(){
   if(LG.buf.length !== len) return;
   if(LG.mode === 'code'){
     const u = userByCode(LG.buf);
-    if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); return; }
+    if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
     LG.msg = 'รหัสไม่ถูกต้อง';
   } else if(LG.mode === 'recover'){
     if(recoveryOk(LG.buf)){ LG = {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
@@ -79,7 +79,7 @@ function loginSave(){
     LG = {mode:'setupDone', buf:'', msg:'', recovery: rc || ''}; renderLogin();
   } else {
     const o = owners()[0], e2 = saveUser({...o}, code); if(e2){ LG.msg = e2; return renderLogin(); }
-    signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check');
+    signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }
 $('login').onclick = e => {
@@ -89,7 +89,8 @@ $('login').onclick = e => {
   else if(id === 'lgBack'){ LG = {mode:'code', buf:'', msg:''}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
-  else if(id === 'lgDone') hideLogin();
+  else if(id === 'lgDone'){ hideLogin(); askFloat(); }
+  else if(id === 'lgRestore') openRestore(true);
 };
 document.addEventListener('keydown', e => {
   if(!$('login').classList.contains('show') || !(LG.mode === 'code' || LG.mode === 'recover')) return;
