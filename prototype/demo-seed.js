@@ -1,9 +1,9 @@
 /* ---------- DEMO: ข้อมูลตัวอย่าง 3 รอบขายล่าสุด สร้างใหม่อัตโนมัติเมื่อข้อมูลเก่า (เก็บแยกจากตัวจริง) ---------- */
 /* บัญชีตัวอย่าง (เก็บใน settings ของ DEMO เท่านั้น) · รหัสกู้คืน 12345678 */
 const DEMO_OWNER = 'เจ้าของร้าน', DEMO_STAFF = 'แพร';
-if(!owners().length){
+if(!owners().length && !SETTINGS_BROKEN){   // settings เสีย: ไม่สร้างบัญชีทับ ให้เห็นหน้า "ข้อมูลตั้งค่าเสีย" เหมือนตัวจริง
   saveUser({name:DEMO_OWNER, role:'owner'}, '1234'); saveUser({name:DEMO_STAFF, role:'staff'}, '1111');
-  const salt = randHex(8); saveSettings({...SETTINGS, recovery:{salt, hash:hashCode(salt, '12345678')}});
+  const salt = randHex(8); setRecoveryHash({salt, hash:hashCode(salt, '12345678')});
 }
 LOGIN_HINT = 'DEMO · เจ้าของ 1234 · พนักงาน 1111 · รหัสกู้คืน 12345678';
 function seedDemo(force){

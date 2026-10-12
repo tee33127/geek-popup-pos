@@ -22,7 +22,7 @@ function openSettings(){
       `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
         <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
-    <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${SETTINGS.recovery ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
+    <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${recoveryHash() ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
   else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>

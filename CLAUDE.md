@@ -61,7 +61,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/vendor/qrcode.js     ← qrcode-generator 1.4.4 (MIT) คัดลอกมาไว้ใช้ออฟไลน์ ห้ามแก้
   js/promo.js             ← promoEval(p, items, want) คำนวณโปรจากตะกร้า (ฟังก์ชันล้วน)
   js/ui/promo-ui.js       ← ปุ่มโปรในกล่องออเดอร์ + หน้าต่างเลือกโปร/เลือกแก้ว
-  js/settings.js          ← SETTINGS / saveSettings ตั้งค่าเฉพาะเครื่อง (localStorage) + applyOut/setOut (ของหมด) · โหลดต่อจาก config.js ทันที
+  js/settings.js          ← SETTINGS / saveSettings ตั้งค่าเฉพาะเครื่อง (localStorage) + applyOut/setOut (ของหมด) · โหลดต่อจาก config.js ทันที · readStored/keepCorrupt: JSON เสีย → เก็บของเดิมที่ `<key>_corrupt_<เวลา>` ห้ามลบ (SETTINGS_BROKEN → หน้า "ข้อมูลตั้งค่าเสีย") · รหัสกู้คืนเก็บที่ RECOVERY_KEY แยกจาก settings (recoveryHash/setRecoveryHash)
   js/ui/settings-ui.js    ← หน้าตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด + เลข PromptPay / พนักงาน / รหัสกู้คืน (เจ้าของ)
   js/auth.js              ← ผู้ใช้ สิทธิ์ (CAN) sha256 แบบ sync (crypto.subtle ใช้ไม่ได้บน file://) session รายวัน log เข้า/ออก
   js/cash.js              ← เงินทอนตั้งต้น / นับเงินปิดร้าน (cashLog, addCash, dayFloat, cashSales, cashCount)

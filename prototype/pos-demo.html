@@ -261,6 +261,8 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .lgtitle span{color:var(--orange)}
 .lgsub{color:var(--mute);margin:6px 0 16px}
 .lgsub .ic{color:var(--orange)}
+.lgsub.lgbad{color:var(--bad);font-size:20px}
+.lgsub.lgbad .ic{color:var(--bad)}
 .dots{display:flex;justify-content:center;gap:16px;margin:6px 0 4px}
 .dots i{width:18px;height:18px;border-radius:50%;border:2px solid var(--blue)}
 .dots i.on{background:var(--blue)}
@@ -420,14 +422,60 @@ const CONFIG = {
 /* ตั้งค่าเฉพาะเครื่อง (เช่นเลข PromptPay) เก็บใน localStorage ของแท็บเล็ต ไม่อยู่ในโค้ด เพราะ repo เป็น public
    ตั้งค่าได้ที่ปุ่ม ตั้งค่า บนแถบหัว · โหลดต่อจาก config.js ทันที (ก่อนไฟล์อื่นอ่าน CONFIG) */
 const SETTINGS_KEY = 'geek_popup_settings_DEMO';
-let SETTINGS = (() => { try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; } })();
+const RECOVERY_KEY = SETTINGS_KEY + '_recovery';   // hash รหัสกู้คืน แยกจาก settings เพื่อให้ยังใช้ได้ตอน settings เสีย
+
+/* ---------- ข้อมูลเสีย (Tee 2026-10-12) ----------
+   อ่าน JSON ไม่ได้ → คัดลอกข้อความเดิมไปเก็บที่ <key>_corrupt_<เวลา> ก่อนมีอะไรเขียนทับ ห้ามลบ
+   คัดลอกไม่สำเร็จ (พื้นที่เต็ม) → ล็อก key นั้น ห้ามเขียนทับจนกว่าจะแก้ (CORRUPT_LOCK) · ยอดขายไม่ผ่านที่นี่ */
+const CORRUPT_LOCK = new Set();
+function keepCorrupt(key, raw){
+  try{
+    const have = Object.keys(localStorage).some(k => k.startsWith(key + '_corrupt_') && localStorage.getItem(k) === raw);
+    if(!have) localStorage.setItem(key + '_corrupt_' + Date.now(), raw);
+    CORRUPT_LOCK.delete(key); return true;
+  }catch(e){ CORRUPT_LOCK.add(key); return false; }
+}
+/* อ่าน JSON · ไม่มี = fallback · เสีย = เก็บของเดิมแยกแล้วคืน fallback (corrupt:true) · ชนิดต้องตรงกับ fallback (object / array) */
+function readStored(key, fallback){
+  let raw; try{ raw = localStorage.getItem(key); }catch(e){ return {value:fallback, blocked:true}; }
+  if(raw === null) return {value:fallback};
+  try{
+    const v = JSON.parse(raw);
+    if(v === null || typeof v !== 'object' || Array.isArray(v) !== Array.isArray(fallback)) throw new Error('shape');
+    return {value:v};
+  }catch(e){ keepCorrupt(key, raw); return {value:fallback, corrupt:true}; }
+}
+/* แถบแดงเตือน (ข้อความธรรมดา ไม่พึ่ง icon.js ที่โหลดทีหลัง) */
+function dataBanner(id, text){
+  if(typeof document === 'undefined' || !document.body || document.getElementById(id)) return;
+  const b = document.createElement('div'); b.id = id; b.className = 'databanner';
+  b.style.cssText = 'background:#c62828;color:#fff;text-align:center;padding:8px 10px;font-size:15px;font-weight:700';
+  b.textContent = text; document.body.prepend(b);
+}
+
+let SETTINGS_BROKEN = false;
+let SETTINGS = (() => { const r = readStored(SETTINGS_KEY, {}); SETTINGS_BROKEN = !!r.corrupt; return r.value; })();
 function saveSettings(next){
-  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); SETTINGS = next; return true; }
+  if(CORRUPT_LOCK.has(SETTINGS_KEY) && !keepCorrupt(SETTINGS_KEY, localStorage.getItem(SETTINGS_KEY))) return false;   // ของเสียยังคัดลอกไม่ได้ ห้ามทับ
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); SETTINGS = next; SETTINGS_BROKEN = false; return true; }
   catch(e){
     console.warn('settings', e);
     /* เบราว์เซอร์บล็อกที่เก็บข้อมูล: ใช้ในหน่วยความจำไปก่อน (มีแถบเตือนอยู่แล้ว) · พื้นที่เต็ม: ถือว่าไม่สำเร็จ */
     try{ localStorage.getItem(SETTINGS_KEY); return false; }catch(_){ SETTINGS = next; return true; }
   }
+}
+
+/* ---------- รหัสกู้คืน (hash) เก็บแยก key · ย้ายจาก SETTINGS.recovery ของเวอร์ชันเก่า ---------- */
+let RECOVERY_MEM = null;   // เบราว์เซอร์บล็อกที่เก็บข้อมูล
+function recoveryHash(){ const r = readStored(RECOVERY_KEY, {}); return r.blocked ? RECOVERY_MEM : (r.value.hash && r.value.salt ? r.value : null); }
+function setRecoveryHash(rec){
+  RECOVERY_MEM = rec || null;
+  try{ if(rec) localStorage.setItem(RECOVERY_KEY, JSON.stringify(rec)); else localStorage.removeItem(RECOVERY_KEY); return true; }
+  catch(e){ try{ localStorage.getItem(RECOVERY_KEY); return false; }catch(_){ return true; } }
+}
+if(SETTINGS.recovery){
+  /* migration: เขียน key ใหม่ให้สำเร็จก่อน แล้วค่อยเอาออกจาก settings (ถ้า key ใหม่มีอยู่แล้ว ใช้ของ key ใหม่) */
+  if(recoveryHash() || setRecoveryHash(SETTINGS.recovery)){ const {recovery, ...rest} = SETTINGS; saveSettings(rest); }
 }
 
 /* ของหมด: SETTINGS.out = {menus:[id], items:[name]} → ใส่ out:true ใน CONFIG ในที่เดิม (MENU / ITEM เห็นทันที)
@@ -569,9 +617,9 @@ function deleteUser(id){
 function newRecovery(){
   let c = ''; const a = new Uint8Array(RECOVERY_LEN); crypto.getRandomValues(a); a.forEach(x => { c += x % 10; });
   const salt = randHex(8);
-  return saveSettings({...SETTINGS, recovery:{salt, hash:hashCode(salt, c)}}) ? c : null;
+  return setRecoveryHash({salt, hash:hashCode(salt, c)}) ? c : null;
 }
-const recoveryOk = c => !!SETTINGS.recovery && SETTINGS.recovery.hash === hashCode(SETTINGS.recovery.salt, c);
+const recoveryOk = c => { const r = recoveryHash(); return !!r && r.hash === hashCode(r.salt, c); };
 const fmtRecovery = c => c.replace(/(\d{4})(?=\d)/g, '$1 ');
 
 /* ---------- ผู้ใช้ที่เข้าระบบอยู่ ----------
@@ -585,9 +633,15 @@ function loadSession(){
   USER = u || null;
   return USER;
 }
-function staffLog(){ try{ return JSON.parse(localStorage.getItem(STAFFLOG_KEY)) || []; }catch(e){ return []; } }
+/* เสีย → เก็บของเดิมแยก (keepCorrupt) เริ่มรายการใหม่ + แถบแดง */
+function staffLog(){
+  const r = readStored(STAFFLOG_KEY, []);
+  if(r.corrupt) dataBanner('staffLogBanner', 'ข้อมูลเข้า/ออกระบบในเครื่องเสีย เก็บของเดิมไว้แล้ว เริ่มบันทึกใหม่ · ยอดขายไม่กระทบ · แจ้งผู้ดูแล (Tee)');
+  return r.value;
+}
 function addStaffLog(act, u){
   const now = new Date(), log = staffLog();
+  if(CORRUPT_LOCK.has(STAFFLOG_KEY)) return;   // ของเสียยังคัดลอกไม่ได้ ห้ามทับ
   log.push({at:now.toISOString(), date:bizDate(now), id:u.id, name:u.name, role:u.role, act});
   try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(log.slice(-3000))); }catch(e){ console.warn('staff log', e); }
 }
@@ -798,8 +852,15 @@ function nextNo(){ const biz = bizDate(new Date()); return (loadSales().filter(s
    ใช้ค่าล่าสุดของแต่ละรอบขาย (นับซ้ำได้ เช่นขายต่อหลังนับ) */
 const CASH_KEY = SETTINGS_KEY + '_cash';
 let CASH_MEM = [];   // เบราว์เซอร์บล็อกที่เก็บข้อมูล
-function cashLog(){ try{ return JSON.parse(localStorage.getItem(CASH_KEY)) || []; }catch(e){ return CASH_MEM; } }
+/* เสีย → เก็บของเดิมแยก (keepCorrupt) เริ่มรายการใหม่ + แถบแดง */
+function cashLog(){
+  const r = readStored(CASH_KEY, []);
+  if(r.blocked) return CASH_MEM;
+  if(r.corrupt) dataBanner('cashBanner', 'ข้อมูลเงินสด (เงินทอน/นับเงิน) ในเครื่องเสีย เก็บของเดิมไว้แล้ว เริ่มบันทึกใหม่ · ยอดขายไม่กระทบ · แจ้งผู้ดูแล (Tee)');
+  return r.value;
+}
 function saveCashLog(list){
+  if(CORRUPT_LOCK.has(CASH_KEY)) return false;   // ของเสียยังคัดลอกไม่ได้ ห้ามทับ
   CASH_MEM = list;
   try{ localStorage.setItem(CASH_KEY, JSON.stringify(list)); return true; }
   catch(e){ try{ localStorage.getItem(CASH_KEY); return false; }catch(_){ return true; } }
@@ -832,7 +893,7 @@ const SETTINGS_FROM_FILE = ['users', 'recovery', 'promptpay', 'out'];
 
 function backupData(){
   return {app:BACKUP_APP, ver:BACKUP_VER, at:new Date().toISOString(), by: USER ? USER.name : '',
-    sales:loadSales(), settings:{...SETTINGS}, staffLog:staffLog(), cash:cashLog()};
+    sales:loadSales(), settings:{...SETTINGS, ...(recoveryHash() && {recovery:recoveryHash()})}, staffLog:staffLog(), cash:cashLog()};   // recovery อยู่ใน settings ของไฟล์ (รูปแบบเดิม)
 }
 const backupName = () => { const d = new Date(); return `geek-popup-backup-${dateKey(d)}-${pad(d.getHours())}${pad(d.getMinutes())}.json`; };
 function markBackup(){ saveSettings({...SETTINGS, lastBackup:new Date().toISOString()}); }
@@ -863,11 +924,12 @@ function applyBackup(d, withSettings){
   saveSales(list);
   /* เข้า/ออกระบบ และนับเงิน: รวมแบบไม่ซ้ำ (เวลา + ชื่อ + ชนิด) */
   const merge = (a, b, k) => { const seen = new Set(a.map(k)); return a.concat((b || []).filter(x => !seen.has(k(x)))).sort((x, y) => x.at.localeCompare(y.at)); };
-  try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(merge(staffLog(), d.staffLog, x => x.at + x.name + x.act))); }catch(e){}
+  if(!CORRUPT_LOCK.has(STAFFLOG_KEY)) try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(merge(staffLog(), d.staffLog, x => x.at + x.name + x.act))); }catch(e){}
   saveCashLog(merge(cashLog(), d.cash, x => x.at + x.type + x.by));
   if(withSettings && d.settings){
     const next = {...SETTINGS};
-    SETTINGS_FROM_FILE.forEach(k => { if(d.settings[k] !== undefined) next[k] = d.settings[k]; else delete next[k]; });
+    SETTINGS_FROM_FILE.forEach(k => { if(k === 'recovery') return; if(d.settings[k] !== undefined) next[k] = d.settings[k]; else delete next[k]; });
+    setRecoveryHash(d.settings.recovery || null);   // รหัสกู้คืนเก็บแยก key
     saveSettings(next); applyOut();
   }
   return {added, updated};
@@ -4300,7 +4362,7 @@ function openSettings(){
       `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
         <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
-    <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${SETTINGS.recovery ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
+    <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${recoveryHash() ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
   else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
@@ -4407,7 +4469,8 @@ let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
 function showLogin(){
   closeModal();
-  LG = {mode: owners().length ? 'code' : 'setup', buf:'', msg:''};
+  /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
+  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', buf:'', msg:''};
   renderLogin(); $('login').classList.add('show'); renderUser();
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
@@ -4426,6 +4489,18 @@ function renderLogin(){
     <button class="linkbtn" id="lgForgot">ลืมรหัสเจ้าของ?</button>${LOGIN_HINT ? `<p class="note2">${esc(LOGIN_HINT)}</p>` : ''}`;
   else if(LG.mode === 'recover') h = `${head}<p class="lgsub">ใส่รหัสกู้คืน ${RECOVERY_LEN} หลัก ที่จดไว้ตอนตั้งเครื่อง</p>${keypad(RECOVERY_LEN)}
     <button class="linkbtn" id="lgBack">กลับ</button>`;
+  else if(LG.mode === 'broken'){
+    const rc = !!recoveryHash();
+    h = `${head}
+    <div class="lgform">
+      <p class="lgsub lgbad">${icon('alert', 20)} <b>ข้อมูลตั้งค่าเสีย</b></p>
+      <p class="note2">รายชื่อพนักงาน รหัส และเลข PromptPay ในเครื่องนี้อ่านไม่ได้ · <b>ยอดขายยังอยู่ครบ</b> · เก็บข้อมูลเดิมไว้แล้ว ไม่ได้ลบ</p>
+      <button class="pay" id="lgRestore">${icon('upload', 20)} นำข้อมูลกลับจากไฟล์สำรอง</button>
+      <button class="ghost wide" id="lgRebuild" ${rc ? '' : 'disabled'}>เริ่มตั้งค่าใหม่ · ใช้รหัสกู้คืน ${RECOVERY_LEN} หลัก</button>
+      ${rc ? '' : '<p class="note2" style="color:var(--bad)">เครื่องนี้ไม่มีรหัสกู้คืน</p>'}
+      <p class="note2">ไม่มีทั้งไฟล์สำรองและรหัสกู้คืน? ติดต่อผู้ดูแล (Tee)</p>
+    </div>`;
+  }
   else if(LG.mode === 'setup' || LG.mode === 'reset') h = `${head}
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
@@ -4463,7 +4538,7 @@ function keySubmit(){
     if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
     LG.msg = 'รหัสไม่ถูกต้อง';
   } else if(LG.mode === 'recover'){
-    if(recoveryOk(LG.buf)){ LG = {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
+    if(recoveryOk(LG.buf)){ LG = LG.after === 'setup' ? {mode:'setup', buf:'', msg:'', recovered:true} : {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
     LG.msg = 'รหัสกู้คืนไม่ถูกต้อง';
   }
   LG.buf = ''; renderLogin();
@@ -4473,6 +4548,7 @@ function loginSave(){
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
   if(err){ LG.msg = err; return renderLogin(); }
   if(LG.mode === 'setup'){
+    if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
     const e2 = saveUser({name, role:'owner'}, code); if(e2){ LG.msg = e2; return renderLogin(); }
     const rc = newRecovery();
@@ -4486,8 +4562,9 @@ function loginSave(){
 $('login').onclick = e => {
   const k = e.target.closest('[data-kp]'); if(k) return keyIn(k.dataset.kp);
   const id = (e.target.closest('button') || {}).id;
-  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: SETTINGS.recovery ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
-  else if(id === 'lgBack'){ LG = {mode:'code', buf:'', msg:''}; renderLogin(); }
+  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
+  else if(id === 'lgBack') showLogin();
+  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', buf:'', msg:'', after:'setup'}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
   else if(id === 'lgDone'){ hideLogin(); askFloat(); }
@@ -4597,8 +4674,10 @@ const backupLabel = () => SETTINGS.lastBackup ? `สำรองล่าสุ�
 
 /* ---------- นำข้อมูลกลับ: เจ้าของ (ตั้งค่า) หรือเครื่องใหม่ก่อนตั้งเจ้าของ (หน้าเข้าใช้งาน) ---------- */
 let RS = null;   // {inLogin, parsed, err}
+/* settings เสีย: ไฟล์ต้องมีเจ้าของ ไม่งั้นนำกลับแล้วจะกลายเป็นหน้าตั้งค่าครั้งแรก (ใครก็สร้างเจ้าของได้) */
+const restoreNoOwner = p => SETTINGS_BROKEN && !((p.data.settings || {}).users || []).some(u => u.role === 'owner');
 function restoreHtml(){
-  const r = RS, p = r.parsed, i = p && p.info;
+  const r = RS, p = r.parsed, i = p && p.info, noOwner = !!p && r.inLogin && restoreNoOwner(p);
   let h = `<p class="note2" style="margin-top:0">เลือกไฟล์ geek-popup-backup-….json · บิลจะรวมกับของในเครื่อง ไม่มีอะไรถูกลบ</p>
     <input type="file" id="rsFile" accept=".json,application/json" class="rsfile">`;
   if(r.err) h += `<div class="ppmsg"><span style="color:var(--bad)">${icon('alert', 16)} ${esc(r.err)}</span></div>`;
@@ -4607,9 +4686,10 @@ function restoreHtml(){
       <div class="crow"><span>บิลในไฟล์</span><b>${i.bills}${i.from ? ` <small>(${thDate(i.from)} – ${thDate(i.to)})</small>` : ''}</b></div>
       <div class="crow tot"><span>บิลที่เครื่องนี้ยังไม่มี</span><b>${i.newBills}</b></div>
       <div class="crow"><span>พนักงานในไฟล์</span><b>${i.users} คน</b></div></div>` +
-    (r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
+    (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
+      : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
   return h;
 }
 function openRestore(inLogin){
@@ -4628,7 +4708,7 @@ function restoreText(text){
   renderRestore();
 }
 function restoreApply(){
-  const r = RS; if(!r || !r.parsed) return;
+  const r = RS; if(!r || !r.parsed || (r.inLogin && restoreNoOwner(r.parsed))) return;
   const withSettings = r.inLogin ? true : !!($('rsSettings') && $('rsSettings').checked);
   const res = applyBackup(r.parsed.data, withSettings);
   RS = null;
@@ -4656,9 +4736,9 @@ $('login').addEventListener('click', e => {
 /* ---------- DEMO: ข้อมูลตัวอย่าง 3 รอบขายล่าสุด สร้างใหม่อัตโนมัติเมื่อข้อมูลเก่า (เก็บแยกจากตัวจริง) ---------- */
 /* บัญชีตัวอย่าง (เก็บใน settings ของ DEMO เท่านั้น) · รหัสกู้คืน 12345678 */
 const DEMO_OWNER = 'เจ้าของร้าน', DEMO_STAFF = 'แพร';
-if(!owners().length){
+if(!owners().length && !SETTINGS_BROKEN){   // settings เสีย: ไม่สร้างบัญชีทับ ให้เห็นหน้า "ข้อมูลตั้งค่าเสีย" เหมือนตัวจริง
   saveUser({name:DEMO_OWNER, role:'owner'}, '1234'); saveUser({name:DEMO_STAFF, role:'staff'}, '1111');
-  const salt = randHex(8); saveSettings({...SETTINGS, recovery:{salt, hash:hashCode(salt, '12345678')}});
+  const salt = randHex(8); setRecoveryHash({salt, hash:hashCode(salt, '12345678')});
 }
 LOGIN_HINT = 'DEMO · เจ้าของ 1234 · พนักงาน 1111 · รหัสกู้คืน 12345678';
 function seedDemo(force){

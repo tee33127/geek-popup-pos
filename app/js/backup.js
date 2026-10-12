@@ -5,7 +5,7 @@ const SETTINGS_FROM_FILE = ['users', 'recovery', 'promptpay', 'out'];
 
 function backupData(){
   return {app:BACKUP_APP, ver:BACKUP_VER, at:new Date().toISOString(), by: USER ? USER.name : '',
-    sales:loadSales(), settings:{...SETTINGS}, staffLog:staffLog(), cash:cashLog()};
+    sales:loadSales(), settings:{...SETTINGS, ...(recoveryHash() && {recovery:recoveryHash()})}, staffLog:staffLog(), cash:cashLog()};   // recovery อยู่ใน settings ของไฟล์ (รูปแบบเดิม)
 }
 const backupName = () => { const d = new Date(); return `geek-popup-backup-${dateKey(d)}-${pad(d.getHours())}${pad(d.getMinutes())}.json`; };
 function markBackup(){ saveSettings({...SETTINGS, lastBackup:new Date().toISOString()}); }
@@ -36,11 +36,12 @@ function applyBackup(d, withSettings){
   saveSales(list);
   /* เข้า/ออกระบบ และนับเงิน: รวมแบบไม่ซ้ำ (เวลา + ชื่อ + ชนิด) */
   const merge = (a, b, k) => { const seen = new Set(a.map(k)); return a.concat((b || []).filter(x => !seen.has(k(x)))).sort((x, y) => x.at.localeCompare(y.at)); };
-  try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(merge(staffLog(), d.staffLog, x => x.at + x.name + x.act))); }catch(e){}
+  if(!CORRUPT_LOCK.has(STAFFLOG_KEY)) try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(merge(staffLog(), d.staffLog, x => x.at + x.name + x.act))); }catch(e){}
   saveCashLog(merge(cashLog(), d.cash, x => x.at + x.type + x.by));
   if(withSettings && d.settings){
     const next = {...SETTINGS};
-    SETTINGS_FROM_FILE.forEach(k => { if(d.settings[k] !== undefined) next[k] = d.settings[k]; else delete next[k]; });
+    SETTINGS_FROM_FILE.forEach(k => { if(k === 'recovery') return; if(d.settings[k] !== undefined) next[k] = d.settings[k]; else delete next[k]; });
+    setRecoveryHash(d.settings.recovery || null);   // รหัสกู้คืนเก็บแยก key
     saveSettings(next); applyOut();
   }
   return {added, updated};

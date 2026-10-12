@@ -6,7 +6,8 @@ let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
 function showLogin(){
   closeModal();
-  LG = {mode: owners().length ? 'code' : 'setup', buf:'', msg:''};
+  /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
+  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', buf:'', msg:''};
   renderLogin(); $('login').classList.add('show'); renderUser();
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
@@ -25,6 +26,18 @@ function renderLogin(){
     <button class="linkbtn" id="lgForgot">ลืมรหัสเจ้าของ?</button>${LOGIN_HINT ? `<p class="note2">${esc(LOGIN_HINT)}</p>` : ''}`;
   else if(LG.mode === 'recover') h = `${head}<p class="lgsub">ใส่รหัสกู้คืน ${RECOVERY_LEN} หลัก ที่จดไว้ตอนตั้งเครื่อง</p>${keypad(RECOVERY_LEN)}
     <button class="linkbtn" id="lgBack">กลับ</button>`;
+  else if(LG.mode === 'broken'){
+    const rc = !!recoveryHash();
+    h = `${head}
+    <div class="lgform">
+      <p class="lgsub lgbad">${icon('alert', 20)} <b>ข้อมูลตั้งค่าเสีย</b></p>
+      <p class="note2">รายชื่อพนักงาน รหัส และเลข PromptPay ในเครื่องนี้อ่านไม่ได้ · <b>ยอดขายยังอยู่ครบ</b> · เก็บข้อมูลเดิมไว้แล้ว ไม่ได้ลบ</p>
+      <button class="pay" id="lgRestore">${icon('upload', 20)} นำข้อมูลกลับจากไฟล์สำรอง</button>
+      <button class="ghost wide" id="lgRebuild" ${rc ? '' : 'disabled'}>เริ่มตั้งค่าใหม่ · ใช้รหัสกู้คืน ${RECOVERY_LEN} หลัก</button>
+      ${rc ? '' : '<p class="note2" style="color:var(--bad)">เครื่องนี้ไม่มีรหัสกู้คืน</p>'}
+      <p class="note2">ไม่มีทั้งไฟล์สำรองและรหัสกู้คืน? ติดต่อผู้ดูแล (Tee)</p>
+    </div>`;
+  }
   else if(LG.mode === 'setup' || LG.mode === 'reset') h = `${head}
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
@@ -62,7 +75,7 @@ function keySubmit(){
     if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
     LG.msg = 'รหัสไม่ถูกต้อง';
   } else if(LG.mode === 'recover'){
-    if(recoveryOk(LG.buf)){ LG = {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
+    if(recoveryOk(LG.buf)){ LG = LG.after === 'setup' ? {mode:'setup', buf:'', msg:'', recovered:true} : {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
     LG.msg = 'รหัสกู้คืนไม่ถูกต้อง';
   }
   LG.buf = ''; renderLogin();
@@ -72,6 +85,7 @@ function loginSave(){
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
   if(err){ LG.msg = err; return renderLogin(); }
   if(LG.mode === 'setup'){
+    if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
     const e2 = saveUser({name, role:'owner'}, code); if(e2){ LG.msg = e2; return renderLogin(); }
     const rc = newRecovery();
@@ -85,8 +99,9 @@ function loginSave(){
 $('login').onclick = e => {
   const k = e.target.closest('[data-kp]'); if(k) return keyIn(k.dataset.kp);
   const id = (e.target.closest('button') || {}).id;
-  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: SETTINGS.recovery ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
-  else if(id === 'lgBack'){ LG = {mode:'code', buf:'', msg:''}; renderLogin(); }
+  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
+  else if(id === 'lgBack') showLogin();
+  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', buf:'', msg:'', after:'setup'}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
   else if(id === 'lgDone'){ hideLogin(); askFloat(); }

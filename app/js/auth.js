@@ -78,9 +78,9 @@ function deleteUser(id){
 function newRecovery(){
   let c = ''; const a = new Uint8Array(RECOVERY_LEN); crypto.getRandomValues(a); a.forEach(x => { c += x % 10; });
   const salt = randHex(8);
-  return saveSettings({...SETTINGS, recovery:{salt, hash:hashCode(salt, c)}}) ? c : null;
+  return setRecoveryHash({salt, hash:hashCode(salt, c)}) ? c : null;
 }
-const recoveryOk = c => !!SETTINGS.recovery && SETTINGS.recovery.hash === hashCode(SETTINGS.recovery.salt, c);
+const recoveryOk = c => { const r = recoveryHash(); return !!r && r.hash === hashCode(r.salt, c); };
 const fmtRecovery = c => c.replace(/(\d{4})(?=\d)/g, '$1 ');
 
 /* ---------- ผู้ใช้ที่เข้าระบบอยู่ ----------
@@ -94,9 +94,15 @@ function loadSession(){
   USER = u || null;
   return USER;
 }
-function staffLog(){ try{ return JSON.parse(localStorage.getItem(STAFFLOG_KEY)) || []; }catch(e){ return []; } }
+/* เสีย → เก็บของเดิมแยก (keepCorrupt) เริ่มรายการใหม่ + แถบแดง */
+function staffLog(){
+  const r = readStored(STAFFLOG_KEY, []);
+  if(r.corrupt) dataBanner('staffLogBanner', 'ข้อมูลเข้า/ออกระบบในเครื่องเสีย เก็บของเดิมไว้แล้ว เริ่มบันทึกใหม่ · ยอดขายไม่กระทบ · แจ้งผู้ดูแล (Tee)');
+  return r.value;
+}
 function addStaffLog(act, u){
   const now = new Date(), log = staffLog();
+  if(CORRUPT_LOCK.has(STAFFLOG_KEY)) return;   // ของเสียยังคัดลอกไม่ได้ ห้ามทับ
   log.push({at:now.toISOString(), date:bizDate(now), id:u.id, name:u.name, role:u.role, act});
   try{ localStorage.setItem(STAFFLOG_KEY, JSON.stringify(log.slice(-3000))); }catch(e){ console.warn('staff log', e); }
 }

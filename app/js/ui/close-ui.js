@@ -80,8 +80,10 @@ const backupLabel = () => SETTINGS.lastBackup ? `สำรองล่าสุ�
 
 /* ---------- นำข้อมูลกลับ: เจ้าของ (ตั้งค่า) หรือเครื่องใหม่ก่อนตั้งเจ้าของ (หน้าเข้าใช้งาน) ---------- */
 let RS = null;   // {inLogin, parsed, err}
+/* settings เสีย: ไฟล์ต้องมีเจ้าของ ไม่งั้นนำกลับแล้วจะกลายเป็นหน้าตั้งค่าครั้งแรก (ใครก็สร้างเจ้าของได้) */
+const restoreNoOwner = p => SETTINGS_BROKEN && !((p.data.settings || {}).users || []).some(u => u.role === 'owner');
 function restoreHtml(){
-  const r = RS, p = r.parsed, i = p && p.info;
+  const r = RS, p = r.parsed, i = p && p.info, noOwner = !!p && r.inLogin && restoreNoOwner(p);
   let h = `<p class="note2" style="margin-top:0">เลือกไฟล์ geek-popup-backup-….json · บิลจะรวมกับของในเครื่อง ไม่มีอะไรถูกลบ</p>
     <input type="file" id="rsFile" accept=".json,application/json" class="rsfile">`;
   if(r.err) h += `<div class="ppmsg"><span style="color:var(--bad)">${icon('alert', 16)} ${esc(r.err)}</span></div>`;
@@ -90,9 +92,10 @@ function restoreHtml(){
       <div class="crow"><span>บิลในไฟล์</span><b>${i.bills}${i.from ? ` <small>(${thDate(i.from)} – ${thDate(i.to)})</small>` : ''}</b></div>
       <div class="crow tot"><span>บิลที่เครื่องนี้ยังไม่มี</span><b>${i.newBills}</b></div>
       <div class="crow"><span>พนักงานในไฟล์</span><b>${i.users} คน</b></div></div>` +
-    (r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
+    (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
+      : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
   return h;
 }
 function openRestore(inLogin){
@@ -111,7 +114,7 @@ function restoreText(text){
   renderRestore();
 }
 function restoreApply(){
-  const r = RS; if(!r || !r.parsed) return;
+  const r = RS; if(!r || !r.parsed || (r.inLogin && restoreNoOwner(r.parsed))) return;
   const withSettings = r.inLogin ? true : !!($('rsSettings') && $('rsSettings').checked);
   const res = applyBackup(r.parsed.data, withSettings);
   RS = null;

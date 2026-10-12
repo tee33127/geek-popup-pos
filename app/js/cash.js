@@ -3,8 +3,15 @@
    ใช้ค่าล่าสุดของแต่ละรอบขาย (นับซ้ำได้ เช่นขายต่อหลังนับ) */
 const CASH_KEY = SETTINGS_KEY + '_cash';
 let CASH_MEM = [];   // เบราว์เซอร์บล็อกที่เก็บข้อมูล
-function cashLog(){ try{ return JSON.parse(localStorage.getItem(CASH_KEY)) || []; }catch(e){ return CASH_MEM; } }
+/* เสีย → เก็บของเดิมแยก (keepCorrupt) เริ่มรายการใหม่ + แถบแดง */
+function cashLog(){
+  const r = readStored(CASH_KEY, []);
+  if(r.blocked) return CASH_MEM;
+  if(r.corrupt) dataBanner('cashBanner', 'ข้อมูลเงินสด (เงินทอน/นับเงิน) ในเครื่องเสีย เก็บของเดิมไว้แล้ว เริ่มบันทึกใหม่ · ยอดขายไม่กระทบ · แจ้งผู้ดูแล (Tee)');
+  return r.value;
+}
 function saveCashLog(list){
+  if(CORRUPT_LOCK.has(CASH_KEY)) return false;   // ของเสียยังคัดลอกไม่ได้ ห้ามทับ
   CASH_MEM = list;
   try{ localStorage.setItem(CASH_KEY, JSON.stringify(list)); return true; }
   catch(e){ try{ localStorage.getItem(CASH_KEY); return false; }catch(_){ return true; } }
