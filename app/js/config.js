@@ -9,6 +9,7 @@ const CONFIG = {
   freeToppingCount: 3,            // Greek: ท็อปปิ้งฟรีกี่อย่าง (นับเฉพาะรายการในกลุ่มฟรี)
   overToppingPrice: 15,           // Greek: ท็อปปิ้งฟรีอย่างที่ 4 ขึ้นไป คิดอย่างละกี่บาท
   honeyDefault: null,             // ไม่เลือกไว้ก่อน พนักงานต้องเลือกน้ำผึ้งเองทุกแก้ว (Tee 2026-10-12)
+  addTopPrice: 15,                // Acai / Banana Choco: เพิ่มท็อปปิ้ง ชิ้นละ 15 ทุกอย่าง (รวม Extra) (Tee 2026-10-12)
   separateToppingPrice: 5,        // แยกท็อปปิ้ง (ใส่ถ้วยแยก) คิดเพิ่มต่อแก้ว ทุกเมนู · น้ำผึ้งแยกฟรี
   honey: [
     {id:'none',   name:'ไม่รับ'},
@@ -26,6 +27,13 @@ const CONFIG = {
     {id:'cash',      name:'เงินสด', icon:'cash'},
     {id:'promptpay', name:'PromptPay', logo:'img/promptpay.png'},
     {id:'tcp',       name:'ไทยช่วยไทย พลัส', logo:'img/thai-chuay-thai.png'},
+  ],
+  /* โปรโมชัน: 1 บิลใช้ได้ 1 โปร ใครกดก็ได้ บิลเก็บชื่อโปร + ยอดที่ลด · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยก) คิดตามปกติ
+     ปิดโปรไหนให้ลบออกจากรายการนี้ (บิลเก่ายังแสดงชื่อโปรตามที่บันทึกไว้) */
+  promos: [
+    {id:'b1g1',    type:'b1g1', name:'1 แถม 1', sub:'Acai / Banana Choco · แก้วที่ถูกที่สุดฟรี 1 แก้ว', menus:['acai','banana']},
+    {id:'off30',   type:'off',  name:'ลด 30 บาท', sub:'Acai / Banana Choco 1 แก้ว', menus:['acai','banana'], amount:30},
+    {id:'freetop', type:'freetop', name:'ฟรี 1 ท็อปปิ้ง', sub:'ท็อปปิ้งที่ต้องจ่าย 1 ชิ้น (ยกเว้น กราโนล่า บลูเบอร์รี่ สตรอว์เบอร์รี่)', exclude:['Granola','Blueberries','Strawberries']},
   ],
   cats: [
     {id:'dried', name:'Dried', th:'ธัญพืชและของแห้ง'},

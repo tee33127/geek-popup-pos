@@ -7,7 +7,8 @@ function renderPay(){
   const cashOk = pay.method !== 'cash' || pay.received >= total;
   const ok = !!pay.dining && !!pay.method && cashOk;
   const hadFocus = document.activeElement && document.activeElement.id === 'recv';
-  let h = `<h3>ชำระเงิน · ${baht(total)}</h3>
+  const pr = promoNow();
+  let h = `<h3>ชำระเงิน · ${baht(total)}</h3>${pr && pr.ok ? `<p class="note2" style="margin:-6px 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
     <div class="q2">รับที่ร้านหรือกลับบ้าน?</div>
     <div class="row">${CONFIG.dining.map(d => `<button class="opt ${pay.dining === d.id ? 'on':''}" data-dine="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
@@ -36,17 +37,18 @@ function renderPay(){
 }
 function confirmPay(){
   if(!pay.dining || !pay.method || STORE_MODE === 'loading') return;
-  const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now);
+  const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
   const sale = {
     id: now.getTime(), no, date: biz, ts: now.toISOString(), dining: pay.dining,
     items: cart.map(i => ({menu:i.menu, name:i.name, sizeName:i.sizeName, tops:i.tops, ...(i.honey !== undefined && {honey:i.honey}), note:i.note, unit:i.unit, qty:i.qty, ...(i.sep && {sep:i.sep}), ...(i.fewTops !== undefined && {fewTops:i.fewTops})})),
     total, method: pay.method, received: pay.method === 'cash' ? pay.received : total,
-    change: pay.method === 'cash' ? pay.received - total : 0, void:false
+    change: pay.method === 'cash' ? pay.received - total : 0, void:false,
+    ...(pr && pr.ok && {promo:{id:promo.id, name:PROMO[promo.id].name, discount:pr.discount, detail:pr.detail}})   // บันทึกการใช้โปรทุกครั้ง
   };
   sales.push(sale);
   if(!saveSales(sales)) return;
-  lastSale = sale; cart = []; renderCart(); updateNext();
+  lastSale = sale; cart = []; promo = null; renderCart(); updateNext();
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}

@@ -1,5 +1,5 @@
 /* คิดราคา: ฟังก์ชันล้วน ไม่แตะ DOM และไม่อ่าน state ของหน้าจอ (เทสต์ได้ตรงๆ)
-   m = เมนูจาก CONFIG.menus · st = {size, picks, comps} แบบเดียวกับ sel */
+   m = เมนูจาก CONFIG.menus · st = {size, picks, comps, adds, sep} แบบเดียวกับ sel */
 function priceBase(m, st){
   if(!m) return null;
   if(m.sizes){
@@ -13,7 +13,7 @@ function priceBase(m, st){
       unit += extra;
       let t = tops.find(x => x.name === n);
       if(!t){ t = {name:n, n:0, extra:0, from:null}; tops.push(t); }
-      t.n++; t.extra += extra;
+      t.n++; t.extra += extra; if(extra) t.each = extra;   // each = ราคาต่อชิ้นที่คิด (ใช้กับโปรฟรี 1 ท็อปปิ้ง)
     });
     return {unit, tops, sizeName: sizeLabel(s), freeUsed:free, noTop:!!s.noTop, perTop:s.perTop || 0};
   }
@@ -24,6 +24,12 @@ function priceBase(m, st){
     if(n === null) return {name:d, n:1, extra:0, from:null, removed:true};
     const extra = n !== d && ITEM[n].price > 0 && !(ITEM[d].price > 0) ? ITEM[n].price : 0;
     return {name:n, n:1, extra, from: n !== d ? d : null};
+  });
+  /* เพิ่มท็อปปิ้ง (st.adds) ชิ้นละ addTopPrice ทุกอย่าง · เลือกซ้ำได้ */
+  (st.adds || []).forEach(n => {
+    let t = tops.find(x => x.add && x.name === n);
+    if(!t){ t = {name:n, n:0, extra:0, from:null, add:true, each:CONFIG.addTopPrice}; tops.push(t); }
+    t.n++; t.extra += CONFIG.addTopPrice;
   });
   return {unit: m.price + tops.reduce((a, t) => a + t.extra, 0), tops, sizeName:'', freeUsed:0, noTop:false, perTop:0};
 }

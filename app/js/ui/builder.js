@@ -1,6 +1,6 @@
 /* ---------- Builder state ---------- */
 let sel;
-function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, note:''}; }
+function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''}; }
 resetSel();
 const curMenu = () => sel.menu ? MENU[sel.menu] : null;
 /* น้ำผึ้งไม่มีค่าเริ่มต้น ต้องเลือกก่อนเพิ่มลงออเดอร์ (ยกเว้นเมนูที่ไม่มีน้ำผึ้ง) */
@@ -9,7 +9,7 @@ const needHoney = () => { const m = curMenu(); return !!m && !m.noHoney && !sel.
 function pickMenu(id){
   if(sel.menu === id) return;
   const m = MENU[id];
-  sel = {menu:id, size:m.sizes ? 'g1' : null, picks:[], comps:m.defaults ? [...m.defaults] : [], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, note:''};
+  sel = {menu:id, size:m.sizes ? 'g1' : null, picks:[], comps:m.defaults ? [...m.defaults] : [], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''};
 }
 
 function sec(n, title, body, right=''){ return `<div class="sec"><p class="step"><b>${n}</b> ${title}${right}</p>${body}</div>`; }
@@ -76,7 +76,23 @@ function presetHtml(m){
       h += `<div class="tops swapgrid">` + (opts.map(it => `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
     }
   });
-  return h + sepHtml(P);
+  return h + addsHtml(P) + sepHtml(P);
+}
+/* Acai / Banana Choco: เพิ่มท็อปปิ้ง ชิ้นละ addTopPrice ทุกอย่าง · ปุ่มเปิดตารางเลือก + แถบจำนวนแบบเดียวกับ Greek */
+function addsHtml(P){
+  const adds = P.tops.filter(t => t.add), price = CONFIG.addTopPrice;
+  let h = `<div class="gt">เพิ่มท็อปปิ้ง <small>ชิ้นละ ${price} บาท</small></div>`;
+  if(adds.length) h += `<div class="tsel">` + adds.map(t => { const nm = esc(t.name);
+    return `<div class="trow over"><span class="nm">เพิ่ม ${esc(topName(t.name))}</span><span class="px">+${t.extra}</span>` +
+      `<div class="tqty"><button data-aless="${nm}" aria-label="ลด ${esc(topName(t.name))}">−</button><b>${t.n}</b><button data-amore="${nm}" aria-label="เพิ่ม ${esc(topName(t.name))}">+</button></div></div>`; }).join('') + `</div>`;
+  h += `<button class="ghost wide" data-addopen>${sel.addOpen ? 'ปิดรายการท็อปปิ้ง' : '+ เพิ่มท็อปปิ้ง'}</button>`;
+  if(sel.addOpen) CONFIG.cats.forEach(c => {
+    h += `<div class="gt">${c.th || c.name}</div><div class="tops">` + CONFIG.items.filter(i => i.cat === c.id).map(it => {
+      const t = adds.find(x => x.name === it.name);
+      return `<div class="topw ${t ? 'on over' : ''}"><button class="top" data-add="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span><small>${t ? `×${t.n} · +${t.extra}` : '+' + price}</small></button></div>`;
+    }).join('') + '</div>';
+  });
+  return h;
 }
 function renderBuilder(){
   const m = curMenu(), P = priceSel(); let n = 0;
@@ -114,6 +130,10 @@ $('builder').onclick = e => {
   else if(el = g('swap')){ const i = Number(el.dataset.swap); sel.swapSlot = sel.swapSlot === i ? null : i; }
   else if(el = g('honey')) sel.honey = el.dataset.honey;
   else if(g('sep')) sel.sep = !sel.sep;
+  else if(g('addopen')) sel.addOpen = !sel.addOpen;
+  else if(el = g('add')){ const n = el.dataset.add; if(sel.adds.includes(n)) sel.adds = sel.adds.filter(x => x !== n); else sel.adds.push(n); }
+  else if(el = g('amore')) sel.adds.push(el.dataset.amore);
+  else if(el = g('aless')){ const i = sel.adds.lastIndexOf(el.dataset.aless); if(i >= 0) sel.adds.splice(i, 1); }
   else return;
   renderBuilder();
 };
@@ -126,7 +146,7 @@ function addSel(fewTops){
   const P = priceSel();
   const item = {menu:m.id, name:m.name, sizeName:P.sizeName, tops:P.tops, ...(!m.noHoney && {honey:sel.honey}), note:sel.note.trim(), unit:P.unit, qty:1, ...(P.sep && {sep:P.sep})};
   if(fewTops !== undefined) item.fewTops = fewTops;
-  item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from]), item.honey, item.sep, item.note]);
+  item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from, t.add ? 1 : 0]), item.honey, item.sep, item.note]);
   const found = cart.find(i => i.key === item.key);
   if(found) found.qty++; else cart.push(item);
   resetSel(); renderBuilder(); renderCart(); toast('เพิ่มแล้ว', 'check');

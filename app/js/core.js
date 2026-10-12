@@ -16,9 +16,9 @@ function bizDate(d){ const x = new Date(d); if(x.getHours() >= CONFIG.resetHour)
 const addDays = (k, n) => { const [y, m, d] = k.split('-').map(Number); return dateKey(new Date(y, m - 1, d + n)); };
 
 const itemTitle = i => i.name + (i.sizeName ? ' · ' + i.sizeName : '');
-const topLabel = t => t.removed ? 'ไม่รับ ' + topName(t.name) : topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.from ? ` (แทน ${topName(t.from)})` : '') + (t.extra ? ` (+${t.extra})` : '');
+const topLabel = t => t.removed ? 'ไม่รับ ' + topName(t.name) : (t.add ? 'เพิ่ม ' : '') + topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.from ? ` (แทน ${topName(t.from)})` : '') + (t.extra ? ` (+${t.extra})` : '');
 /* ตอนพิมพ์: เมนูที่มีท็อปปิ้งตามสูตร (Acai, Banana Choco) แสดงเฉพาะช่องที่เปลี่ยนหรือไม่รับ · Greek แสดงทั้งหมด */
-const printTops = i => MENU[i.menu] && MENU[i.menu].defaults ? i.tops.filter(t => t.from || t.removed) : i.tops;
+const printTops = i => MENU[i.menu] && MENU[i.menu].defaults ? i.tops.filter(t => t.from || t.removed || t.add) : i.tops;
 function itemLines(i, forPrint){
   const L = [], tops = forPrint ? printTops(i) : i.tops;
   if(tops.length) L.push(tops.map(topLabel).join(', '));

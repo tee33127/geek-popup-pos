@@ -7,6 +7,8 @@ $('modal').onclick = e => {
   if(el = g('dine')){ pay.dining = el.dataset.dine; renderPay(); return; }
   if(el = g('method')){ if(!pay.dining) return; pay.method = el.dataset.method; if(pay.method !== 'cash') pay.received = 0; renderPay(); return; }
   if(el = g('q')){ pay.received = Number(el.dataset.q); renderPay(); return; }
+  if(el = g('pid')){ promoPick(el.dataset.pid); return; }
+  if(el = g('ptarget')){ promoTarget(Number(el.dataset.ptarget)); return; }
   if(el = g('v') || g('restore')){
     const isVoid = !!el.dataset.v, sid = isVoid ? el.dataset.v : el.dataset.restore;
     const sv = loadSales().find(x => String(x.id) === sid); if(!sv) return;
@@ -32,6 +34,9 @@ $('modal').onclick = e => {
   else if(id === 'pinOk') checkPin();
   else if(id === 'fewBack' || id === 'fewOk' || id === 'fewPlain') fewTopsAnswer(id);
   else if(id === 'cheapSwitch' || id === 'cheapKeep') cheaperAnswer(id);
+  else if(id === 'promoOk') promoApply();
+  else if(id === 'promoNone') promoClear();
+  else if(id === 'promoCancel'){ promoDraft = null; closeModal(); }
   else if(id === 'csvTab'){ if(repCsv) downloadCsv(repCsv.name, repCsv.rows, true); }
   else if(id === 'csvDl') csvDownload();
   else if(id === 'csvShare') csvShare();

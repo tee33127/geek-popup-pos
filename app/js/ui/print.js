@@ -8,6 +8,7 @@ function receiptHtml(s){
     <div class="r b"><span>ออเดอร์ #${pad(s.no, 3)}</span><span>${esc(DINE[s.dining].name)}</span></div>
     <div>${fmtDT(s.ts)}</div>${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>
     ${lines}<hr>
+    ${s.promo ? `<div class="r b"><span>โปร: ${esc(s.promo.name)}</span><span>-${baht(s.promo.discount)}</span></div><div class="sm">${esc(s.promo.detail)}</div>` : ''}
     <div class="r b lg"><span>รวม</span><span>${baht(s.total)}</span></div>
     <div class="r"><span>ชำระด้วย</span><span>${esc(METHOD[s.method].name)}</span></div>
     ${s.method === 'cash' ? `<div class="r"><span>รับเงิน</span><span>${baht(s.received)}</span></div><div class="r"><span>เงินทอน</span><span>${baht(s.change)}</span></div>` : ''}
@@ -16,7 +17,7 @@ function receiptHtml(s){
 function kitchenHtml(s){
   const items = s.items.map(i => {
     let l = i.sep ? '<div class="kl"><b>** แยกท็อปปิ้ง ใส่ถ้วยแยก **</b></div>' : '';
-    if(i.tops.length) printTops(i).forEach(t => { l += t.removed ? `<div class="kl"><b>- ไม่รับ ${esc(topName(t.name))}</b></div>` : `<div class="kl">- ${esc(topName(t.name))}${t.n > 1 ? ` <b>×${t.n}</b>` : ''}${t.from ? ` <b>(เปลี่ยนจาก ${esc(topName(t.from))})</b>` : ''}${t.extra ? ` (+${t.extra})` : ''}</div>`; });
+    if(i.tops.length) printTops(i).forEach(t => { l += t.removed ? `<div class="kl"><b>- ไม่รับ ${esc(topName(t.name))}</b></div>` : t.add ? `<div class="kl"><b>+ เพิ่ม ${esc(topName(t.name))}${t.n > 1 ? ` ×${t.n}` : ''}</b></div>` : `<div class="kl">- ${esc(topName(t.name))}${t.n > 1 ? ` <b>×${t.n}</b>` : ''}${t.from ? ` <b>(เปลี่ยนจาก ${esc(topName(t.from))})</b>` : ''}${t.extra ? ` (+${t.extra})` : ''}</div>`; });
     else if(i.menu === 'greek') l += '<div class="kl">- ไม่มีท็อปปิ้ง</div>';
     if(i.fewTops !== undefined) l += `<div class="kl"><b>** ${i.fewTops ? `ลูกค้าเลือก ${i.fewTops} อย่าง` : 'ลูกค้าไม่เอาท็อปปิ้งฟรี'} · ตักปริมาณปกติ **</b></div>`;
     if(i.honey !== undefined) l += `<div class="kl">น้ำผึ้ง: <b>${esc(HONEY[i.honey].name)}</b></div>`;
@@ -38,7 +39,9 @@ function receiptBlocks(s){
     b.push({left:itemTitle(i) + (i.qty > 1 ? ' ×' + i.qty : ''), right:String(i.unit * i.qty)});
     itemLines(i, true).forEach(l => b.push({text:'  ' + l, size:22}));
   });
-  b.push({rule:'dash'}, {left:'รวม', right:baht(s.total), size:32, bold:true}, {left:'ชำระด้วย', right:METHOD[s.method].name});
+  b.push({rule:'dash'});
+  if(s.promo) b.push({left:'โปร: ' + s.promo.name, right:'-' + baht(s.promo.discount), bold:true}, {text:'  ' + s.promo.detail, size:22});
+  b.push({left:'รวม', right:baht(s.total), size:32, bold:true}, {left:'ชำระด้วย', right:METHOD[s.method].name});
   if(s.method === 'cash') b.push({left:'รับเงิน', right:baht(s.received)}, {left:'เงินทอน', right:baht(s.change)});
   b.push({rule:'dash'}, {text:'ขอบคุณที่อุดหนุนครับ/ค่ะ', align:'center'});
   return b;
@@ -53,6 +56,7 @@ function kitchenBlocks(s){
     b.push({text:`${i.qty} × ${itemTitle(i)}`, size:34, bold:true});
     if(i.sep) b.push({text:'  ** แยกท็อปปิ้ง ใส่ถ้วยแยก **', bold:true});
     if(i.tops.length) printTops(i).forEach(t => b.push(t.removed ? {text:`  - ไม่รับ ${topName(t.name)}`, bold:true}
+      : t.add ? {text:`  + เพิ่ม ${topName(t.name)}${t.n > 1 ? ` ×${t.n}` : ''}`, bold:true}
       : {text:`  - ${topName(t.name)}${t.n > 1 ? ` ×${t.n}` : ''}${t.from ? ` (เปลี่ยนจาก ${topName(t.from)})` : ''}${t.extra ? ` (+${t.extra})` : ''}`, bold:t.n > 1 || !!t.from}));
     else if(i.menu === 'greek') b.push({text:'  - ไม่มีท็อปปิ้ง'});
     if(i.fewTops !== undefined) b.push({text:`  ** ${i.fewTops ? `ลูกค้าเลือก ${i.fewTops} อย่าง` : 'ลูกค้าไม่เอาท็อปปิ้งฟรี'} · ตักปริมาณปกติ **`, bold:true});

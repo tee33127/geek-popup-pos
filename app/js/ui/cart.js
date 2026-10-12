@@ -1,6 +1,10 @@
 /* ---------- Cart ---------- */
 let cart = [];
-const cartTotal = () => cart.reduce((s, i) => s + i.unit * i.qty, 0);
+/* โปรโมชันของบิลนี้ (1 บิล 1 โปร) {id, key, top} · ยอดลดคำนวณใหม่ทุกครั้งจากตะกร้า */
+let promo = null;
+const cartGross = () => cart.reduce((s, i) => s + i.unit * i.qty, 0);
+const promoNow = () => promo && PROMO[promo.id] ? promoEval(PROMO[promo.id], cart, promo) : null;
+const cartTotal = () => { const r = promoNow(); return cartGross() - (r && r.ok ? r.discount : 0); };
 
 function renderCart(){
   if(!cart.length) $('cart').innerHTML = '<div class="empty">ยังไม่มีรายการ<br>เลือกเมนูได้เลย</div>';
@@ -13,6 +17,7 @@ function renderCart(){
         <button class="rm" data-r="${idx}" aria-label="ลบรายการ" title="ลบรายการ">${icon('trash', 22)}</button>
       </div>
     </div>`).join('');
+  renderPromoBox();
   const t = cartTotal(), n = cart.reduce((s, i) => s + i.qty, 0);
   $('total').textContent = baht(t); $('barTotal').textContent = baht(t); $('barCount').textContent = n + ' รายการ';
   $('btnPay').disabled = $('btnPay2').disabled = !cart.length;
@@ -28,5 +33,5 @@ $('cart').onclick = e => {
 };
 $('btnClear').onclick = () => {
   if(!cart.length) return;
-  askConfirm({msg:'ล้างออเดอร์ทั้งหมด?', yes:'ล้างออเดอร์', onYes:() => { cart = []; resetSel(); renderBuilder(); renderCart(); toast('ล้างออเดอร์แล้ว'); }});
+  askConfirm({msg:'ล้างออเดอร์ทั้งหมด?', yes:'ล้างออเดอร์', onYes:() => { cart = []; promo = null; resetSel(); renderBuilder(); renderCart(); toast('ล้างออเดอร์แล้ว'); }});
 };

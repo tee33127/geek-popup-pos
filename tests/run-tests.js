@@ -11,11 +11,13 @@ const runs = [
   ['app/printer-usb.test.js'],
   ['app/promptpay.test.js'],
   ['app/promptpay-ui.test.js'],
+  ['app/promo.test.js'],
   ['app/printer-test-page.test.js'],
   // ต้นแบบไฟล์เดียวที่ build แล้ว
   ['prototype/toppings-and-cart.test.js'],
   ['prototype/reports.test.js'],
   ['prototype/void-restore-csv.test.js'],
+  ['prototype/promo-ui.test.js'],
   // รอบขายเปลี่ยนวันเวลา 23:00 — ทดสอบด้วยเวลาจำลองหลายช่วง
   ['prototype/demo-business-round.test.js', '2026,10,5,23,58'],
   ['prototype/demo-business-round.test.js', '2026,10,6,9,0'],

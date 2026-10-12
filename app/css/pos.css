@@ -199,3 +199,20 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .sep.on small,.sep.on b{color:var(--blue)}
 .sep.on .sepbox{border-color:#fff}
 .cnt.need{background:#fde8e8;color:var(--bad);font-weight:700}
+/* โปรโมชัน: ปุ่มในกล่องออเดอร์ + หน้าต่างเลือกโปร */
+.promo{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:10px 0 0;padding:8px 14px;border:2px dashed var(--blue);border-radius:12px;background:#fff;color:var(--blue);font-weight:700;text-align:left}
+.promo small{display:block;font-weight:400;font-size:13px;color:var(--mute)}
+.promo.on{border-style:solid;background:var(--blue-soft)}
+.promo .px{margin-left:auto;color:var(--ok);font-size:18px;white-space:nowrap}
+.popts{display:grid;gap:8px}
+.popt{display:flex;align-items:center;gap:10px;border:3px solid var(--line);border-radius:14px;padding:12px 14px;text-align:left;min-height:64px;background:#fff}
+.popt small{display:block;font-weight:400;font-size:13px;color:var(--mute)}
+.popt .why{color:#8a4b00;margin-top:2px}
+.popt .why .ic{vertical-align:-2px}
+.popt .px{margin-left:auto;color:var(--ok);font-size:18px;white-space:nowrap}
+.popt.on{border-color:var(--blue);background:var(--blue-soft)}
+.popt:disabled{opacity:.6;cursor:not-allowed}
+.ptargets{display:grid;gap:8px}
+.ptargets .opt{text-align:left;font-weight:600;font-size:15px}
+.promotag{color:var(--ok);font-weight:700}
+.promotag .ic{vertical-align:-2px}

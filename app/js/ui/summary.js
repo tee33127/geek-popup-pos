@@ -19,7 +19,7 @@ function tabItems(R){
   const H = [['รายการ'], ['จำนวน (แก้ว)', 1], ['ยอดขาย', 1], ['สัดส่วนยอดขาย']];
   const line = r => [esc(r.name), r.qty, baht(r.rev), shareCell(pct(r.rev, R.total))];
   return {
-    html: `<div class="sec2">ตามเมนูหลัก</div>` + tbl(H, Object.values(byMenu).map(line), ['รวม', R.cups, baht(R.total), '']) +
+    html: `<div class="sec2">ตามเมนูหลัก</div>` + tbl(H, Object.values(byMenu).map(line).concat(R.discount ? [['ส่วนลดโปรโมชัน', '', '-' + baht(R.discount), '']] : []), ['รวม', R.cups, baht(R.total), '']) +
           `<div class="sec2">ตามรายการ <small>(แยกขนาด)</small></div>` + tbl(H, rows.map(line)),
     csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]))
   };
@@ -45,6 +45,7 @@ function tabOpts(R){
     'น้ำผึ้ง': 'ยอดขาย = ยอดรวมของแก้วที่เลือกระดับน้ำผึ้งนี้ (น้ำผึ้งไม่คิดเงินเพิ่ม)',
     'กินเลย / กลับบ้าน': 'นับเป็นบิล · ยอดขาย = ยอดรวมของบิล',
     'ท็อปปิ้งที่คิดเงินเพิ่ม': 'ยอดขาย = เฉพาะเงินที่คิดเพิ่มจากท็อปปิ้ง (Extra, ชิ้นที่เกินโควตาฟรี และแก้วที่คิดทีละชิ้น)',
+    'โปรโมชัน': 'นับเป็นบิล · ยอด = ส่วนลดที่ให้ลูกค้ารวม · ยอดขายรวม ช่องทางชำระเงิน และกินเลย/กลับบ้าน หักส่วนลดแล้ว ส่วนยอดตามเมนู ขนาด และน้ำผึ้งเป็นราคาก่อนหักส่วนลด',
     'แยกท็อปปิ้ง': `แก้วที่ลูกค้าขอแยกท็อปปิ้ง (+${CONFIG.separateToppingPrice}/แก้ว) · ยอดขาย = เฉพาะเงินค่าแยก`,
     'การปรับท็อปปิ้ง': 'Acai / Banana Choco ที่เปลี่ยนหรือไม่รับท็อปปิ้ง · เงินที่คิดเพิ่มจากการเปลี่ยนเป็นของ Extra ดูในกลุ่ม "ท็อปปิ้งที่คิดเงินเพิ่ม"',
     ['ท็อปปิ้งฟรีไม่ครบ ' + CONFIG.freeToppingCount + ' อย่าง']: 'Greek Yogurt ที่พนักงานยืนยันว่าลูกค้าขอน้อยกว่าโควตา · ใช้เทียบกับสต็อกจริง ถ้าสูงผิดปกติให้ตรวจปริมาณที่ตัก',
@@ -84,7 +85,7 @@ function tabBills(R){
     const t = new Date(x.ts);
     return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small></td>
       <td>${x.items.map(i => `${esc(itemTitle(i))} ×${i.qty}`).join('<br>')}<br><small>${esc(DINE[x.dining].name)}</small></td>
-      <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small></td>
+      <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small>${x.promo ? `<br><small class="promotag">${icon('tag', 14)} ${esc(x.promo.name)} -${baht(x.promo.discount)}</small>` : ''}</td>
       <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">${icon('undo', 16)} นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
   }).join('');
   return {
@@ -166,12 +167,12 @@ async function csvCopy(){
   catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
 }
 function billsCsvRows(list){
-  const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ']];
+  const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ','โปรโมชัน','ส่วนลด']];
   list.forEach(s => {
     const t = new Date(s.ts);
     rows.push([s.date, `${pad(t.getHours())}:${pad(t.getMinutes())}`, pad(s.no, 3), DINE[s.dining].name,
       s.items.map(i => `${itemTitle(i)} x${i.qty} [${itemLines(i).join(' | ')}]`).join(' ; '),
-      s.total, METHOD[s.method].name, s.void ? 'ยกเลิก' : 'ปกติ', historyText(s)]);
+      s.total, METHOD[s.method].name, s.void ? 'ยกเลิก' : 'ปกติ', historyText(s), s.promo ? `${s.promo.name} (${s.promo.detail})` : '', s.promo ? s.promo.discount : 0]);
   });
   return rows;
 }
