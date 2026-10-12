@@ -17,16 +17,17 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('no id: warning, no QR', [!!$('.ppwarn'), !!$('#modal svg.qr')], [true, false]);
     eq('no id: can still confirm', $('#payOk').disabled, false);
     $('#payCancel').click();
-    // ตั้งค่า: สรุปยอด → PIN → ตั้งค่า
-    $('#btnSummary').click(); $('#pinIn').value = '1234'; $('#pinOk').click();
-    $('#setOpen').click();
+    // ตั้งค่า (แถบหัว) → PIN → เลข PromptPay
+    $('#btnSettings').click(); $('#pinIn').value = '1234'; $('#pinOk').click();
+    eq('settings shows PromptPay not set', $('#modal').textContent.includes('ยังไม่ได้ตั้ง'), true);
+    $('#ppOpen').click();
     eq('settings opened, empty', [!!$('#ppIn'), $('#ppIn').value], [true, '']);
     type('#ppIn', '12345'); eq('short number rejected', [$('#ppMsg').textContent.includes('5 หลัก'), $('#setSave').disabled, !!$('#ppPrev svg')], [true, true, false]);
     type('#ppIn', '1234567890122'); eq('bad checksum rejected', [$('#ppMsg').textContent.includes('หลักตรวจสอบ'), $('#setSave').disabled], [true, true]);
     type('#ppIn', '1-2345-67890-12-1'); eq('valid: test QR ฿1 shown', [$('#setSave').disabled, !!$('#ppPrev svg.qr'), $('#ppMsg').textContent.includes('1-2345-67890-12-1')], [false, true, true]);
     $('#setSave').click();
-    eq('saved digits only, back to summary', [JSON.parse(w.localStorage.getItem('geek_popup_settings')).promptpay, !!$('#setOpen')], ['1234567890121', true]);
-    $('#setOpen').click(); eq('reopen shows formatted', $('#ppIn').value, '1-2345-67890-12-1'); $('#setBack').click(); $('#closeX').click();
+    eq('saved digits only, back to settings', [JSON.parse(w.localStorage.getItem('geek_popup_settings')).promptpay, $('#modal').textContent.includes('1-2345-67890-12-1'), $('#ppOpen').textContent], ['1234567890121', true, 'เปลี่ยน']);
+    $('#ppOpen').click(); eq('reopen shows formatted', $('#ppIn').value, '1-2345-67890-12-1'); $('#setBack').click(); $('#closeX').click();
     // หน้าชำระเงินแสดง QR ยอดบิล
     $('#btnClear').click(); if($('#cfYes')) $('#cfYes').click();
     toPay();
@@ -35,7 +36,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     $('#payOk').click(); await wait(100);
     eq('sale saved as promptpay', JSON.parse(w.localStorage.getItem('geek_popup_sales_v2')).slice(-1)[0].method, 'promptpay');
     // ลบเลข (บันทึกแบบว่าง)
-    $('#nextOrder').click(); $('#btnSummary').click(); $('#pinIn').value = '1234'; $('#pinOk').click(); $('#setOpen').click();
+    $('#nextOrder').click(); $('#btnSettings').click(); $('#pinIn').value = '1234'; $('#pinOk').click(); $('#ppOpen').click();
     type('#ppIn', ''); eq('empty warns removal', $('#ppMsg').textContent.includes('ลบเลขเดิม'), true); $('#setSave').click();
     eq('cleared', JSON.parse(w.localStorage.getItem('geek_popup_settings')).promptpay, undefined);
     eq('no runtime errors', errors, []);

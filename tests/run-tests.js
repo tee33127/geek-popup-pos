@@ -18,6 +18,7 @@ const runs = [
   ['prototype/reports.test.js'],
   ['prototype/void-restore-csv.test.js'],
   ['prototype/promo-ui.test.js'],
+  ['prototype/settings.test.js'],
   // รอบขายเปลี่ยนวันเวลา 23:00 — ทดสอบด้วยเวลาจำลองหลายช่วง
   ['prototype/demo-business-round.test.js', '2026,10,5,23,58'],
   ['prototype/demo-business-round.test.js', '2026,10,6,9,0'],

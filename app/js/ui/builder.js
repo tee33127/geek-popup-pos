@@ -37,6 +37,8 @@ function greekTopsHtml(P){
     const t = P.tops.find(x => x.name === it.name), cnt = t ? t.n : 0;
     /* บรรทัดล่าง: จำนวน (×2) และเงินที่คิดเพิ่ม ไม่เขียนว่า "ฟรี" เพราะเลือกเกินโควตาแล้วจะไม่ฟรี
        ปุ่มสูงคงที่ (CSS) ไม่มีอะไรจะบอกก็ไม่ใส่บรรทัดล่าง ชื่อจึงอยู่กลางปุ่ม */
+    /* ของหมด: กดเลือกไม่ได้ (ที่เลือกไว้แล้วยังกดเอาออกได้) */
+    if(it.out && !cnt) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
     let tag = '';
     if(cnt) tag = [cnt > 1 ? '×' + cnt : '', t.extra ? '+' + t.extra : ''].filter(Boolean).join(' · ');
     else if(P.perTop) tag = '+' + P.perTop;
@@ -63,8 +65,8 @@ function presetHtml(m){
   const P = priceSel();
   let h = '<p class="hint" style="margin:0 0 4px">เปลี่ยนได้ในหมวดเดียวกัน · เปลี่ยนเป็นของ Extra คิดเงินเพิ่มตามราคา (แต่ไม่แนะนำให้เปลี่ยน)</p>';
   m.defaults.forEach((d, i) => {
-    const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d;
-    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
+    const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d, out = !removed && ITEM[cur].out;
+    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''} ${out ? 'out' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${out ? '<b class="outtag">หมด · กดเปลี่ยนหรือไม่รับ</b>' : removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
          (ch || removed ? `<button class="skip" data-reset="${i}">${removed ? 'ใส่กลับ' : 'คืนค่า'}</button>` : '') +
          (!removed ? `<button class="skip" data-skip="${i}">ไม่รับ</button>` : '') +
          `<button data-swap="${i}">${sel.swapSlot === i ? 'ปิด' : 'เปลี่ยน'}</button></div>`;
@@ -73,7 +75,7 @@ function presetHtml(m){
       const cat = ITEM[d].cat;
       const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur);
       const cost = it => it.name !== d && it.price > 0 && !(ITEM[d].price > 0) ? it.price : 0;   // ตรงกับ priceItem
-      h += `<div class="tops swapgrid">` + (opts.map(it => `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
+      h += `<div class="tops swapgrid">` + (opts.map(it => it.out ? `<button class="top out" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button>` : `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
     }
   });
   return h + addsHtml(P) + sepHtml(P);
@@ -89,6 +91,7 @@ function addsHtml(P){
   if(sel.addOpen) CONFIG.cats.forEach(c => {
     h += `<div class="gt">${c.th || c.name}</div><div class="tops">` + CONFIG.items.filter(i => i.cat === c.id).map(it => {
       const t = adds.find(x => x.name === it.name);
+      if(it.out && !t) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
       return `<div class="topw ${t ? 'on over' : ''}"><button class="top" data-add="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span><small>${t ? `×${t.n} · +${t.extra}` : '+' + price}</small></button></div>`;
     }).join('') + '</div>';
   });
@@ -97,7 +100,8 @@ function addsHtml(P){
 function renderBuilder(){
   const m = curMenu(), P = priceSel(); let n = 0;
   let h = sec(++n, 'เลือกเมนู', '<div class="bases">' + CONFIG.menus.map(x =>
-    `<button class="base ${sel.menu === x.id ? 'on':''}" data-menu="${x.id}"><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>${menuPriceLabel(x)}</small></button>`).join('') + '</div>');
+    (x.out && sel.menu !== x.id ? `<button class="base out" disabled><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>หมด</small></button>`
+      : `<button class="base ${sel.menu === x.id ? 'on':''}" data-menu="${x.id}"><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>${menuPriceLabel(x)}</small></button>`)).join('') + '</div>');
   if(m){
     if(m.sizes){
       h += sec(++n, 'เลือกขนาด', '<div class="sizes">' + m.sizes.map(s =>

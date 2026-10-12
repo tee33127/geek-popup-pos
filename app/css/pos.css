@@ -217,3 +217,23 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .ptargets .opt{text-align:left;font-weight:600;font-size:15px}
 .promotag{color:var(--ok);font-weight:700}
 .promotag .ic{vertical-align:-2px}
+/* ของหมด (ตั้งค่า → สวิตช์ มี/หมด): ทั้งปุ่มเป็นสีเทาอ่อน กดไม่ได้ */
+.topw.out,.top.out,.base.out{background:#eeeef3;border-color:#e3e3ea}
+.topw.out .top,.top.out,.base.out{color:#a6a6b5;cursor:not-allowed}
+.topw.out small,.top.out small,.base.out small{color:var(--bad);font-weight:700}
+.base.out .pic{opacity:.35;filter:grayscale(1)}
+.comp.out{border-color:var(--bad);background:#fdecec}
+.outtag{color:var(--bad)}
+/* หน้าตั้งค่า: แถวละ 1 อย่าง + สวิตช์ · หมด = ทั้งแถวเทาอ่อน */
+.slist{border:2px solid var(--line);border-radius:12px;overflow:hidden}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:56px;background:#fff}
+.srow + .srow{border-top:1px solid var(--line)}
+.srow .nm{flex:1;min-width:0;font-weight:700}
+.srow .st{font-size:14px;font-weight:700;color:var(--ok);min-width:30px;text-align:right}
+.srow.out{background:#eeeef3}
+.srow.out .nm{color:#a6a6b5}
+.srow.out .st{color:var(--bad)}
+.sw{position:relative;width:60px;height:34px;border-radius:17px;background:#c9c9d6;border:0;padding:0;flex:none;transition:background .15s}
+.sw span{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.sw.on{background:var(--ok)}
+.sw.on span{left:29px}

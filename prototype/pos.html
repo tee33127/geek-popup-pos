@@ -226,6 +226,26 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .ptargets .opt{text-align:left;font-weight:600;font-size:15px}
 .promotag{color:var(--ok);font-weight:700}
 .promotag .ic{vertical-align:-2px}
+/* ของหมด (ตั้งค่า → สวิตช์ มี/หมด): ทั้งปุ่มเป็นสีเทาอ่อน กดไม่ได้ */
+.topw.out,.top.out,.base.out{background:#eeeef3;border-color:#e3e3ea}
+.topw.out .top,.top.out,.base.out{color:#a6a6b5;cursor:not-allowed}
+.topw.out small,.top.out small,.base.out small{color:var(--bad);font-weight:700}
+.base.out .pic{opacity:.35;filter:grayscale(1)}
+.comp.out{border-color:var(--bad);background:#fdecec}
+.outtag{color:var(--bad)}
+/* หน้าตั้งค่า: แถวละ 1 อย่าง + สวิตช์ · หมด = ทั้งแถวเทาอ่อน */
+.slist{border:2px solid var(--line);border-radius:12px;overflow:hidden}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:56px;background:#fff}
+.srow + .srow{border-top:1px solid var(--line)}
+.srow .nm{flex:1;min-width:0;font-weight:700}
+.srow .st{font-size:14px;font-weight:700;color:var(--ok);min-width:30px;text-align:right}
+.srow.out{background:#eeeef3}
+.srow.out .nm{color:#a6a6b5}
+.srow.out .st{color:var(--bad)}
+.sw{position:relative;width:60px;height:34px;border-radius:17px;background:#c9c9d6;border:0;padding:0;flex:none;transition:background .15s}
+.sw span{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.sw.on{background:var(--ok)}
+.sw.on span{left:29px}
 </style>
 </head>
 <body>
@@ -235,6 +255,7 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
   <span id="nextNo"></span>
   <button class="hbtn" id="btnPrinter"></button>
   <button class="hbtn" id="btnSummary">สรุปยอด</button>
+  <button class="hbtn" id="btnSettings">ตั้งค่า</button>
 </header>
 
 <main>
@@ -334,6 +355,33 @@ const CONFIG = {
   ],
 };
 /* ================================================================== */
+</script>
+<script>
+/* ===== js/settings.js ===== */
+/* ตั้งค่าเฉพาะเครื่อง (เช่นเลข PromptPay) เก็บใน localStorage ของแท็บเล็ต ไม่อยู่ในโค้ด เพราะ repo เป็น public
+   ตั้งค่าได้ที่ปุ่ม ตั้งค่า (PIN) บนแถบหัว · โหลดต่อจาก config.js ทันที (ก่อนไฟล์อื่นอ่าน CONFIG) */
+const SETTINGS_KEY = 'geek_popup_settings';
+let SETTINGS = (() => { try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; } })();
+function saveSettings(next){
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); SETTINGS = next; return true; }
+  catch(e){ console.warn('settings', e); return false; }
+}
+
+/* ของหมด: SETTINGS.out = {menus:[id], items:[name]} → ใส่ out:true ใน CONFIG ในที่เดิม (MENU / ITEM เห็นทันที)
+   ร้านแก้ได้แค่ มี/หมด ราคาแก้ในแอปไม่ได้ (Tee 2026-10-12 กลัวกดผิด) */
+function applyOut(){
+  const o = SETTINGS.out || {};
+  CONFIG.menus.forEach(m => { m.out = (o.menus || []).includes(m.id); });
+  CONFIG.items.forEach(it => { it.out = (o.items || []).includes(it.name); });
+}
+function setOut(kind, key, out){
+  const o = SETTINGS.out || {}, list = (o[kind] || []).filter(k => k !== key);
+  if(out) list.push(key);
+  const next = {...SETTINGS, out:{...o, [kind]:list}};
+  if(!saveSettings(next)) return false;
+  applyOut(); return true;
+}
+applyOut();
 </script>
 <script>
 /* ===== js/core.js ===== */
@@ -3142,17 +3190,6 @@ function qrSvg(text, size = 240){
 }
 </script>
 <script>
-/* ===== js/settings.js ===== */
-/* ตั้งค่าเฉพาะเครื่อง (เช่นเลข PromptPay) เก็บใน localStorage ของแท็บเล็ต ไม่อยู่ในโค้ด เพราะ repo เป็น public
-   ตั้งค่าได้ที่ สรุปยอด (PIN) → ตั้งค่า */
-const SETTINGS_KEY = 'geek_popup_settings';
-let SETTINGS = (() => { try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; } })();
-function saveSettings(next){
-  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)); SETTINGS = next; return true; }
-  catch(e){ console.warn('settings', e); return false; }
-}
-</script>
-<script>
 /* ===== js/promo.js ===== */
 /* โปรโมชัน: คำนวณจากรายการในตะกร้า (ฟังก์ชันล้วน ไม่แตะ DOM)
    1 บิลใช้ได้ 1 โปร · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยกท็อปปิ้ง) คิดตามปกติ โปรลดเฉพาะราคาเมนูหรือท็อปปิ้ง 1 ชิ้น
@@ -3412,6 +3449,8 @@ function greekTopsHtml(P){
     const t = P.tops.find(x => x.name === it.name), cnt = t ? t.n : 0;
     /* บรรทัดล่าง: จำนวน (×2) และเงินที่คิดเพิ่ม ไม่เขียนว่า "ฟรี" เพราะเลือกเกินโควตาแล้วจะไม่ฟรี
        ปุ่มสูงคงที่ (CSS) ไม่มีอะไรจะบอกก็ไม่ใส่บรรทัดล่าง ชื่อจึงอยู่กลางปุ่ม */
+    /* ของหมด: กดเลือกไม่ได้ (ที่เลือกไว้แล้วยังกดเอาออกได้) */
+    if(it.out && !cnt) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
     let tag = '';
     if(cnt) tag = [cnt > 1 ? '×' + cnt : '', t.extra ? '+' + t.extra : ''].filter(Boolean).join(' · ');
     else if(P.perTop) tag = '+' + P.perTop;
@@ -3438,8 +3477,8 @@ function presetHtml(m){
   const P = priceSel();
   let h = '<p class="hint" style="margin:0 0 4px">เปลี่ยนได้ในหมวดเดียวกัน · เปลี่ยนเป็นของ Extra คิดเงินเพิ่มตามราคา (แต่ไม่แนะนำให้เปลี่ยน)</p>';
   m.defaults.forEach((d, i) => {
-    const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d;
-    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
+    const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d, out = !removed && ITEM[cur].out;
+    h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''} ${out ? 'out' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${out ? '<b class="outtag">หมด · กดเปลี่ยนหรือไม่รับ</b>' : removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
          (ch || removed ? `<button class="skip" data-reset="${i}">${removed ? 'ใส่กลับ' : 'คืนค่า'}</button>` : '') +
          (!removed ? `<button class="skip" data-skip="${i}">ไม่รับ</button>` : '') +
          `<button data-swap="${i}">${sel.swapSlot === i ? 'ปิด' : 'เปลี่ยน'}</button></div>`;
@@ -3448,7 +3487,7 @@ function presetHtml(m){
       const cat = ITEM[d].cat;
       const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur);
       const cost = it => it.name !== d && it.price > 0 && !(ITEM[d].price > 0) ? it.price : 0;   // ตรงกับ priceItem
-      h += `<div class="tops swapgrid">` + (opts.map(it => `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
+      h += `<div class="tops swapgrid">` + (opts.map(it => it.out ? `<button class="top out" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button>` : `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
     }
   });
   return h + addsHtml(P) + sepHtml(P);
@@ -3464,6 +3503,7 @@ function addsHtml(P){
   if(sel.addOpen) CONFIG.cats.forEach(c => {
     h += `<div class="gt">${c.th || c.name}</div><div class="tops">` + CONFIG.items.filter(i => i.cat === c.id).map(it => {
       const t = adds.find(x => x.name === it.name);
+      if(it.out && !t) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
       return `<div class="topw ${t ? 'on over' : ''}"><button class="top" data-add="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span><small>${t ? `×${t.n} · +${t.extra}` : '+' + price}</small></button></div>`;
     }).join('') + '</div>';
   });
@@ -3472,7 +3512,8 @@ function addsHtml(P){
 function renderBuilder(){
   const m = curMenu(), P = priceSel(); let n = 0;
   let h = sec(++n, 'เลือกเมนู', '<div class="bases">' + CONFIG.menus.map(x =>
-    `<button class="base ${sel.menu === x.id ? 'on':''}" data-menu="${x.id}"><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>${menuPriceLabel(x)}</small></button>`).join('') + '</div>');
+    (x.out && sel.menu !== x.id ? `<button class="base out" disabled><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>หมด</small></button>`
+      : `<button class="base ${sel.menu === x.id ? 'on':''}" data-menu="${x.id}"><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>${menuPriceLabel(x)}</small></button>`)).join('') + '</div>');
   if(m){
     if(m.sizes){
       h += sec(++n, 'เลือกขนาด', '<div class="sizes">' + m.sizes.map(s =>
@@ -3850,7 +3891,6 @@ function renderSummary(){
     ${T.html}
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
-      <button class="ghost" id="setOpen">${icon('settings')} ตั้งค่า</button>
       <button class="pay" id="closeX">ปิด</button>
     </div>
     <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);
@@ -3911,10 +3951,41 @@ function exportCsv(){ downloadCsv(`geek-popup-sales-all-${dateKey(new Date())}.c
 </script>
 <script>
 /* ===== js/ui/settings-ui.js ===== */
-/* ---------- ตั้งค่า (เปิดจากหน้าสรุปยอด ซึ่งผ่าน PIN แล้ว) ---------- */
+/* ---------- ตั้งค่า (ปุ่มบนแถบหัว ต้องใส่ PIN): ของหมด + เลข PromptPay ---------- */
+$('btnSettings').onclick = () => askPin(openSettings);
+
+/* สวิตช์ มี/หมด · กดแล้วใช้ทันที ไม่ต้องกดบันทึก · หมด = ทั้งแถวเป็นสีเทาอ่อน */
+function stockRow(kind, key, label, out){
+  return `<div class="srow ${out ? 'out' : ''}"><span class="nm">${esc(label)}</span><span class="st">${out ? 'หมด' : 'มี'}</span>` +
+    `<button class="sw ${out ? '' : 'on'}" role="switch" aria-checked="${!out}" aria-label="${esc(label)} ${out ? 'หมด' : 'มี'}" data-stock="${kind}" data-key="${esc(key)}"><span></span></button></div>`;
+}
 function openSettings(){
-  openModal(`<h3>${icon('settings', 22)} ตั้งค่า</h3>
-    <div class="q2">เลข PromptPay ของร้าน</div>
+  const box = $('modal').querySelector('.box'), top = box && $('stockList') ? box.scrollTop : 0;
+  const pp = SETTINGS.promptpay;
+  let h = `<h3>${icon('settings', 22)} ตั้งค่า</h3><div id="stockList">
+    <div class="q2">เมนู</div><div class="slist">` + CONFIG.menus.map(m => stockRow('menus', m.id, m.name, m.out)).join('') + '</div>';
+  CONFIG.cats.forEach(c => {
+    h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
+      CONFIG.items.filter(it => it.cat === c.id).map(it => stockRow('items', it.name, it.th || it.name, it.out)).join('') + '</div>';
+  });
+  h += `</div><p class="note2">ปิดสวิตช์เมื่อของหมด ปุ่มบนหน้าขายจะเป็นสีเทาและกดไม่ได้ · มีของแล้วเปิดสวิตช์กลับ</p>
+    <div class="q2">เลข PromptPay</div>
+    <div class="slist"><div class="srow"><span class="nm">${pp ? esc(PP.format(pp)) : '<span style="color:var(--bad)">ยังไม่ได้ตั้ง</span>'}</span><button class="ghost" id="ppOpen">${pp ? 'เปลี่ยน' : 'ตั้งเลข'}</button></div></div>
+    <div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
+  openModal(h);
+  if(top) $('modal').querySelector('.box').scrollTop = top;   // กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
+}
+$('modal').addEventListener('click', e => {
+  const b = e.target.closest('[data-stock]'); if(!b) return;
+  const kind = b.dataset.stock, key = b.dataset.key;
+  const now = kind === 'menus' ? MENU[key].out : ITEM[key].out;
+  if(!setOut(kind, key, !now)){ toast('บันทึกไม่สำเร็จ', 'alert'); return; }
+  openSettings(); renderBuilder();
+});
+
+/* ---------- เลข PromptPay ---------- */
+function openPromptPay(){
+  openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
     <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
     <input class="num" id="ppIn" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="ยังไม่ได้ตั้ง" value="${esc(PP.format(SETTINGS.promptpay || ''))}">
     <div id="ppMsg" class="ppmsg"></div>
@@ -3938,7 +4009,7 @@ function settingsSave(){
   const next = {...SETTINGS}; if(id) next.promptpay = id; else delete next.promptpay;
   if(!saveSettings(next)){ toast('บันทึกไม่สำเร็จ', 'alert'); return; }
   toast(id ? 'บันทึกเลข PromptPay แล้ว' : 'ลบเลข PromptPay แล้ว', 'check');
-  renderSummary();
+  openSettings();
 }
 </script>
 <script>
@@ -3991,9 +4062,9 @@ $('modal').onclick = e => {
   else if(id === 'payOk') confirmPay();
   else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
   else if(id === 'prTest') printTest();
-  else if(id === 'setOpen') openSettings();
+  else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();
-  else if(id === 'setBack') renderSummary();
+  else if(id === 'setBack') openSettings();
   else if(id === 'prOff') disconnectPrinter();
 };
 
@@ -4001,6 +4072,7 @@ $('modal').onclick = e => {
 $('pageStyle').textContent = '@page{size:' + CONFIG.paperMm + 'mm auto;margin:0}';
 document.documentElement.style.setProperty('--paper', CONFIG.paperMm + 'mm');
 $('btnSummary').innerHTML = icon('chart', 18) + ' สรุปยอด';
+$('btnSettings').innerHTML = icon('settings', 18) + ' ตั้งค่า';
 renderBuilder(); renderCart();
 storeReady.then(updateNext);   // เลขออเดอร์ต้องรอโหลดบิลจาก IndexedDB ก่อน
 /* PWA: ใช้งานออฟไลน์ได้ (ต้องเปิดผ่าน https หรือ localhost · ต้นแบบไฟล์เดียวไม่มี manifest จึงข้าม) */

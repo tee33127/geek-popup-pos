@@ -46,9 +46,9 @@ $('modal').onclick = e => {
   else if(id === 'payOk') confirmPay();
   else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
   else if(id === 'prTest') printTest();
-  else if(id === 'setOpen') openSettings();
+  else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();
-  else if(id === 'setBack') renderSummary();
+  else if(id === 'setBack') openSettings();
   else if(id === 'prOff') disconnectPrinter();
 };
 
@@ -56,6 +56,7 @@ $('modal').onclick = e => {
 $('pageStyle').textContent = '@page{size:' + CONFIG.paperMm + 'mm auto;margin:0}';
 document.documentElement.style.setProperty('--paper', CONFIG.paperMm + 'mm');
 $('btnSummary').innerHTML = icon('chart', 18) + ' สรุปยอด';
+$('btnSettings').innerHTML = icon('settings', 18) + ' ตั้งค่า';
 renderBuilder(); renderCart();
 storeReady.then(updateNext);   // เลขออเดอร์ต้องรอโหลดบิลจาก IndexedDB ก่อน
 /* PWA: ใช้งานออฟไลน์ได้ (ต้องเปิดผ่าน https หรือ localhost · ต้นแบบไฟล์เดียวไม่มี manifest จึงข้าม) */
