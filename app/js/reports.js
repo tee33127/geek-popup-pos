@@ -44,7 +44,7 @@ function buildReport(from, to){
       const key = itemTitle(i);
       const it = R.items[key] || (R.items[key] = {menu:i.menu, name:key, qty:0, rev:0}); it.qty += i.qty; it.rev += rev;
       if(i.sizeName) grp('ขนาด', 'แก้ว', i.sizeName, i.qty, rev);
-      grp('น้ำผึ้ง', 'แก้ว', HONEY[i.honey] ? HONEY[i.honey].name : String(i.honey), i.qty, rev);
+      if(i.honey !== undefined) grp('น้ำผึ้ง', 'แก้ว', HONEY[i.honey] ? HONEY[i.honey].name : String(i.honey), i.qty, rev);
       if(i.menu === 'greek') ing('base', 'Greek Yogurt (สกู๊ป)', (parseInt(i.sizeName, 10) || 1) * i.qty);
       else ing('base', i.name + ' base (ถ้วย)', i.qty);
       i.tops.forEach(t => {
@@ -58,7 +58,7 @@ function buildReport(from, to){
           grp('ท็อปปิ้งที่คิดเงินเพิ่ม', 'ชิ้น', isExtra ? topName(t.name) : `${topName(t.name)} (เกิน ${CONFIG.freeToppingCount} ชิ้น)`, pcs, t.extra * i.qty);
         }
       });
-      if(i.honey !== 'none') ing('honey', 'น้ำผึ้ง · ' + (HONEY[i.honey] ? HONEY[i.honey].name : i.honey), i.qty);
+      if(i.honey !== undefined && i.honey !== 'none') ing('honey', 'น้ำผึ้ง · ' + (HONEY[i.honey] ? HONEY[i.honey].name : i.honey), i.qty);
     });
   });
   return R;

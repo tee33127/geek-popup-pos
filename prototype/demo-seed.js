@@ -29,7 +29,7 @@ function seedDemo(force){
         }
         sel.honey = pick(['normal','normal','normal','lots','little','side','none']);
         const P = priceSel();
-        const it = {menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, honey:sel.honey, note:'', unit:P.unit, qty:1};
+        const it = {menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, ...(!mm.noHoney && {honey:sel.honey}), note:'', unit:P.unit, qty:1};
         if(mm.sizes && !P.noTop && P.freeUsed < CONFIG.freeToppingCount) it.fewTops = P.freeUsed;   // เหมือนพนักงานกดยืนยัน "ลูกค้าขอแค่ N อย่าง"
         items.push(it);
       }

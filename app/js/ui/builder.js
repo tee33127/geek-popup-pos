@@ -78,7 +78,7 @@ function renderBuilder(){
     } else {
       h += sec(++n, 'ท็อปปิ้งที่มากับเมนู', presetHtml(m));
     }
-    h += sec(++n, 'น้ำผึ้ง <small>(ฟรี)</small>', '<div class="honey">' + CONFIG.honey.map(x =>
+    if(!m.noHoney) h += sec(++n, 'น้ำผึ้ง <small>(ฟรี)</small>', '<div class="honey">' + CONFIG.honey.map(x =>
       `<button class="hon ${sel.honey === x.id ? 'on':''}" data-honey="${x.id}">${esc(x.name)}</button>`).join('') + '</div>');
     h += sec(++n, 'หมายเหตุ <small>(ถ้ามี)</small>', `<input class="note" id="note" placeholder="เช่น แพ้ถั่ว / ไม่เอาถ้วยใหญ่" value="${esc(sel.note)}">`);
   }
@@ -109,7 +109,7 @@ $('builder').addEventListener('input', e => { if(e.target.id === 'note') sel.not
 function addSel(fewTops){
   const m = curMenu(); if(!m) return;
   const P = priceSel();
-  const item = {menu:m.id, name:m.name, sizeName:P.sizeName, tops:P.tops, honey:sel.honey, note:sel.note.trim(), unit:P.unit, qty:1};
+  const item = {menu:m.id, name:m.name, sizeName:P.sizeName, tops:P.tops, ...(!m.noHoney && {honey:sel.honey}), note:sel.note.trim(), unit:P.unit, qty:1};
   if(fewTops !== undefined) item.fewTops = fewTops;
   item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from]), item.honey, item.note]);
   const found = cart.find(i => i.key === item.key);

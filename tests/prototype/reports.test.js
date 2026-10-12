@@ -12,7 +12,8 @@ const T = (h, m) => { const x = new Date(); x.setHours(h, m, 0, 0); return x.toI
 const mk = (id, no, date, dining, method, items, total, extra={}) => ({id, no, date, ts:T(12, no), dining, method, items, total, received:total, change:0, void:false, ...extra});
 const greek = {menu:'greek', name:'Greek Yogurt', sizeName:'2 สกู๊ป', tops:[{name:'Banana',n:3,extra:0,from:null},{name:'Mango',n:1,extra:15,from:null},{name:'Granola',n:1,extra:10,from:null}], honey:'normal', note:'', unit:154, qty:1};
 const acai = {menu:'acai', name:'Acai', sizeName:'', tops:[{name:'Mango',n:1,extra:0,from:'Banana'},{name:'Strawberries',n:1,extra:0,from:null,removed:true},{name:'Blueberries',n:1,extra:0,from:null},{name:'Granola',n:1,extra:0,from:null},{name:'Flaxseeds',n:1,extra:0,from:null}], honey:'none', note:'', unit:189, qty:2};
-const bch = {menu:'banana', name:'Banana Choco', sizeName:'', tops:['Banana','Cacao peanut butter','Cashew','Chocolate Chips'].map(n => ({name:n,n:1,extra:0,from:null})), honey:'little', note:'', unit:149, qty:1};
+const bch = {menu:'banana', name:'Banana Choco', sizeName:'', tops:['Banana','Cacao peanut butter','Cashew','Chocolate Chips'].map(n => ({name:n,n:1,extra:0,from:null})), note:'', unit:149, qty:1};   // Banana Choco ไม่มี honey
+const bchOld = {...bch, honey:'little'};   // บิลเก่าก่อน 2026-10-12 ที่ยังมี honey
 const sales = [
   mk(1, 1, today, 'dinein', 'cash', [greek], 154),
   mk(2, 2, today, 'takeaway', 'promptpay', [acai], 378),
@@ -45,7 +46,8 @@ const has = (a, b, c) => r.some(x => x[0] === a && x[1] === b && (c === undefine
 eq('size option', has('2 สกู๊ป','1','฿154'), true);
 eq('honey normal', has('ราดปกติ','1','฿154'), true);
 eq('honey none', has('ไม่รับ','2','฿378'), true);
-eq('honey little', has('ราดนิดหน่อย','1','฿149'), true);
+eq('Banana Choco not in honey group', has('ราดนิดหน่อย','1','฿149'), false);
+eq('honey rows only Greek + Acai', r.filter(x => ['ราดปกติ','ไม่รับ','ราดนิดหน่อย','ราดเยอะ','แยก'].includes(x[0])).reduce((a, x) => a + Number(x[1]), 0), 3);
 eq('dining dinein', has('กินเลย','2','฿303'), true);
 eq('dining takeaway', has('กลับบ้าน','1','฿378'), true);
 eq('extra Granola', has('กราโนล่า','1','฿10'), true);
@@ -63,7 +65,19 @@ eq('Banana (3 + 1)', ing('กล้วย'), '4'); eq('Mango (1 + 2 swapped)', i
 eq('Granola (1 + 2)', ing('กราโนล่า'), '3'); eq('Blueberries', ing('บลูเบอร์รี่'), '2'); eq('Flaxseeds', ing('เมล็ดแฟลกซ์'), '2');
 eq('removed Strawberries not counted', ing('สตรอว์เบอร์รี่'), undefined);
 eq('Cashew / Choc chips / Cacao PB', [ing('เม็ดมะม่วงหิมพานต์'), ing('ช็อกโกแลตชิพ'), ing('เนยถั่วคาเคา')], ['1','1','1']);
-eq('honey servings (none excluded)', [ing('น้ำผึ้ง · ราดปกติ'), ing('น้ำผึ้ง · ราดนิดหน่อย'), ing('น้ำผึ้ง · ไม่รับ')], ['1','1',undefined]);
+eq('honey servings (none excluded)', [ing('น้ำผึ้ง · ราดปกติ'), ing('น้ำผึ้ง · ราดนิดหน่อย'), ing('น้ำผึ้ง · ไม่รับ')], ['1',undefined,undefined]);
+const bchSale = {no:9, dining:'dinein', ts:new Date().toISOString(), method:'cash', total:149, received:149, change:0, items:[bch]};
+eq('kitchen ticket (print + USB): Banana no honey line', [ev(`kitchenHtml(${JSON.stringify(bchSale)})`).includes('น้ำผึ้ง'), ev(`kitchenBlocks(${JSON.stringify(bchSale)})`).some(b => String(b.text).includes('น้ำผึ้ง'))], [false, false]);
+const acaiSale = {...bchSale, total:378, items:[acai]};
+const kTxt = sale => ev(`kitchenBlocks(${JSON.stringify(sale)})`).map(b => b.text || '').join('\n');
+const rTxt = sale => ev(`receiptBlocks(${JSON.stringify(sale)})`).map(b => b.text || '').join('\n');
+eq('print Acai: only changed slots (kitchen USB)', [kTxt(acaiSale).includes('มะม่วง (เปลี่ยนจาก กล้วย)'), kTxt(acaiSale).includes('ไม่รับ สตรอว์เบอร์รี่'), kTxt(acaiSale).includes('บลูเบอร์รี่'), kTxt(acaiSale).includes('กราโนล่า')], [true, true, false, false]);
+eq('print Acai: only changed slots (kitchen HTML)', [ev(`kitchenHtml(${JSON.stringify(acaiSale)})`).includes('เปลี่ยนจาก'), ev(`kitchenHtml(${JSON.stringify(acaiSale)})`).includes('บลูเบอร์รี่')], [true, false]);
+eq('print Acai: receipt only changed slots', [rTxt(acaiSale).includes('มะม่วง (แทน กล้วย), ไม่รับ สตรอว์เบอร์รี่'), rTxt(acaiSale).includes('เมล็ดแฟลกซ์')], [true, false]);
+eq('print Banana unchanged: no ingredient lines', [kTxt(bchSale).includes('กล้วย'), rTxt(bchSale).includes('กล้วย'), ev(`receiptHtml(${JSON.stringify(bchSale)})`).includes('เนยถั่วคาเคา')], [false, false, false]);
+eq('print Greek: all toppings', kTxt({...bchSale, items:[greek]}).includes('กล้วย ×3'), true);
+eq('screen/CSV lines still full', ev(`itemLines(${JSON.stringify(acai)})`)[0].includes('บลูเบอร์รี่'), true);
+eq('item lines: new Banana no honey, old Banana bill keeps honey', [ev(`itemLines(${JSON.stringify(bch)})`).some(l => l.startsWith('น้ำผึ้ง')), ev(`itemLines(${JSON.stringify(bchOld)})`).includes('น้ำผึ้ง: ราดนิดหน่อย')], [false, true]);
 
 // ช่วงวันที่
 click('[data-range="yday"]'); eq('yesterday KPI', stat(), ['฿298','1','2','฿298']);

@@ -53,7 +53,7 @@ const CONFIG = {
       ]},
     {id:'acai', name:'Acai', img:'img/acai.jpg', price:189,
       defaults:['Banana','Strawberries','Blueberries','Granola','Flaxseeds']},
-    {id:'banana', name:'Banana Choco', img:'img/banana-choco.jpg', price:149,
+    {id:'banana', name:'Banana Choco', img:'img/banana-choco.jpg', price:149, noHoney:true,   // ไม่มีตัวเลือกน้ำผึ้ง บิลไม่เก็บ honey
       defaults:['Banana','Cacao peanut butter','Cashew','Chocolate Chips']},
   ],
 };

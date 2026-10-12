@@ -17,11 +17,13 @@ const addDays = (k, n) => { const [y, m, d] = k.split('-').map(Number); return d
 
 const itemTitle = i => i.name + (i.sizeName ? ' · ' + i.sizeName : '');
 const topLabel = t => t.removed ? 'ไม่รับ ' + topName(t.name) : topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.from ? ` (แทน ${topName(t.from)})` : '') + (t.extra ? ` (+${t.extra})` : '');
-function itemLines(i){
-  const L = [];
-  if(i.tops.length) L.push(i.tops.map(topLabel).join(', '));
+/* ตอนพิมพ์: เมนูที่มีท็อปปิ้งตามสูตร (Acai, Banana Choco) แสดงเฉพาะช่องที่เปลี่ยนหรือไม่รับ · Greek แสดงทั้งหมด */
+const printTops = i => MENU[i.menu] && MENU[i.menu].defaults ? i.tops.filter(t => t.from || t.removed) : i.tops;
+function itemLines(i, forPrint){
+  const L = [], tops = forPrint ? printTops(i) : i.tops;
+  if(tops.length) L.push(tops.map(topLabel).join(', '));
   else if(i.menu === 'greek') L.push('ไม่มีท็อปปิ้ง');
-  L.push('น้ำผึ้ง: ' + HONEY[i.honey].name);
+  if(i.honey !== undefined) L.push('น้ำผึ้ง: ' + HONEY[i.honey].name);   // Banana Choco ไม่มีน้ำผึ้ง
   if(i.note) L.push('หมายเหตุ: ' + i.note);
   return L;
 }

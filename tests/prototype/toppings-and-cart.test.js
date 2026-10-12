@@ -87,6 +87,7 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   click('[data-menu="greek"]'); // switch away (discard)
   // ---- 3) Banana Choco: เปลี่ยนเป็นของ Extra ได้ คิดเงินเพิ่ม ----
   click('[data-menu="banana"]');
+  eq('banana choco: no honey option', [$$('[data-honey]').length, $('#builder').textContent.includes('น้ำผึ้ง')], [0, false]);
   click('[data-swap="0"]'); eq('banana fruit options incl. Extra', $$('[data-choose]').map(e => e.dataset.choose).sort(), ['Blueberries','Kiwi','Mango','Strawberries']);
   eq('Extra option shows +15, free option shows nothing', [$('[data-choose="Strawberries"] small').textContent, $('[data-choose="Kiwi"] small')], ['+15', null]);
   click('[data-choose="Strawberries"]');
@@ -100,6 +101,8 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   click('[data-swap="2"]');
   click('#btnAdd');
   eq('banana choco added 149', ev('cart[cart.length-1].unit'), 149);
+  eq('banana choco item has no honey', ev('"honey" in cart[cart.length-1]'), false);
+  click('[data-menu="acai"]'); eq('acai still has honey option', $$('[data-honey]').length, 5); click('[data-menu="greek"]');
   // ---- 4) ล้างออเดอร์ ----
   eq('clear enabled with items', $('#btnClear').disabled, false);
   click('#btnClear'); eq('confirm modal shown (no native dialog)', [$('#cfYes') !== null, nativeCalls], [true, 0]);

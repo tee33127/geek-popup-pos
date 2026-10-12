@@ -40,7 +40,7 @@ function confirmPay(){
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
   const sale = {
     id: now.getTime(), no, date: biz, ts: now.toISOString(), dining: pay.dining,
-    items: cart.map(i => ({menu:i.menu, name:i.name, sizeName:i.sizeName, tops:i.tops, honey:i.honey, note:i.note, unit:i.unit, qty:i.qty, ...(i.fewTops !== undefined && {fewTops:i.fewTops})})),
+    items: cart.map(i => ({menu:i.menu, name:i.name, sizeName:i.sizeName, tops:i.tops, ...(i.honey !== undefined && {honey:i.honey}), note:i.note, unit:i.unit, qty:i.qty, ...(i.fewTops !== undefined && {fewTops:i.fewTops})})),
     total, method: pay.method, received: pay.method === 'cash' ? pay.received : total,
     change: pay.method === 'cash' ? pay.received - total : 0, void:false
   };
