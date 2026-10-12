@@ -23,14 +23,16 @@ function seedDemo(force){
         resetSel(); pickMenu(id);
         if(id === 'greek'){
           sel.size = pick(['g1n','g1','g1','g2','g2']);
-          if(sel.size !== 'g1n') for(let t = 1 + Math.floor(rnd() * 4); t > 0; t--) sel.picks.push(rnd() < .2 ? pick(extraNames) : (rnd() < .3 && sel.picks.length ? sel.picks[0] : pick(freeNames)));
+          if(sel.size === 'g1n'){ if(rnd() < .4) sel.picks.push(pick(freeNames)); }   // แก้ว 69: ส่วนใหญ่ไม่ใส่ บางแก้วใส่ 1 ชิ้น (+15)
+          else for(let t = 1 + Math.floor(rnd() * 4); t > 0; t--) sel.picks.push(rnd() < .2 ? pick(extraNames) : (rnd() < .3 && sel.picks.length ? sel.picks[0] : pick(freeNames)));
         } else {
           mm.defaults.forEach((dd, i) => { const x = rnd(); if(x < .08) sel.comps[i] = null; else if(x < .18){ const c = pick(swapPool[ITEM[dd].cat]); if(!sel.comps.includes(c)) sel.comps[i] = c; } });
         }
+        sel.sep = rnd() < .12;   // แยกท็อปปิ้ง +5 บางแก้ว
         sel.honey = pick(['normal','normal','normal','lots','little','side','none']);
         const P = priceSel();
-        const it = {menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, ...(!mm.noHoney && {honey:sel.honey}), note:'', unit:P.unit, qty:1};
-        if(mm.sizes && !P.noTop && P.freeUsed < CONFIG.freeToppingCount) it.fewTops = P.freeUsed;   // เหมือนพนักงานกดยืนยัน "ลูกค้าขอแค่ N อย่าง"
+        const it = {menu:mm.id, name:mm.name, sizeName:P.sizeName, tops:P.tops, ...(!mm.noHoney && {honey:sel.honey}), note:'', unit:P.unit, qty:1, ...(P.sep && {sep:P.sep})};
+        if(mm.sizes && !P.noTop && !P.perTop && P.freeUsed < CONFIG.freeToppingCount) it.fewTops = P.freeUsed;   // เหมือนพนักงานกดยืนยัน "ลูกค้าขอแค่ N อย่าง"
         items.push(it);
       }
       resetSel();

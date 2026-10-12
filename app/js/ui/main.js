@@ -31,6 +31,7 @@ $('modal').onclick = e => {
   else if(id === 'cfNo'){ const cb = confirmNo; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
   else if(id === 'pinOk') checkPin();
   else if(id === 'fewBack' || id === 'fewOk' || id === 'fewPlain') fewTopsAnswer(id);
+  else if(id === 'cheapSwitch' || id === 'cheapKeep') cheaperAnswer(id);
   else if(id === 'csvTab'){ if(repCsv) downloadCsv(repCsv.name, repCsv.rows, true); }
   else if(id === 'csvDl') csvDownload();
   else if(id === 'csvShare') csvShare();

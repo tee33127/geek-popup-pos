@@ -39,11 +39,12 @@ function buildReport(from, to){
     sale.items.forEach(i => {
       const rev = i.unit * i.qty; R.cups += i.qty;
       /* Greek ที่มีโควตาท็อปปิ้งฟรี · fewTops = ลูกค้าขอน้อยกว่าโควตา (ไว้เทียบสต็อก) */
-      if(i.menu === 'greek' && !String(i.sizeName).includes('ไม่มีท็อปปิ้ง')) R.topCups += i.qty;
+      if(i.menu === 'greek' && !noFreeQuota(i)) R.topCups += i.qty;
       if(i.fewTops !== undefined){ R.fewCups += i.qty; grp('ท็อปปิ้งฟรีไม่ครบ ' + CONFIG.freeToppingCount + ' อย่าง', 'แก้ว', i.fewTops ? `เลือก ${i.fewTops} อย่าง` : 'ไม่เอาท็อปปิ้งฟรี', i.qty, rev); }
       const key = itemTitle(i);
       const it = R.items[key] || (R.items[key] = {menu:i.menu, name:key, qty:0, rev:0}); it.qty += i.qty; it.rev += rev;
       if(i.sizeName) grp('ขนาด', 'แก้ว', i.sizeName, i.qty, rev);
+      if(i.sep) grp('แยกท็อปปิ้ง', 'แก้ว', i.name, i.qty, i.sep * i.qty);
       if(i.honey !== undefined) grp('น้ำผึ้ง', 'แก้ว', HONEY[i.honey] ? HONEY[i.honey].name : String(i.honey), i.qty, rev);
       if(i.menu === 'greek') ing('base', 'Greek Yogurt (สกู๊ป)', (parseInt(i.sizeName, 10) || 1) * i.qty);
       else ing('base', i.name + ' base (ถ้วย)', i.qty);
@@ -53,9 +54,9 @@ function buildReport(from, to){
         if(t.from) grp('การปรับท็อปปิ้ง', 'แก้ว', `${i.name}: เปลี่ยน ${topName(t.from)} → ${topName(t.name)}`, i.qty, 0);
         ing(ITEM[t.name] ? ITEM[t.name].cat : 'other', topName(t.name), n);
         if(t.extra){
-          const isExtra = ITEM[t.name] && ITEM[t.name].price > 0;
-          const pcs = isExtra ? n : Math.round(t.extra / CONFIG.overToppingPrice) * i.qty;
-          grp('ท็อปปิ้งที่คิดเงินเพิ่ม', 'ชิ้น', isExtra ? topName(t.name) : `${topName(t.name)} (เกิน ${CONFIG.freeToppingCount} ชิ้น)`, pcs, t.extra * i.qty);
+          const isExtra = ITEM[t.name] && ITEM[t.name].price > 0, perTop = i.menu === 'greek' && noFreeQuota(i);
+          const pcs = isExtra || perTop ? n : Math.round(t.extra / CONFIG.overToppingPrice) * i.qty;
+          grp('ท็อปปิ้งที่คิดเงินเพิ่ม', 'ชิ้น', perTop ? `${topName(t.name)} (แก้วคิดทีละชิ้น)` : isExtra ? topName(t.name) : `${topName(t.name)} (เกิน ${CONFIG.freeToppingCount} ชิ้น)`, pcs, t.extra * i.qty);
         }
       });
       if(i.honey !== undefined && i.honey !== 'none') ing('honey', 'น้ำผึ้ง · ' + (HONEY[i.honey] ? HONEY[i.honey].name : i.honey), i.qty);

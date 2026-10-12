@@ -9,15 +9,22 @@ const greek = (size, picks) => price('greek', {size, picks, comps:[]});
 
 eq('no DOM in context', ev('typeof document'), 'undefined');
 eq('no menu → null', ev('priceItem(null, {})'), null);
-eq('Greek 1 สกู๊ป ไม่มีท็อปปิ้ง', greek('g1n', ['Banana']).unit, 69);
-eq('Greek g1n ignores picks', greek('g1n', ['Banana']).tops, []);
+// ไซส์ 69: ทุกท็อปปิ้งชิ้นละ 15 (รวม Extra) ไม่มีโควตาฟรี (Tee 2026-10-12)
+eq('Greek 69 no toppings', greek('g1n', []).unit, 69);
+eq('Greek 69 + 1 free-group topping = 84', greek('g1n', ['Banana']).unit, 84);
+eq('Greek 69 + Granola = 84 (not 79)', greek('g1n', ['Granola']).unit, 84);
+eq('Greek 69 + Strawberries = 84', greek('g1n', ['Strawberries']).unit, 84);
+eq('Greek 69 + Banana ×2 + Mango = 114', greek('g1n', ['Banana', 'Banana', 'Mango']).unit, 114);
+eq('Greek 69 tops carry +15 each, no free quota', [greek('g1n', ['Banana', 'Banana', 'Granola']).tops, greek('g1n', ['Banana']).freeUsed, greek('g1n', []).perTop],
+  [[{name:'Banana', n:2, extra:30, from:null}, {name:'Granola', n:1, extra:15, from:null}], 0, 15]);
 eq('Greek 1 สกู๊ป + 3 free', greek('g1', ['Banana', 'Banana', 'Banana']).unit, 89);
 eq('Greek 4th free topping +15', greek('g1', ['Banana', 'Banana', 'Banana', 'Banana']).unit, 104);
 eq('Greek extras do not use free quota', greek('g2', ['Granola', 'Mango', 'Kiwi', 'Chia']).unit, 129 + 10);
 eq('Greek extras + over quota', greek('g2', ['Banana', 'Mango', 'Kiwi', 'Chia', 'Strawberries']).unit, 129 + 15 + 15);
 eq('Greek grouped tops (ชิ้นที่ 4 ตามลำดับที่กด = Kiwi โดน +15)', greek('g1', ['Banana', 'Mango', 'Banana', 'Kiwi']).tops,
   [{name:'Banana', n:2, extra:0, from:null}, {name:'Mango', n:1, extra:0, from:null}, {name:'Kiwi', n:1, extra:15, from:null}]);
-eq('Greek sizeName', [greek('g1n', []).sizeName, greek('g2', []).sizeName], ['1 สกู๊ป · ไม่มีท็อปปิ้ง', '2 สกู๊ป']);
+eq('Greek sizeName', [greek('g1n', []).sizeName, greek('g2', []).sizeName], ['1 สกู๊ป · ท็อปปิ้งชิ้นละ 15', '2 สกู๊ป']);
+eq('noFreeQuota: new + old 69 names', ev(`[noFreeQuota({sizeName:'1 สกู๊ป · ท็อปปิ้งชิ้นละ 15'}), noFreeQuota({sizeName:'1 สกู๊ป · ไม่มีท็อปปิ้ง'}), noFreeQuota({sizeName:'1 สกู๊ป'}), noFreeQuota({sizeName:''})]`), [true, true, false, false]);
 const acai = price('acai', {comps:['Mango', null, 'Blueberries', 'Granola', 'Flaxseeds']});
 eq('Acai fixed price', acai.unit, 189);
 eq('Acai swap + removed', acai.tops.slice(0, 2), [{name:'Mango', n:1, extra:0, from:'Banana'}, {name:'Strawberries', n:1, extra:0, from:null, removed:true}]);

@@ -8,7 +8,8 @@ const CONFIG = {
   autoPrint: true,                // พิมพ์ใบเสร็จ+ตั๋วครัวอัตโนมัติหลังชำระเงินทุกบิล (หน้าสำเร็จไม่มีปุ่มพิมพ์ มีแค่ลิงก์พิมพ์ซ้ำ)
   freeToppingCount: 3,            // Greek: ท็อปปิ้งฟรีกี่อย่าง (นับเฉพาะรายการในกลุ่มฟรี)
   overToppingPrice: 15,           // Greek: ท็อปปิ้งฟรีอย่างที่ 4 ขึ้นไป คิดอย่างละกี่บาท
-  honeyDefault: 'normal',
+  honeyDefault: null,             // ไม่เลือกไว้ก่อน พนักงานต้องเลือกน้ำผึ้งเองทุกแก้ว (Tee 2026-10-12)
+  separateToppingPrice: 5,        // แยกท็อปปิ้ง (ใส่ถ้วยแยก) คิดเพิ่มต่อแก้ว ทุกเมนู · น้ำผึ้งแยกฟรี
   honey: [
     {id:'none',   name:'ไม่รับ'},
     {id:'little', name:'ราดนิดหน่อย'},
@@ -47,7 +48,7 @@ const CONFIG = {
   menus: [
     {id:'greek', name:'Greek Yogurt', img:'img/greek-yogurt.jpg',
       sizes:[
-        {id:'g1n', name:'1 สกู๊ป', sub:'ไม่มีท็อปปิ้ง',       price:69,  noTop:true},
+        {id:'g1n', name:'1 สกู๊ป', sub:'ท็อปปิ้งชิ้นละ 15',   price:69,  perTop:15},   // ทุกท็อปปิ้ง (รวม Extra) ชิ้นละ 15 ไม่มีโควตาฟรี
         {id:'g1',  name:'1 สกู๊ป', sub:'ท็อปปิ้งฟรี 3 อย่าง', price:89},
         {id:'g2',  name:'2 สกู๊ป', sub:'ท็อปปิ้งฟรี 3 อย่าง', price:129},
       ]},

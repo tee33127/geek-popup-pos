@@ -190,3 +190,12 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .ppmsg .ic{vertical-align:-3px}
 .ppwarn{background:#fff4e5;color:#8a4b00;border-radius:12px;padding:10px 12px;margin:12px 0 0;font-size:15px}
 .ppwarn .ic{vertical-align:-4px}
+/* ปุ่มแยกท็อปปิ้ง: ท้ายขั้นท็อปปิ้ง เด่นพอให้พนักงานเห็น */
+.sep{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;margin:14px 0 6px;padding:10px 16px;border:3px dashed var(--orange);border-radius:14px;background:#fff;font-weight:700;font-size:18px;text-align:left}
+.sep small{display:block;font-weight:400;font-size:13px;color:var(--mute)}
+.sep b{margin-left:auto;color:#a35400;font-size:18px}
+.sepbox{width:28px;height:28px;flex:none;border:3px solid var(--orange);border-radius:8px;display:grid;place-items:center;background:#fff;color:var(--blue)}
+.sep.on{background:var(--orange);border-style:solid;color:var(--blue)}
+.sep.on small,.sep.on b{color:var(--blue)}
+.sep.on .sepbox{border-color:#fff}
+.cnt.need{background:#fde8e8;color:var(--bad);font-weight:700}

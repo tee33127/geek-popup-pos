@@ -3,7 +3,7 @@
    - ไฟล์ใน app/ เปลี่ยนเมื่อไร VERSION เปลี่ยน → เบราว์เซอร์โหลดชุดใหม่เบื้องหลังตอนออนไลน์
      หน้าที่เปิดอยู่ใช้ชุดเดิมต่อจนกว่าจะปิดแล้วเปิดใหม่ (ไม่สลับกลางการขาย)
    - ข้อมูลยอดขายอยู่ใน IndexedDB ไม่เกี่ยวกับ cache นี้ อัปเดตแอปแล้วข้อมูลไม่หาย */
-const VERSION = 'e30a25474d3d';
+const VERSION = '268614c0803c';
 const FILES = ["./","css/pos.css","icons/icon-192.png","icons/icon-512.png","img/acai.jpg","img/banana-choco.jpg","img/greek-yogurt.jpg","img/promptpay.png","img/thai-chuay-thai.png","index.html","js/config.js","js/core.js","js/icons.js","js/pricing.js","js/printer.js","js/promptpay.js","js/reports.js","js/settings.js","js/store.js","js/ui/builder.js","js/ui/cart.js","js/ui/main.js","js/ui/modal.js","js/ui/pay.js","js/ui/print.js","js/ui/settings-ui.js","js/ui/summary.js","js/vendor/qrcode.js","manifest.webmanifest"];
 const CACHE = 'geek-pos-' + VERSION;
 

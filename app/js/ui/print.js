@@ -15,7 +15,7 @@ function receiptHtml(s){
 }
 function kitchenHtml(s){
   const items = s.items.map(i => {
-    let l = '';
+    let l = i.sep ? '<div class="kl"><b>** แยกท็อปปิ้ง ใส่ถ้วยแยก **</b></div>' : '';
     if(i.tops.length) printTops(i).forEach(t => { l += t.removed ? `<div class="kl"><b>- ไม่รับ ${esc(topName(t.name))}</b></div>` : `<div class="kl">- ${esc(topName(t.name))}${t.n > 1 ? ` <b>×${t.n}</b>` : ''}${t.from ? ` <b>(เปลี่ยนจาก ${esc(topName(t.from))})</b>` : ''}${t.extra ? ` (+${t.extra})` : ''}</div>`; });
     else if(i.menu === 'greek') l += '<div class="kl">- ไม่มีท็อปปิ้ง</div>';
     if(i.fewTops !== undefined) l += `<div class="kl"><b>** ${i.fewTops ? `ลูกค้าเลือก ${i.fewTops} อย่าง` : 'ลูกค้าไม่เอาท็อปปิ้งฟรี'} · ตักปริมาณปกติ **</b></div>`;
@@ -51,6 +51,7 @@ function kitchenBlocks(s){
   s.items.forEach((i, k) => {
     if(k) b.push({gap:8});
     b.push({text:`${i.qty} × ${itemTitle(i)}`, size:34, bold:true});
+    if(i.sep) b.push({text:'  ** แยกท็อปปิ้ง ใส่ถ้วยแยก **', bold:true});
     if(i.tops.length) printTops(i).forEach(t => b.push(t.removed ? {text:`  - ไม่รับ ${topName(t.name)}`, bold:true}
       : {text:`  - ${topName(t.name)}${t.n > 1 ? ` ×${t.n}` : ''}${t.from ? ` (เปลี่ยนจาก ${topName(t.from)})` : ''}${t.extra ? ` (+${t.extra})` : ''}`, bold:t.n > 1 || !!t.from}));
     else if(i.menu === 'greek') b.push({text:'  - ไม่มีท็อปปิ้ง'});

@@ -19,7 +19,7 @@ for(const t of ['pay','opts','ingr','bills']){ $(`[data-tab="${t}"]`).click(); p
 $('[data-range="7d"]').click(); console.log('   7 วัน KPI:', kpi());
 if(block) console.log('   banner:', !!d.body.firstElementChild.textContent.includes('ไม่ให้บันทึกข้อมูลถาวร'));
 // ขายใหม่ 1 บิลแล้วเปิดสรุปอีกครั้ง → ต้องเห็นบิลนี้
-$('#closeX').click(); $('[data-menu="acai"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); $('#payOk').click();
+$('#closeX').click(); $('[data-menu="acai"]').click(); $('[data-honey="normal"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); $('#payOk').click();
 setTimeout(() => {
   $('#nextOrder').click(); $('#btnSummary').click(); $('#pinIn').value = '1234'; $('#pinOk').click();
   console.log('   after new sale:', d.querySelector('.note2 b').textContent, '·', kpi());

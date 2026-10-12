@@ -94,5 +94,13 @@ click('[data-tab="ingr"]'); click('#csvTab'); click('#csvBack'); eq('ingredient 
 // empty range
 $('#repFrom').value = '2001-01-01'; $('#repFrom').dispatchEvent(new w.Event('change')); $('#repTo').value = '2001-01-02'; $('#repTo').dispatchEvent(new w.Event('change'));
 eq('empty range shows message', [$('#modal').textContent.includes('ยังไม่มีข้อมูลในช่วงนี้'), stat()], [true, ['฿0','0','0','–']]);
+// แยกท็อปปิ้ง: รายงานกลุ่ม "แยกท็อปปิ้ง" นับแก้ว + เงินค่าแยก · ตั๋วครัว/ใบเสร็จมีบรรทัดแยก (ใช้วันห่างไกลไม่ให้กระทบตัวเลขข้างบน)
+const sepAcai = {...acai, unit:194, sep:5, qty:2};
+ev(`saveSales(loadSales().concat([${JSON.stringify(mk(90, 1, '2030-01-01', 'dinein', 'cash', [sepAcai, bch], 537))}]))`);
+eq('report: separate-topping group', ev(`JSON.stringify(buildReport('2030-01-01', '2030-01-01').groups['แยกท็อปปิ้ง'])`), JSON.stringify({unit:'แก้ว', rows:{'Acai':{qty:2, rev:10}}}));
+const sepSale = {...bchSale, items:[sepAcai]};
+eq('kitchen ticket shows separate line (HTML + USB)', [ev(`kitchenHtml(${JSON.stringify(sepSale)})`).includes('แยกท็อปปิ้ง ใส่ถ้วยแยก'), kTxt(sepSale).includes('แยกท็อปปิ้ง ใส่ถ้วยแยก')], [true, true]);
+eq('receipt shows separate charge', rTxt(sepSale).includes('แยกท็อปปิ้ง (+5)'), true);
+eq('no separate line when not chosen', kTxt(bchSale).includes('แยกท็อปปิ้ง'), false);
 eq('no runtime errors', errors, []);
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);

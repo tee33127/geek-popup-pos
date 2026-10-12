@@ -23,6 +23,7 @@ function itemLines(i, forPrint){
   const L = [], tops = forPrint ? printTops(i) : i.tops;
   if(tops.length) L.push(tops.map(topLabel).join(', '));
   else if(i.menu === 'greek') L.push('ไม่มีท็อปปิ้ง');
+  if(i.sep) L.push(`แยกท็อปปิ้ง (+${i.sep})`);   // sep = เงินที่คิดตอนขาย
   if(i.honey !== undefined) L.push('น้ำผึ้ง: ' + HONEY[i.honey].name);   // Banana Choco ไม่มีน้ำผึ้ง
   if(i.note) L.push('หมายเหตุ: ' + i.note);
   return L;
