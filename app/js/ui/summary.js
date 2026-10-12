@@ -1,5 +1,9 @@
-/* ---------- Summary (PIN) ---------- */
-$('btnSummary').onclick = () => askPin(() => { const r = defaultRound(); REP.from = REP.to = r.date; REP.fb = r.fallback; REP.tab = 'items'; renderSummary(); });
+/* ---------- Summary · เจ้าของดูได้ทุกช่วง · พนักงานดูได้เฉพาะรอบขายวันนี้ ---------- */
+$('btnSummary').onclick = () => {
+  if(!needUser()) return;
+  const r = can('pastReports') ? defaultRound() : {date:bizDate(new Date()), fallback:false};
+  REP.from = REP.to = r.date; REP.fb = r.fallback; REP.tab = 'items'; renderSummary();
+};
 
 let repCsv = null;
 
@@ -83,30 +87,52 @@ function tabBills(R){
   const multi = REP.from !== REP.to;
   const rows = list.map(x => {
     const t = new Date(x.ts);
-    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small></td>
+    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small>${x.staff ? `<br><small>${icon('user', 13)} ${esc(x.staff)}</small>` : ''}</td>
       <td>${x.items.map(i => `${esc(itemTitle(i))} ×${i.qty}`).join('<br>')}<br><small>${esc(DINE[x.dining].name)}</small></td>
       <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small>${x.promo ? `<br><small class="promotag">${icon('tag', 14)} ${esc(x.promo.name)} -${baht(x.promo.discount)}</small>` : ''}</td>
       <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">${icon('undo', 16)} นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
   }).join('');
   return {
     html: list.length ? `<table><tr><th>บิล</th><th>รายการ</th><th>ยอด</th><th></th></tr>${rows}</table>` : EMPTY,
-    csv: billsCsvRows(list), extra: `<button class="ghost" id="csvAll">${icon('download')} สำรองข้อมูลทั้งหมด</button>`
+    csv: billsCsvRows(list), extra: can('pastReports') ? `<button class="ghost" id="csvAll">${icon('download')} สำรองข้อมูลทั้งหมด</button>` : ''
+  };
+}
+
+/* พนักงาน: ใครกดกี่บิล ยอดเท่าไร ยกเลิกกี่บิล + เวลาเข้า/ออกระบบ */
+function tabStaff(R){
+  const by = {};
+  const row = n => by[n] || (by[n] = {name:n, bills:0, rev:0, voided:0, voidBy:0});
+  R.all.forEach(x => { const r = row(x.staff || 'ไม่ระบุ'); if(x.void) r.voided++; else { r.bills++; r.rev += x.total; } });
+  R.all.forEach(x => (x.log || []).forEach(l => { if(l.act === 'void' && l.by) row(l.by).voidBy++; }));
+  const rows = Object.values(by).sort((a, b) => b.rev - a.rev);
+  const log = staffLog().filter(l => l.date >= REP.from && l.date <= REP.to).sort((a, b) => b.at.localeCompare(a.at));
+  if(!rows.length && !log.length) return {html:EMPTY, csv:[]};
+  const multi = REP.from !== REP.to, tm = at => { const t = new Date(at); return (multi ? fmtDT(at) : `${pad(t.getHours())}:${pad(t.getMinutes())}`); };
+  return {
+    html: `<div class="sec2">ยอดตามคนกดออเดอร์</div>` +
+      tbl([['พนักงาน'], ['บิล', 1], ['ยอดขาย', 1], ['บิลที่ถูกยกเลิก', 1], ['กดยกเลิกบิล', 1]], rows.map(r => [esc(r.name), r.bills, baht(r.rev), r.voided, r.voidBy])) +
+      `<p class="note2">บิลที่ถูกยกเลิก = บิลที่คนนี้กดออเดอร์แล้วภายหลังถูกยกเลิก (ไม่นับในยอด) · กดยกเลิกบิล = เจ้าของที่ใส่รหัสยกเลิก</p>` +
+      `<div class="sec2">เข้า / ออกระบบ</div>` + (log.length ? tbl([['เวลา'], ['ชื่อ'], ['ตำแหน่ง'], ['']], log.map(l => [tm(l.at), esc(l.name), ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก'])) : EMPTY) +
+      `<p class="note2">ขึ้นรอบขายใหม่ (${pad(CONFIG.resetHour)}:00) ระบบออกให้เองโดยไม่บันทึกเวลาออก</p>`,
+    csv: [['พนักงาน','บิล','ยอดขาย','บิลที่ถูกยกเลิก','กดยกเลิกบิล']].concat(rows.map(r => [r.name, r.bills, r.rev, r.voided, r.voidBy]),
+      [[]], [['วันที่รอบขาย','เวลา','ชื่อ','ตำแหน่ง','เข้า/ออก']], log.map(l => [l.date, fmtDT(l.at), l.name, ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก']))
   };
 }
 
 function renderSummary(){
   if(!REP.from){ const r = defaultRound(); REP.from = REP.to = r.date; REP.fb = r.fallback; }
   const R = buildReport(REP.from, REP.to);
-  const tabs = [['items', 'bowl', 'สินค้า'], ['pay', 'card', 'ชำระเงิน'], ['opts', 'sliders', 'ตัวเลือก'], ['ingr', 'box', 'วัตถุดิบ'], ['bills', 'receipt', 'บิล']];
-  const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills}[REP.tab](R);
+  if(!can('pastReports')){ const today = bizDate(new Date()); REP.from = REP.to = today; REP.fb = false; }   // พนักงาน: วันนี้เท่านั้น
+  const tabs = [['items', 'bowl', 'สินค้า'], ['pay', 'card', 'ชำระเงิน'], ['opts', 'sliders', 'ตัวเลือก'], ['ingr', 'box', 'วัตถุดิบ'], ['bills', 'receipt', 'บิล'], ['staff', 'users', 'พนักงาน']];
+  const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills, staff:tabStaff}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
   openModal(`
     <h3>${icon('chart', 22)} สรุปยอดขาย</h3>
-    <div class="rangebar">
+    ${can('pastReports') ? `<div class="rangebar">
       <input type="date" id="repFrom" value="${REP.from}"><span>ถึง</span><input type="date" id="repTo" value="${REP.to}">
       <button class="chip" data-range="today">วันนี้</button><button class="chip" data-range="yday">เมื่อวาน</button>
       <button class="chip" data-range="7d">7 วัน</button><button class="chip" data-range="all">ทั้งหมด</button>
-    </div>
+    </div>` : `<div class="note2">${icon('lock', 14)} พนักงานดูได้เฉพาะรอบขายวันนี้ · ยอดย้อนหลังให้เจ้าของดู</div>`}
     <div class="note2"><b>${roundLabel(REP.from, REP.to)}</b>${R.voided ? ` · ไม่นับบิลที่ยกเลิก ${R.voided} บิล` : ''}</div>
     ${REP.fb ? `<div class="note2" style="color:var(--orange)">รอบปัจจุบันยังไม่มีบิล จึงแสดงรอบล่าสุดที่มีการขาย</div>` : ''}
     <div class="stats">
@@ -123,6 +149,7 @@ function renderSummary(){
       <button class="pay" id="closeX">ปิด</button>
     </div>
     <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น แนะนำดาวน์โหลด CSV สำรองทุกวันก่อนปิดร้าน</p>`, true);
+  if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
 }
@@ -166,12 +193,12 @@ async function csvCopy(){
   catch(e){ const t = $('csvText'); t.focus(); t.select(); try{ document.execCommand('copy'); toast('คัดลอกแล้ว', 'check'); }catch(_){ toast('กดค้างที่ข้อความแล้วเลือกคัดลอก'); } }
 }
 function billsCsvRows(list){
-  const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ','โปรโมชัน','ส่วนลด']];
+  const rows = [['วันที่รอบขาย','เวลา','บิล','รับประทาน','รายการ','ยอดรวม','วิธีจ่าย','สถานะ','ประวัติ','โปรโมชัน','ส่วนลด','พนักงาน']];
   list.forEach(s => {
     const t = new Date(s.ts);
     rows.push([s.date, `${pad(t.getHours())}:${pad(t.getMinutes())}`, pad(s.no, 3), DINE[s.dining].name,
       s.items.map(i => `${itemTitle(i)} x${i.qty} [${itemLines(i).join(' | ')}]`).join(' ; '),
-      s.total, METHOD[s.method].name, s.void ? 'ยกเลิก' : 'ปกติ', historyText(s), s.promo ? `${s.promo.name} (${s.promo.detail})` : '', s.promo ? s.promo.discount : 0]);
+      s.total, METHOD[s.method].name, s.void ? 'ยกเลิก' : 'ปกติ', historyText(s), s.promo ? `${s.promo.name} (${s.promo.detail})` : '', s.promo ? s.promo.discount : 0, s.staff || '']);
   });
   return rows;
 }

@@ -2,6 +2,7 @@
 // - เคยอนุญาตเครื่องแล้ว → เชื่อมเองตอนเปิดแอป · ส่ง ESC/POS (ภาพ GS v 0 + ตัดกระดาษ 2 ใบ) ไม่เรียก window.print
 // - ส่งไม่สำเร็จ → กลับไปใช้ window.print + ปุ่มกลับเป็น "เชื่อมปริ้นเตอร์"
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
+const A = require('../auth-helper');
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 let errors = [], printed = 0, sent = [], failNext = false, usbListeners = {};
@@ -13,7 +14,7 @@ const dev = {opened:false, productName:'XP-Q807K', configuration:null,
 const fakeCtx = c => ({font:'', fillStyle:'', textAlign:'', textBaseline:'', measureText: s => ({width: String(s).length * 12}),
   fillRect(){}, fillText(){}, getImageData: (x, y, w, h) => ({width:w, height:h, data:new Uint8ClampedArray(w * h * 4).fill(255)})});
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
-  beforeParse(w){
+  beforeParse(w){ A.seed(w);
     w.print = () => printed++; w.console.warn = () => {}; w.addEventListener('error', e => errors.push(e.message));
     w.HTMLCanvasElement.prototype.getContext = function(){ return fakeCtx(this); };
     Object.defineProperty(w.navigator, 'usb', {value:{
@@ -25,6 +26,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const sell = () => { $('[data-menu="acai"]').click(); $('[data-honey="normal"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };
   w.addEventListener('load', async () => {
+    A.signIn(w);
     await wait(100);
     eq('auto reconnect to allowed printer', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
     sell(); await wait(150);

@@ -1,7 +1,7 @@
 /* ---------- Payment ---------- */
 /* ไม่เลือกอะไรไว้ก่อน · ต้องเลือกกินเลย/กลับบ้านก่อน ปุ่มวิธีชำระเงินจึงจะกดได้ */
 let pay = {dining:null, method:null, received:0}, lastSale = null;
-function openPay(){ if(!cart.length) return; pay = {dining:null, method:null, received:0}; renderPay(); }
+function openPay(){ if(!cart.length || !needUser()) return; pay = {dining:null, method:null, received:0}; renderPay(); }
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
   const cashOk = pay.method !== 'cash' || pay.received >= total;
@@ -23,7 +23,7 @@ function renderPay(){
       <div class="ppamt">${baht(total)}</div>
       <p class="note2">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
-    if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · หัวหน้าตั้งได้ที่ สรุปยอด → ตั้งค่า</div>`;
+    if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
   h += `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
@@ -37,6 +37,7 @@ function renderPay(){
 }
 function confirmPay(){
   if(!pay.dining || !pay.method || STORE_MODE === 'loading') return;
+  if(!needUser()) return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
   const sale = {
@@ -44,6 +45,7 @@ function confirmPay(){
     items: cart.map(i => ({menu:i.menu, name:i.name, sizeName:i.sizeName, tops:i.tops, ...(i.honey !== undefined && {honey:i.honey}), note:i.note, unit:i.unit, qty:i.qty, ...(i.sep && {sep:i.sep}), ...(i.fewTops !== undefined && {fewTops:i.fewTops})})),
     total, method: pay.method, received: pay.method === 'cash' ? pay.received : total,
     change: pay.method === 'cash' ? pay.received - total : 0, void:false,
+    staff: USER.name, staffId: USER.id,   // คนกดออเดอร์ (พิมพ์ในใบเสร็จ)
     ...(pr && pr.ok && {promo:{id:promo.id, name:PROMO[promo.id].name, discount:pr.discount, detail:pr.detail}})   // บันทึกการใช้โปรทุกครั้ง
   };
   sales.push(sale);

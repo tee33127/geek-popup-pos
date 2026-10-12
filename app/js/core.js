@@ -29,6 +29,6 @@ function itemLines(i, forPrint){
   return L;
 }
 
-function historyText(s){ return (s.log || []).map(l => `${l.act === 'void' ? 'ยกเลิก' : 'นำกลับ'} ${fmtDT(l.at)}`).join(' / '); }
+function historyText(s){ return (s.log || []).map(l => `${l.act === 'void' ? 'ยกเลิก' : 'นำกลับ'} ${fmtDT(l.at)}${l.by ? ' โดย ' + l.by : ''}`).join(' / '); }
 
 function csvText(rows){ const q = v => `"${String(v).replace(/"/g, '""')}"`; return rows.map(r => r.map(q).join(',')).join('\r\n'); }

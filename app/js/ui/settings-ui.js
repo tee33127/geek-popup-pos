@@ -1,5 +1,5 @@
-/* ---------- ตั้งค่า (ปุ่มบนแถบหัว ต้องใส่ PIN): ของหมด + เลข PromptPay ---------- */
-$('btnSettings').onclick = () => askPin(openSettings);
+/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด · เจ้าของ: เลข PromptPay, พนักงาน/รหัส, รหัสกู้คืน ---------- */
+$('btnSettings').onclick = () => { if(needUser()) openSettings(); };
 
 /* สวิตช์ มี/หมด · กดแล้วใช้ทันที ไม่ต้องกดบันทึก · หมด = ทั้งแถวเป็นสีเทาอ่อน */
 function stockRow(kind, key, label, out){
@@ -15,14 +15,27 @@ function openSettings(){
     h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
       CONFIG.items.filter(it => it.cat === c.id).map(it => stockRow('items', it.name, it.th || it.name, it.out)).join('') + '</div>';
   });
-  h += `</div><p class="note2">ปิดสวิตช์เมื่อของหมด ปุ่มบนหน้าขายจะเป็นสีเทาและกดไม่ได้ · มีของแล้วเปิดสวิตช์กลับ</p>
-    <div class="q2">เลข PromptPay</div>
-    <div class="slist"><div class="srow"><span class="nm">${pp ? esc(PP.format(pp)) : '<span style="color:var(--bad)">ยังไม่ได้ตั้ง</span>'}</span><button class="ghost" id="ppOpen">${pp ? 'เปลี่ยน' : 'ตั้งเลข'}</button></div></div>
-    <div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
+  h += `</div><p class="note2">ปิดสวิตช์เมื่อของหมด ปุ่มบนหน้าขายจะเป็นสีเทาและกดไม่ได้ · มีของแล้วเปิดสวิตช์กลับ</p>`;
+  if(can('promptpay')) h += `<div class="q2">เลข PromptPay</div>
+    <div class="slist"><div class="srow"><span class="nm">${pp ? esc(PP.format(pp)) : '<span style="color:var(--bad)">ยังไม่ได้ตั้ง</span>'}</span><button class="ghost" id="ppOpen">${pp ? 'เปลี่ยน' : 'ตั้งเลข'}</button></div></div>`;
+  if(can('users')) h += `<div class="q2">พนักงานและรหัส</div><div class="slist">` + users().map(u =>
+      `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
+        <button class="ghost" data-uedit="${u.id}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${u.id}">ลบ</button>`}</div>`).join('') +
+      `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
+    <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${SETTINGS.recovery ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
+  else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
+  h += `<div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
   openModal(h);
   if(top) $('modal').querySelector('.box').scrollTop = top;   // กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
 }
 $('modal').addEventListener('click', e => {
+  const ue = e.target.closest('[data-uedit]'); if(ue && can('users')) return openUserForm(ue.dataset.uedit);
+  const ud = e.target.closest('[data-udel]');
+  if(ud && can('users')){
+    const u = users().find(x => x.id === ud.dataset.udel); if(!u) return;
+    return askConfirm({msg:`ลบ ${u.name}?`, sub:'บิลเก่ายังแสดงชื่อนี้ตามเดิม แต่รหัสนี้จะเข้าใช้งานไม่ได้อีก', yes:'ลบ',
+      onYes: () => { const err = deleteUser(u.id); toast(err || `ลบ ${u.name} แล้ว`, err ? 'alert' : 'check'); openSettings(); }, onNo: openSettings});
+  }
   const b = e.target.closest('[data-stock]'); if(!b) return;
   const kind = b.dataset.stock, key = b.dataset.key;
   const now = kind === 'menus' ? MENU[key].out : ITEM[key].out;
@@ -30,8 +43,51 @@ $('modal').addEventListener('click', e => {
   openSettings(); renderBuilder();
 });
 
+/* ---------- พนักงาน: เพิ่ม / แก้ชื่อ ตำแหน่ง รหัส (เจ้าของเท่านั้น) ---------- */
+let userForm = null;
+function openUserForm(id){
+  if(!can('users')) return;
+  const u = id ? users().find(x => x.id === id) : null;
+  userForm = {id: u ? u.id : null, role: u ? u.role : 'staff', msg:''};
+  renderUserForm(u ? u.name : '');
+}
+function renderUserForm(name){
+  const f = userForm;
+  openModal(`<h3>${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}</h3>
+    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" value="${esc(name)}">
+    <div class="q2">ตำแหน่ง</div>
+    <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
+    <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
+    <div class="q2">${f.id ? 'รหัสใหม่ <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `รหัส ${CODE_LEN} หลัก`}</div>
+    <input class="num" id="usrCode" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
+    <div class="q2">ใส่รหัสอีกครั้ง</div>
+    <input class="num" id="usrCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
+    <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
+    <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
+}
+$('modal').addEventListener('click', e => {
+  const r = e.target.closest('[data-urole]'); if(!r || !userForm) return;
+  userForm.role = r.dataset.urole; renderUserForm($('usrName').value);
+});
+function userFormSave(){
+  const f = userForm; if(!f || !can('users')) return;
+  const name = $('usrName').value, code = $('usrCode').value, code2 = $('usrCode2').value;
+  f.msg = code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : saveUser({id:f.id, name, role:f.role}, code);
+  if(f.msg) return renderUserForm(name);
+  if(USER && f.id === USER.id) USER = users().find(x => x.id === USER.id);   // แก้ชื่อตัวเอง → แถบหัวเปลี่ยนตาม
+  userForm = null; renderUser(); toast('บันทึกแล้ว', 'check'); openSettings();
+}
+function recoveryNew(){
+  askConfirm({msg:'สร้างรหัสกู้คืนใหม่?', sub:'รหัสกู้คืนเดิมจะใช้ไม่ได้อีก', yes:'สร้างใหม่', ok:true, onNo: openSettings, onYes: () => {
+    const c = newRecovery(); if(!c){ toast('บันทึกไม่สำเร็จ', 'alert'); return openSettings(); }
+    openModal(`<h3>${icon('lock', 22)} รหัสกู้คืนใหม่</h3><p class="note2">จดเก็บไว้ที่ปลอดภัย ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม · ระบบจะไม่แสดงอีก</p>
+      <div class="recov">${fmtRecovery(c)}</div><div class="row payrow"><button class="pay" id="setBack">จดแล้ว</button></div>`);
+  }});
+}
+
 /* ---------- เลข PromptPay ---------- */
 function openPromptPay(){
+  if(!can('promptpay')) return;
   openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
     <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
     <input class="num" id="ppIn" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="ยังไม่ได้ตั้ง" value="${esc(PP.format(SETTINGS.promptpay || ''))}">
@@ -51,6 +107,7 @@ function settingsCheck(){
   $('setSave').disabled = !!bad;
 }
 function settingsSave(){
+  if(!can('promptpay')) return;
   const id = PP.clean($('ppIn').value);
   if(id && PP.problem(id)) return;
   const next = {...SETTINGS}; if(id) next.promptpay = id; else delete next.promptpay;

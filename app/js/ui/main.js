@@ -12,15 +12,20 @@ $('modal').onclick = e => {
   if(el = g('v') || g('restore')){
     const isVoid = !!el.dataset.v, sid = isVoid ? el.dataset.v : el.dataset.restore;
     const sv = loadSales().find(x => String(x.id) === sid); if(!sv) return;
-    askConfirm(isVoid
-      ? {msg:`ยกเลิกบิล #${pad(sv.no, 3)}?`, sub:'ระบบจะเก็บประวัติไว้ และนำกลับมาได้ภายหลัง', yes:'ยกเลิกบิล'}
-      : {msg:`นำบิล #${pad(sv.no, 3)} กลับมา?`, sub:`ยอด ${baht(sv.total)} จะถูกนับในยอดขายอีกครั้ง`, yes:'นำกลับ', ok:true});
-    confirmCb = () => {
-      const all = loadSales(), x = all.find(y => String(y.id) === sid);
-      if(x){ const at = new Date().toISOString(); x.void = isVoid; (x.log = x.log || []).push({act: isVoid ? 'void' : 'restore', at}); if(isVoid) x.voidAt = at; else delete x.voidAt; saveSales(all); toast(isVoid ? 'ยกเลิกบิลแล้ว' : 'นำบิลกลับแล้ว', isVoid ? null : 'check'); }
-      renderSummary();
+    /* เจ้าของเท่านั้น · พนักงานเข้าอยู่ → ให้เจ้าของใส่รหัสตรงนั้น · บันทึกชื่อคนยกเลิกใน log */
+    const run = owner => {
+      askConfirm(isVoid
+        ? {msg:`ยกเลิกบิล #${pad(sv.no, 3)}?`, sub:'ระบบจะเก็บประวัติไว้ และนำกลับมาได้ภายหลัง', yes:'ยกเลิกบิล'}
+        : {msg:`นำบิล #${pad(sv.no, 3)} กลับมา?`, sub:`ยอด ${baht(sv.total)} จะถูกนับในยอดขายอีกครั้ง`, yes:'นำกลับ', ok:true});
+      confirmCb = () => {
+        const all = loadSales(), x = all.find(y => String(y.id) === sid);
+        if(x){ const at = new Date().toISOString(); x.void = isVoid; (x.log = x.log || []).push({act: isVoid ? 'void' : 'restore', at, by:owner.name}); if(isVoid) x.voidAt = at; else delete x.voidAt; saveSales(all); toast(isVoid ? 'ยกเลิกบิลแล้ว' : 'นำบิลกลับแล้ว', isVoid ? null : 'check'); }
+        renderSummary();
+      };
+      confirmNo = renderSummary;
     };
-    confirmNo = renderSummary;
+    if(can('void')) run(USER);
+    else askOwner(run, `${isVoid ? 'ยกเลิก' : 'นำกลับ'}บิล #${pad(sv.no, 3)} ต้องใช้รหัสเจ้าของ`);
     return;
   }
   if(el = g('prr')){ const s = loadSales().find(x => String(x.id) === el.dataset.prr); if(s) printSale(s, 'receipt'); return; }
@@ -28,7 +33,8 @@ $('modal').onclick = e => {
   if(el = g('tab')){ REP.tab = el.dataset.tab; renderSummary(); return; }
   if(el = g('range')){ setRange(el.dataset.range); renderSummary(); return; }
   const b = e.target.closest('button'); const id = b && b.id;
-  if(id === 'payCancel' || id === 'closeX' || id === 'nextOrder' || id === 'pinNo') closeModal();
+  if(id === 'payCancel' || id === 'closeX' || id === 'nextOrder') closeModal();
+  else if(id === 'pinNo'){ pinCb = null; renderSummary(); }   // ใช้จากแท็บบิลเท่านั้น
   else if(id === 'cfYes'){ const cb = confirmCb; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
   else if(id === 'cfNo'){ const cb = confirmNo; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
   else if(id === 'pinOk') checkPin();
@@ -49,6 +55,10 @@ $('modal').onclick = e => {
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();
   else if(id === 'setBack') openSettings();
+  else if(id === 'usrAdd') openUserForm(null);
+  else if(id === 'usrSave') userFormSave();
+  else if(id === 'usrCancel') openSettings();
+  else if(id === 'rcNew') recoveryNew();
   else if(id === 'prOff') disconnectPrinter();
 };
 

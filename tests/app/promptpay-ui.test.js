@@ -1,16 +1,18 @@
 // หน้าตั้งค่า PromptPay (ผ่าน PIN) + QR บนหน้าชำระเงิน · เปิด app/ แบบแยกไฟล์ใน jsdom
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
+const A = require('../auth-helper');
 const generatePayload = require('promptpay-qr');
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 let errors = [];
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }}).then(dom => {
+  beforeParse(w){ A.seed(w); w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }}).then(dom => {
   const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input')); };
   const toPay = () => { $('[data-menu="acai"]').click(); $('[data-honey="normal"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); };
   w.addEventListener('load', async () => {
+    A.signIn(w);
     await wait(50);
     // ยังไม่ตั้งเลข → เตือน ไม่มี QR แต่ยังยืนยันได้
     toPay();
@@ -18,7 +20,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('no id: can still confirm', $('#payOk').disabled, false);
     $('#payCancel').click();
     // ตั้งค่า (แถบหัว) → PIN → เลข PromptPay
-    $('#btnSettings').click(); $('#pinIn').value = '1234'; $('#pinOk').click();
+    $('#btnSettings').click();
     eq('settings shows PromptPay not set', $('#modal').textContent.includes('ยังไม่ได้ตั้ง'), true);
     $('#ppOpen').click();
     eq('settings opened, empty', [!!$('#ppIn'), $('#ppIn').value], [true, '']);
@@ -36,7 +38,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     $('#payOk').click(); await wait(100);
     eq('sale saved as promptpay', JSON.parse(w.localStorage.getItem('geek_popup_sales_v2')).slice(-1)[0].method, 'promptpay');
     // ลบเลข (บันทึกแบบว่าง)
-    $('#nextOrder').click(); $('#btnSettings').click(); $('#pinIn').value = '1234'; $('#pinOk').click(); $('#ppOpen').click();
+    $('#nextOrder').click(); $('#btnSettings').click(); $('#ppOpen').click();
     type('#ppIn', ''); eq('empty warns removal', $('#ppMsg').textContent.includes('ลบเลขเดิม'), true); $('#setSave').click();
     eq('cleared', JSON.parse(w.localStorage.getItem('geek_popup_settings')).promptpay, undefined);
     eq('no runtime errors', errors, []);

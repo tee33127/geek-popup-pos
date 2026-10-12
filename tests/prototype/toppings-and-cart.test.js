@@ -1,9 +1,11 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8');
 let printed = 0, errors = [], nativeCalls = 0;
 const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => printed++; w.confirm = () => { nativeCalls++; return false; }; w.prompt = () => { nativeCalls++; return null; }; w.addEventListener('error', e => errors.push(e.message)); }});
+  beforeParse(w){ A.seed(w); w.print = () => printed++; w.confirm = () => { nativeCalls++; return false; }; w.prompt = () => { nativeCalls++; return null; }; w.addEventListener('error', e => errors.push(e.message)); }});
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
 const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (name, got, exp) => { const ok = JSON.stringify(got) === JSON.stringify(exp); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, ok ? '' : `got ${JSON.stringify(got)} expected ${JSON.stringify(exp)}`); };
@@ -173,9 +175,7 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('success screen: no print choices, one next button', [!!$('#prRec'), !!$('#prKit'), $$('#modal button.pay').length, $('#modal button.pay').id], [false, false, 1, 'nextOrder']);
   click('#prBoth'); await wait(150); eq('reprint link prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
   click('#nextOrder');
-  click('#btnSummary'); eq('PIN modal', $('#pinIn') !== null, true);
-  $('#pinIn').value = '0000'; click('#pinOk'); eq('wrong PIN message', $('#modal').textContent.includes('PIN ไม่ถูกต้อง'), true);
-  $('#pinIn').value = '1234'; click('#pinOk'); eq('summary opens', $('#modal').textContent.includes('สรุปยอดขาย'), true);
+  click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('#pinIn'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
   click('[data-tab="bills"]'); click('[data-v]'); eq('void confirm modal', $('#modal').textContent.includes('ยกเลิกบิล #001?'), true);
   click('#cfYes'); eq('voided & back to summary', [JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0].void, $('#modal').textContent.includes('สรุปยอดขาย')], [true, true]);
   eq('no native dialogs used', nativeCalls, 0);

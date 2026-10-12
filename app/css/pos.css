@@ -237,3 +237,34 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .sw span{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw.on{background:var(--ok)}
 .sw.on span{left:29px}
+/* หน้าเข้าใช้งาน: เต็มจอ ทับทุกอย่าง (รวม modal) */
+#login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#login.show{display:flex}
+.lgbox{background:#fff;border-radius:24px;padding:28px 24px;width:100%;max-width:400px;text-align:center}
+.lgtitle{font-size:24px;font-weight:800;color:var(--blue)}
+.lgtitle span{color:var(--orange)}
+.lgsub{color:var(--mute);margin:6px 0 16px}
+.lgsub .ic{color:var(--orange)}
+.dots{display:flex;justify-content:center;gap:16px;margin:6px 0 4px}
+.dots i{width:18px;height:18px;border-radius:50%;border:2px solid var(--blue)}
+.dots i.on{background:var(--blue)}
+.dots.long{gap:9px}
+.dots.long i{width:14px;height:14px}
+.lgmsg{color:var(--bad);font-weight:700;min-height:24px;margin:6px 0}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}
+#lgGo:disabled{background:#c9c9d6;cursor:not-allowed}
+.keypad button{height:64px;border-radius:16px;background:var(--bg);font-size:26px;font-weight:700}
+.keypad button:active{background:var(--blue-soft)}
+.keypad .kfn{font-size:17px;color:var(--mute)}
+.lgform{display:flex;flex-direction:column;gap:10px;text-align:left}
+.lgform label{display:flex;flex-direction:column;gap:4px;font-weight:700;color:var(--mute);font-size:15px}
+.lgform input{font:inherit;font-size:20px;padding:12px;border:2px solid var(--line);border-radius:12px;color:var(--ink)}
+.recov{font-size:30px;font-weight:800;letter-spacing:3px;text-align:center;background:var(--orange-soft);color:var(--ink);border-radius:14px;padding:16px;margin:8px 0}
+/* ตั้งค่า: รายชื่อพนักงาน */
+.srow .nm small.role{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700;background:var(--blue-soft);color:var(--blue)}
+.srow .nm small.role.owner{background:var(--orange-soft);color:#b45f00}
+.srow .nm small.me{color:var(--mute);font-weight:400}
+.srow .nm > small:not(.role):not(.me){display:block;font-weight:400;color:var(--mute);font-size:13px}
+.srow .ghost{padding:8px 12px}
+.ghost.danger{color:var(--bad)}
+#btnUser small{opacity:.8;font-size:12px}

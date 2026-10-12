@@ -17,7 +17,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - พิมพ์ตรงผ่าน USB ในแอปแล้ว: ปุ่ม "เชื่อมปริ้นเตอร์" บนแถบหัว (แสดงเฉพาะเบราว์เซอร์ที่มี WebUSB) · เครื่องที่เคยอนุญาตจะเชื่อมเองตอนเปิดแอป/เสียบสายใหม่ · ไม่ได้เชื่อมหรือส่งไม่สำเร็จ → ใช้ `window.print()` แทน · ยังไม่ได้ทดสอบกับเครื่องจริง
 - QR PromptPay ใส่ยอดเสร็จแล้ว: เลข PromptPay ตั้งในแอป (ตั้งค่า → เลข PromptPay) เก็บใน localStorage ของเครื่อง (`geek_popup_settings`) **ห้ามใส่เลขจริงในโค้ดหรือเทสต์** · เทสต์เทียบ payload กับ `promptpay-qr` และสแกนกลับด้วย `jsqr`
 - โปรโมชัน 3 แบบ (1 แถม 1, ลด 30, ฟรี 1 ท็อปปิ้ง) 1 บิล 1 โปร: `js/promo.js` คำนวณ, `js/ui/promo-ui.js` ปุ่ม+หน้าต่าง, ตั้งค่าโปรใน `CONFIG.promos` · `cartTotal()` = ยอดหลังหักโปร, ราคาในรายการ (`unit`) เป็นราคาเต็มเสมอ
-- ตั้งค่า (ปุ่มบนแถบหัว ต้องใส่ PIN): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง กดแล้วใช้ทันที + เลข PromptPay · ของหมดเก็บใน `SETTINGS.out = {menus, items}` แล้ว `applyOut` ใส่ `out:true` ใน CONFIG · **ราคาแก้ในแอปไม่ได้โดยตั้งใจ** (Tee 2026-10-12 กลัวกดผิด) แก้ราคาที่ CONFIG เท่านั้น
+- เข้าใช้งานด้วยรหัส (`js/auth.js` + `js/ui/login.js`): ครั้งแรกตั้งเจ้าของ + รหัสกู้คืน · ผู้ใช้เก็บใน `SETTINGS.users` (รหัสเป็น sha256(salt:รหัส) ห้ามเก็บตัวเลข) · สิทธิ์อยู่ที่ `CAN` เช็กด้วย `can('void')` ฯลฯ · `USER` = คนที่เข้าอยู่ · บิลเก็บ `staff`, `staffId` · log ยกเลิกเก็บ `by` · เข้า/ออกเก็บใน `<SETTINGS_KEY>_staff_log` · ตารางสิทธิ์อยู่ใน business-rules.md §6.5 · ไม่มี PIN ในโค้ดแล้ว
+- ตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง กดแล้วใช้ทันที + เลข PromptPay · ของหมดเก็บใน `SETTINGS.out = {menus, items}` แล้ว `applyOut` ใส่ `out:true` ใน CONFIG · **ราคาแก้ในแอปไม่ได้โดยตั้งใจ** (Tee 2026-10-12 กลัวกดผิด) แก้ราคาที่ CONFIG เท่านั้น
 - ยังไม่มี: เปิดลิ้นชัก
 
 ## งานถัดไป (ขั้น 0 → 1)
@@ -41,7 +42,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   sw.js                   ← service worker เก็บไฟล์แอปทั้งหมดไว้ใช้ออฟไลน์ · VERSION/FILES สร้างโดย build ห้ามแก้มือ
   icons/                  ← icon.svg (ต้นฉบับ) → icon-192/512.png
   img/*.jpg, *.png        ← รูปเมนูย่อแล้ว 420×420 (ต้นฉบับอยู่ assets/menu/) + โลโก้วิธีชำระเงิน
-  js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง PIN · ท็อปปิ้งมี name (รหัสอังกฤษที่เก็บในบิล ห้ามเปลี่ยน) + th (ชื่อที่แสดง ผ่าน topName())
+  js/config.js            ← CONFIG: เมนู ราคา ท็อปปิ้ง · ท็อปปิ้งมี name (รหัสอังกฤษที่เก็บในบิล ห้ามเปลี่ยน) + th (ชื่อที่แสดง ผ่าน topName())
   js/core.js              ← baht/esc/pad, bizDate, addDays, ป้ายข้อความรายการ, csvText (ไม่แตะ DOM)
   js/icons.js             ← ไอคอน SVG (icon('check')) ใช้แทนอีโมจิทั้งแอป · ห้ามใช้อีโมจิ (มีเทสต์ตรวจใน pwa.test.js)
   js/pricing.js           ← priceItem(menu, state) ฟังก์ชันล้วน + priceSel() สำหรับหน้าจอ
@@ -56,7 +57,9 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/promo.js             ← promoEval(p, items, want) คำนวณโปรจากตะกร้า (ฟังก์ชันล้วน)
   js/ui/promo-ui.js       ← ปุ่มโปรในกล่องออเดอร์ + หน้าต่างเลือกโปร/เลือกแก้ว
   js/settings.js          ← SETTINGS / saveSettings ตั้งค่าเฉพาะเครื่อง (localStorage) + applyOut/setOut (ของหมด) · โหลดต่อจาก config.js ทันที
-  js/ui/settings-ui.js    ← หน้าตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด + หน้าเลข PromptPay
+  js/ui/settings-ui.js    ← หน้าตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด + เลข PromptPay / พนักงาน / รหัสกู้คืน (เจ้าของ)
+  js/auth.js              ← ผู้ใช้ สิทธิ์ (CAN) sha256 แบบ sync (crypto.subtle ใช้ไม่ได้บน file://) session รายวัน log เข้า/ออก
+  js/ui/login.js          ← หน้าเข้าใช้งานเต็มจอ (ตั้งครั้งแรก / แป้นรหัส / รหัสกู้คืน) + ปุ่มผู้ใช้บนแถบหัว + needUser()
   js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
@@ -74,6 +77,7 @@ tests/
   app/app-files.test.js   ← เปิด app/index.html แบบแยกไฟล์ แล้วขาย 1 บิล
   app/printer.test.js     ← byte ESC/POS + raster ใน vm เปล่า
   app/printer-test-page.test.js ← หน้า printer-test กับปริ้นเตอร์ปลอม (jsdom ไม่มี canvas จึงไม่ได้เทสต์ภาพตั๋ว)
+  auth-helper.js          ← บัญชีทดสอบ (เจ้าของ 1234 · พนักงาน แพร 1111) seed() ใน beforeParse + signIn() หลังเปิดหน้า · เทสต์หน้าจอใหม่ต้องใช้
   prototype/*.test.js     ← เทสต์ pos.html ด้วย jsdom (กติการาคา, รายงาน, void/restore/CSV, รอบ 23:00)
 ```
 
@@ -84,7 +88,7 @@ tests/
 **PWA**: แก้ไฟล์ใน `app/` แล้วต้องรัน `npm test` (หรือ build) ก่อน commit เสมอ ไม่งั้น `sw.js` ไม่เปลี่ยน VERSION แท็บเล็ตจะไม่โหลดไฟล์ใหม่ · ไฟล์ใหม่ใน `app/` ถูกใส่ใน cache อัตโนมัติ · service worker ใช้ skipWaiting หน้าที่เปิดอยู่ใช้โค้ดเดิมจนเปิดใหม่ (ทุกไฟล์โหลดตอนเริ่ม จึงไม่มีโค้ดปนเวอร์ชัน)
 
 ## GitHub
-repo สาธารณะ https://github.com/tee33127/geek-popup-pos · GitHub Pages เสิร์ฟจาก `main` ที่ root (push แล้วขึ้นเว็บใน 1-2 นาที) · ห้าม commit ข้อมูลยอดขายจริง เอกสารงบ หรือ PIN จริง
+repo สาธารณะ https://github.com/tee33127/geek-popup-pos · GitHub Pages เสิร์ฟจาก `main` ที่ root (push แล้วขึ้นเว็บใน 1-2 นาที) · ห้าม commit ข้อมูลยอดขายจริง เอกสารงบ หรือรหัสจริง
 
 ## คำสั่ง
 ```bash
@@ -92,7 +96,7 @@ npm install                 # ครั้งแรก (jsdom + fake-indexeddb �
 npm test                    # build prototype/ จาก app/ แล้วรันเทสต์ทั้งหมด
 npm run build:prototype     # build อย่างเดียว (ใช้แค่ Node ไม่ต้องมี Python)
 ```
-เปิดดูต้นแบบ: เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ → 📊 สรุปยอด → PIN `1234`
+เปิดดูต้นแบบ: เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ → ใส่รหัส DEMO (เจ้าของ `1234` · พนักงาน `1111` · รหัสกู้คืน `12345678`)
 
 ## กฎการทำงาน
 - **กติกาเงิน**: แก้เมนู/ราคา/กติกาเมื่อไร ต้องแก้ `docs/business-rules.md` + config + เทสต์ ให้ตรงกันในคราวเดียว และรันเทสต์ก่อนบอกว่าเสร็จ ห้ามเดาราคา ถ้าไม่ชัดให้ถาม Tee

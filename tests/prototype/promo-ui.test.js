@@ -1,11 +1,13 @@
 // โปรโมชันบนหน้าจอ: ปุ่มในกล่องออเดอร์ เลือกโปร เลือกแก้ว ยกเลิกอัตโนมัติ ชำระเงิน บันทึกในบิล ใบเสร็จ รายงาน CSV
 // + เพิ่มท็อปปิ้ง Acai / Banana Choco
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [];
 const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
+  beforeParse(w){ A.seed(w); w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
 const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
@@ -64,12 +66,12 @@ const total = () => $('#total').textContent;
   click('#nextOrder'); order('acai'); order('banana'); click('#promoOpen'); click(opt('off30')); click('#promoOk');
   click('#btnClear'); click('#cfYes'); eq('clear cart clears promo', ev('promo'), null);
   // ---- รายงาน ----
-  click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk');
+  click('#btnSummary');
   eq('KPI uses net total', $$('.stat b')[0].textContent, '฿204');
   eq('items tab shows discount row', $('#modal').textContent.includes('ส่วนลดโปรโมชัน'), true);
   click('[data-tab="opts"]'); eq('options tab: promo group', $$('#modal tr').some(tr => tr.textContent.includes('1 แถม 1') && tr.textContent.includes('฿149')), true);
   click('[data-tab="bills"]'); eq('bills tab tags promo', $('.promotag').textContent.includes('1 แถม 1 -฿149'), true);
-  eq('CSV has promo columns', ev(`billsCsvRows(loadSales())`).map(r => r.slice(-2)), [['โปรโมชัน', 'ส่วนลด'], ['1 แถม 1 (Banana Choco ฟรี 1 แก้ว)', 149]]);
+  eq('CSV has promo columns', ev(`billsCsvRows(loadSales())`).map(r => r.slice(9, 11)), [['โปรโมชัน', 'ส่วนลด'], ['1 แถม 1 (Banana Choco ฟรี 1 แก้ว)', 149]]);
   eq('no runtime errors', errors, []);
   console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error('TEST CRASH', e); process.exit(2); });

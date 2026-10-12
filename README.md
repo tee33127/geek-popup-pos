@@ -5,7 +5,7 @@ POS เขียนเองสำหรับร้าน Geek Yogurt & Smoothi
 ## ดูต้นแบบ
 ออนไลน์: [ต้นแบบ DEMO](https://tee33127.github.io/geek-popup-pos/prototype/pos-demo.html) · [หน้าทดสอบปริ้นเตอร์](https://tee33127.github.io/geek-popup-pos/printer-test/)
 
-เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ (มีข้อมูลตัวอย่าง) → ปุ่ม 📊 สรุปยอด → PIN `1234`
+เปิด `prototype/pos-demo.html` ในเบราว์เซอร์ (มีข้อมูลตัวอย่าง) → ใส่รหัส DEMO: เจ้าของ `1234` · พนักงาน `1111`
 ตัวจริงที่ยังไม่มีข้อมูลคือ `prototype/pos.html` · ซอร์สที่แยกไฟล์แล้วอยู่ใน `app/` (เปิด `app/index.html` ได้เหมือนกัน)
 
 ## ติดตั้งบนแท็บเล็ต (ใช้ได้แม้ไม่มีเน็ต)

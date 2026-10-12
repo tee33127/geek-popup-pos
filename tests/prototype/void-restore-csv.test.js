@@ -1,8 +1,10 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const A = require('../auth-helper');
 let errors = [], navigated = [];
 const dom = new JSDOM(fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8'), {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
+  beforeParse(w){ A.seed(w); w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
@@ -10,7 +12,7 @@ const stat = () => $$('.stat b').map(e => e.textContent);
 (async () => {
   // สร้าง 2 บิล
   for(const m of ['acai','banana']){ click(`[data-menu="${m}"]`); if($('[data-honey]')) click('[data-honey="normal"]'); click('#btnAdd'); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await wait(150); click('#nextOrder'); }
-  click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk');
+  click('#btnSummary');
   eq('start KPI', stat().slice(0,2), ['฿338','2']);
   click('[data-tab="bills"]');
   // ยกเลิกบิล #001 (acai)

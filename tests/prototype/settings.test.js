@@ -1,23 +1,23 @@
 // ตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง · หน้าขายกดของหมดไม่ได้ · เก็บค่าไว้ตอนเปิดแอปใหม่
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [];
 const open = stored => new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); if(stored) w.localStorage.setItem('geek_popup_settings', JSON.stringify(stored)); }}).window;
-let w = open(), d = w.document;
+  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); if(stored) w.localStorage.setItem('geek_popup_settings', JSON.stringify(stored)); A.seed(w); }}).window;
+let w = open(), d = w.document; A.signIn(w);
 const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
 const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
-const openSet = () => { click('#btnSettings'); $('#pinIn').value = '1234'; click('#pinOk'); };
+const openSet = () => click('#btnSettings');
 const sw = (kind, key) => $(`[data-stock="${kind}"][data-key="${key}"]`);
 const row = (kind, key) => sw(kind, key).closest('.srow');
 const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}').out;
 
 (async () => {
   await wait(50);
-  eq('settings button in header, not in summary', [$('#btnSettings').textContent.trim(), (() => { click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk'); const x = !!$('#setOpen') || !!$('#menuOpen'); click('#closeX'); return x; })()], ['ตั้งค่า', false]);
-  click('#btnSettings'); eq('needs PIN', !!$('#pinIn'), true); $('#pinIn').value = '0000'; click('#pinOk'); eq('wrong PIN stays out', !!$('[data-stock]'), false); click('#pinNo');
+  eq('settings button in header, not in summary', [$('#btnSettings').textContent.trim(), (() => { click('#btnSummary'); const x = !!$('#setOpen') || !!$('#menuOpen'); click('#closeX'); return x; })()], ['ตั้งค่า', false]);
   openSet();
   eq('switches for 3 menus + 20 toppings, all on', [$$('[data-stock="menus"]').length, $$('[data-stock="items"]').length, $$('.sw.on').length], [3, 20, 23]);
   eq('no price inputs anywhere', $$('#modal input').length, 0);
@@ -49,7 +49,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('#ppOpen'); click('#setBack'); eq('back returns to settings', !!$('[data-stock]'), true);
 
   // ---- เปิดแอปใหม่: ใช้ค่าที่เก็บไว้ ----
-  w.close(); w = open({promptpay:'0812345678', out:{items:['Kiwi'], menus:['acai']}}); d = w.document;
+  w.close(); w = open({promptpay:'0812345678', out:{items:['Kiwi'], menus:['acai']}}); d = w.document; A.signIn(w);
   await wait(50);
   eq('stored sold-out applied at start', [ev('ITEM.Kiwi.out'), ev('MENU.acai.out'), !!$('[data-menu="acai"]'), ev('SETTINGS.promptpay')], [true, true, false, '0812345678']);
 

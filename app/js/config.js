@@ -1,6 +1,5 @@
 /* ============ ตั้งค่าร้าน (แก้ราคา/ท็อปปิ้ง/PIN ตรงนี้) ============ */
 const CONFIG = {
-  pin: '1234',                    // PIN เปิดหน้าสรุปยอด / ยกเลิกบิล
   shopName: 'Geek Yogurt & Smoothie Bar',
   shopSub: 'Pop-up Store',
   resetHour: 23,                  // เลขออเดอร์เริ่มที่ 001 ใหม่ทุกวันเวลา 23:00 น.

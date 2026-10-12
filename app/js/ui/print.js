@@ -6,7 +6,7 @@ function receiptHtml(s){
   return `<div class="slip">
     <div class="c b lg">${esc(CONFIG.shopName)}</div><div class="c">${esc(CONFIG.shopSub)}</div><hr>
     <div class="r b"><span>ออเดอร์ #${pad(s.no, 3)}</span><span>${esc(DINE[s.dining].name)}</span></div>
-    <div>${fmtDT(s.ts)}</div>${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>
+    <div>${fmtDT(s.ts)}</div>${s.staff ? `<div>พนักงาน: ${esc(s.staff)}</div>` : ''}${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>
     ${lines}<hr>
     ${s.promo ? `<div class="r b"><span>โปร: ${esc(s.promo.name)}</span><span>-${baht(s.promo.discount)}</span></div><div class="sm">${esc(s.promo.detail)}</div>` : ''}
     <div class="r b lg"><span>รวม</span><span>${baht(s.total)}</span></div>
@@ -33,6 +33,7 @@ function kitchenHtml(s){
 function receiptBlocks(s){
   const b = [{text:CONFIG.shopName, size:32, bold:true, align:'center'}, {text:CONFIG.shopSub, align:'center'}, {rule:'dash'},
     {left:`ออเดอร์ #${pad(s.no, 3)}`, right:DINE[s.dining].name, bold:true}, {text:fmtDT(s.ts)}];
+  if(s.staff) b.push({text:'พนักงาน: ' + s.staff});
   if(s.void) b.push({text:'*** ยกเลิกบิล ***', bold:true, align:'center'});
   b.push({rule:'dash'});
   s.items.forEach(i => {

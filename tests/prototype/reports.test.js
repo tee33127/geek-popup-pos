@@ -1,9 +1,11 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8');
 let errors = [];
 const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
+  beforeParse(w){ A.seed(w); w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }});
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
 const ev = c => w.eval(c);
 let fails = 0; const eq = (name, got, exp) => { const ok = JSON.stringify(got) === JSON.stringify(exp); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, ok ? '' : `got ${JSON.stringify(got)} expected ${JSON.stringify(exp)}`); };
@@ -22,7 +24,7 @@ const sales = [
   mk(5, 1, yday, 'dinein', 'cash', [{...bch, qty:2}], 298),                // เมื่อวาน
 ];
 ev(`saveSales(${JSON.stringify(sales)})`);
-const open = () => { click('#btnSummary'); $('#pinIn').value = '1234'; click('#pinOk'); };
+const open = () => { click('#btnSummary'); };
 const rowsOf = () => $$('#modal table tr').map(tr => [...tr.children].map(c => c.textContent.replace(/\s+/g,' ').trim()));
 const stat = () => $$('.stat b').map(e => e.textContent);
 
