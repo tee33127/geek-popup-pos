@@ -66,6 +66,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/close-ui.js       ← ถามเงินทอนตั้งต้น, หน้าปิดร้าน, สำรอง (exportFile ใน summary.js), นำข้อมูลกลับ (restoreText ให้เทสต์เรียกตรง)
   js/ui/login.js          ← หน้าเข้าใช้งานเต็มจอ (ตั้งครั้งแรก / แป้นรหัส / รหัสกู้คืน) + ปุ่มผู้ใช้บนแถบหัว + needUser()
   js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
+manual/index.html         ← คู่มือพนักงาน 1 หน้า + การ์ดแก้ปัญหา (พิมพ์ A4 2 หน้า) · **แก้ข้อความปุ่ม/ขั้นตอนในแอป ต้องแก้คู่มือด้วย**
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
 prototype/

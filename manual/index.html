@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือพนักงาน · Geek Pop-up POS</title>
+<!-- คู่มือ 1 หน้า + การ์ดแก้ปัญหา สำหรับพิมพ์ A4 (2 หน้า) · แก้แอปแล้วข้อความบนปุ่มเปลี่ยน ต้องแก้ไฟล์นี้ด้วย -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#1A00B8;--blue-soft:#ECE9FF;--orange:#F7941D;--orange-soft:#FFF1DE;--ink:#1b1b2f;--mute:#5d5d72;--line:#dcdce8;--bad:#c62828;--ok:#14804a;--bg:#eceef4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Thai","Sarabun",system-ui,sans-serif;font-size:12.5px;line-height:1.5}
+.bar{max-width:210mm;margin:16px auto 0;padding:0 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.bar p{margin:0;color:var(--mute);font-size:14px}
+.bar button{font:inherit;font-size:15px;font-weight:600;background:var(--blue);color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer}
+.page{width:210mm;min-height:297mm;margin:16px auto;background:#fff;padding:12mm 13mm;box-shadow:0 2px 10px rgba(20,0,120,.12)}
+header{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid var(--blue);padding-bottom:6px;margin-bottom:10px}
+header h1{margin:0;font-size:22px;color:var(--blue);font-weight:800}
+header h1 span{color:var(--orange)}
+header small{color:var(--mute);font-size:12px}
+.p1{font-size:14px}
+.p1 .box h2{font-size:16.5px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.box{border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;break-inside:avoid}
+.box h2{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
+.box h2 b{background:var(--blue);color:#fff;min-width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-size:12.5px}
+ol,ul{margin:0;padding-left:18px}
+li{margin:1px 0}
+.k{display:inline-block;background:var(--blue-soft);color:var(--blue);font-weight:600;border-radius:5px;padding:0 5px;white-space:nowrap}
+.o{display:inline-block;background:var(--orange-soft);color:#9a5000;font-weight:600;border-radius:5px;padding:0 5px;white-space:nowrap}
+.warn{color:var(--bad);font-weight:600}
+.wide{grid-column:1 / -1}
+.rules{background:var(--orange-soft);border-color:#f3c98f}
+.rules li{font-weight:600}
+.fill{display:inline-block;min-width:150px;border-bottom:1.5px dotted var(--mute)}
+table{width:100%;border-collapse:collapse}
+th,td{border:1.5px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
+th{background:var(--blue);color:#fff;font-size:13px;border-color:var(--blue)}
+td:first-child{width:31%;font-weight:600}
+tr:nth-child(even) td{background:#fafafe}
+td ol,td ul{padding-left:16px}
+.foot{margin-top:10px;display:flex;justify-content:space-between;gap:12px;color:var(--mute);font-size:12px}
+.foot .fill{min-width:180px}
+@media print{
+  @page{size:A4;margin:0}
+  html,body{background:#fff}
+  .bar{display:none}
+  .page{margin:0;box-shadow:none;break-after:page}
+  .page:last-child{break-after:auto}
+}
+@media screen and (max-width:820px){
+  .page{width:auto;min-height:0;margin:12px 16px;padding:16px}
+  .cols{grid-template-columns:1fr}
+  td:first-child{width:38%}
+}
+</style>
+</head>
+<body>
+
+<div class="bar"><p>พิมพ์ A4 2 หน้า แล้ววางไว้ข้างแท็บเล็ต · เติมช่องว่างด้วยปากกาก่อนใช้</p><button onclick="window.print()">พิมพ์คู่มือ</button></div>
+
+<!-- ===================== หน้า 1: ใช้งานประจำวัน ===================== -->
+<section class="page p1">
+  <header><h1>Geek <span>Pop-up</span> POS · คู่มือพนักงาน</h1><small>ใช้งานประจำวัน</small></header>
+  <div class="cols">
+
+    <div class="box">
+      <h2><b>1</b>เปิดร้าน</h2>
+      <ol>
+        <li>เปิดปริ้นเตอร์ เสียบสายเข้าแท็บเล็ต (หัวแปลง OTG)</li>
+        <li>เปิดแอป <b>Geek POS</b> จากหน้าจอโฮม</li>
+        <li>กดรหัสของตัวเอง 4 หลัก แล้วกด <span class="k">เข้าสู่ระบบ</span></li>
+        <li>นับเงินในลิ้นชัก ใส่ <b>เงินทอนตั้งต้น</b> แล้วกด <span class="k">บันทึก</span></li>
+        <li>ปุ่มบนแถบหัวเป็นสีส้ม <span class="o">เชื่อมปริ้นเตอร์</span> ให้กด 1 ครั้ง จนขึ้นว่า "ปริ้นเตอร์พร้อม"</li>
+        <li>ของไหนหมด ไปที่ <span class="k">ตั้งค่า</span> แล้วปิดสวิตช์ (ดูข้อ 5)</li>
+      </ol>
+    </div>
+
+    <div class="box">
+      <h2><b>2</b>รับออเดอร์</h2>
+      <ol>
+        <li>เลือกเมนู · Greek Yogurt เลือกขนาดก่อน</li>
+        <li>เลือกท็อปปิ้ง
+          <ul>
+            <li><b>Greek 89 / 129:</b> ฟรี 3 อย่าง ชิ้นที่ 4 ขึ้นไป +15 · Extra คิดตามราคา</li>
+            <li><b>Greek 69:</b> ทุกชิ้น +15 ถ้าแก้ว 89 ถูกกว่า ระบบจะถามให้เปลี่ยน</li>
+            <li><b>Acai / Banana Choco:</b> มีท็อปปิ้งมาแล้ว กด <span class="k">เปลี่ยน</span> หรือ <span class="k">ไม่รับ</span> ได้ · เพิ่มได้ที่ <span class="k">+ เพิ่มท็อปปิ้ง</span> ชิ้นละ 15</li>
+          </ul>
+        </li>
+        <li>ลูกค้าขอใส่ถ้วยแยก กด <span class="o">แยกท็อปปิ้ง</span> (+5 ต่อแก้ว)</li>
+        <li><b>น้ำผึ้ง ต้องถามลูกค้าทุกแก้ว</b> (Banana Choco ไม่มีน้ำผึ้ง)</li>
+        <li>มีหมายเหตุ เช่น แพ้ถั่ว ให้พิมพ์ไว้ แล้วกด <span class="k">เพิ่มลงออเดอร์</span></li>
+      </ol>
+    </div>
+
+    <div class="box">
+      <h2><b>3</b>ชำระเงิน</h2>
+      <ol>
+        <li>ลูกค้ามีโปร กด <span class="k">ใช้โปรโมชัน</span> ในกล่องออเดอร์ (1 บิลใช้ได้ 1 โปร)</li>
+        <li>กด <span class="k">ชำระเงิน</span> → เลือก <b>กินเลย / กลับบ้าน</b> → เลือกวิธีจ่าย
+          <ul>
+            <li><b>เงินสด:</b> กดจำนวนที่รับมา ดูเงินทอนบนจอ</li>
+            <li><b>PromptPay:</b> ให้ลูกค้าสแกน QR <span class="warn">ดูสลิปว่ายอดตรงและโอนสำเร็จก่อน</span></li>
+            <li><b>ไทยช่วยไทย พลัส:</b> เช็กว่ายอดผ่านก่อน</li>
+          </ul>
+        </li>
+        <li>กด <span class="k">ยืนยันการชำระเงิน</span> ใบเสร็จกับตั๋วครัวออกเอง</li>
+        <li>เรียกลูกค้าตาม <b>เลขออเดอร์</b> แล้วกด <span class="k">ออเดอร์ถัดไป</span></li>
+      </ol>
+    </div>
+
+    <div class="box">
+      <h2><b>4</b>กดผิด</h2>
+      <ul>
+        <li><b>ยังไม่จ่าย:</b> กดถังขยะที่รายการ หรือ <span class="k">ล้างออเดอร์</span></li>
+        <li><b>จ่ายแล้ว:</b> ห้ามขายซ้ำเพื่อแก้ ให้เจ้าของยกเลิกบิล<br>
+          <span class="k">สรุปยอด</span> → แท็บ <b>บิล</b> → <span class="k">ยกเลิกบิล</span> → เจ้าของใส่รหัส แล้วค่อยขายใหม่</li>
+      </ul>
+      <h2 style="margin-top:8px"><b>5</b>ของหมด</h2>
+      <ul>
+        <li><span class="k">ตั้งค่า</span> → ปิดสวิตช์ของที่หมด แถวจะเป็นสีเทา ปุ่มบนหน้าขายจะกดไม่ได้</li>
+        <li>ของมาแล้ว เปิดสวิตช์กลับ</li>
+      </ul>
+    </div>
+
+    <div class="box wide">
+      <h2><b>6</b>ปิดร้าน (ทำทุกวัน)</h2>
+      <ol>
+        <li><span class="k">สรุปยอด</span> → <span class="k">ปิดร้าน / นับเงิน</span></li>
+        <li>นับเงินสด<b>ทั้งหมด</b>ในลิ้นชัก (รวมเงินทอนตั้งต้น) ใส่ช่อง <b>นับได้จริง</b> ระบบจะบอกว่า เงินตรง / ขาด / เกิน</li>
+        <li>เงินไม่ตรง นับใหม่อีกรอบ ถ้ายังไม่ตรง เขียนหมายเหตุว่าเกิดอะไรขึ้น แล้วกด <span class="k">บันทึกการนับเงิน</span></li>
+        <li>กด <span class="k">สำรองข้อมูล</span> แล้วส่งไฟล์ไปที่ <span class="fill"></span> <b>ทุกวัน</b></li>
+        <li>กดชื่อตัวเองบนแถบหัว เพื่อออกจากระบบ แล้วปิดปริ้นเตอร์</li>
+      </ol>
+    </div>
+
+    <div class="box wide rules">
+      <h2>กติกาสำคัญ</h2>
+      <ul>
+        <li>รหัสเป็นของใครของมัน ห้ามบอกคนอื่น ทุกบิลมีชื่อคนกดออเดอร์</li>
+        <li>PromptPay ต้องเห็นสลิปว่ายอดตรงก่อนกดยืนยันทุกครั้ง</li>
+        <li>แท็บเล็ตไม่มีเน็ตก็ขายได้ตามปกติ ข้อมูลเก็บในเครื่อง</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===================== หน้า 2: การ์ดแก้ปัญหา ===================== -->
+<section class="page">
+  <header><h1>Geek <span>Pop-up</span> POS · การ์ดแก้ปัญหา</h1><small>เจออาการไหน ทำตามช่องขวา</small></header>
+  <table>
+    <tr><th>อาการ</th><th>ทำอะไร</th></tr>
+    <tr><td>จ่ายเงินแล้ว กระดาษไม่ออก</td><td><ol>
+      <li>กด <span class="k">กระดาษไม่ออก? พิมพ์อีกครั้ง</span> บนหน้าที่ขึ้นหลังจ่ายเงิน</li>
+      <li>เช็กว่าปริ้นเตอร์เปิดอยู่ กระดาษไม่หมด ฝาปิดสนิท สายไม่หลุด</li>
+      <li>ปุ่มบนแถบหัวเป็นสีส้ม <span class="o">เชื่อมปริ้นเตอร์</span> ให้กดเชื่อมใหม่</li>
+      <li>พิมพ์ซ้ำทีหลังได้ที่ <span class="k">สรุปยอด</span> → <b>บิล</b> → <span class="k">ใบเสร็จ</span> / <span class="k">ตั๋วครัว</span></li></ol></td></tr>
+    <tr><td>ปริ้นเตอร์เสีย ใช้ไม่ได้เลย</td><td>ขายต่อได้ตามปกติ ออเดอร์บันทึกครบ · บอกเลขออเดอร์จากหน้าจอ เขียนรายการให้ครัวด้วยมือ · แจ้งเจ้าของ แล้วพิมพ์ซ้ำจากแท็บบิลทีหลัง</td></tr>
+    <tr><td>ลูกค้าโอน PromptPay ไม่ตรงยอด</td><td><b>ยังไม่ต้องกดยืนยัน</b> · โอนขาด ให้ลูกค้าโอนเพิ่มส่วนที่ขาด · โอนเกิน แจ้งเจ้าของ และเขียนไว้ในหมายเหตุตอนปิดร้าน</td></tr>
+    <tr><td>หน้าจ่ายเงินไม่มี QR PromptPay</td><td>ยังไม่ได้ตั้งเลข PromptPay ในเครื่อง แจ้งเจ้าของ (ตั้งได้ที่ ตั้งค่า) · ระหว่างนี้รับเงินสด หรือวิธีที่เจ้าของบอก</td></tr>
+    <tr><td>ปุ่มเมนูหรือท็อปปิ้งเป็นสีเทา มีคำว่า "หมด"</td><td>ถูกตั้งว่าของหมด · ถ้ามีของจริง ไปที่ <span class="k">ตั้งค่า</span> แล้วเปิดสวิตช์กลับ</td></tr>
+    <tr><td>ท็อปปิ้งที่มากับ Acai / Banana Choco ขึ้นกรอบแดง "หมด"</td><td>กด <span class="k">เปลี่ยน</span> เป็นอย่างอื่นในหมวดเดียวกัน หรือ <span class="k">ไม่รับ</span> ตามที่ลูกค้าเลือก</td></tr>
+    <tr><td>กด "เพิ่มลงออเดอร์" ไม่ได้</td><td>ยังไม่ได้เลือกน้ำผึ้ง ถามลูกค้าแล้วเลือก 1 แบบ (ไม่รับ / ราดนิดหน่อย / ราดปกติ / ราดเยอะ / แยก)</td></tr>
+    <tr><td>Greek ขึ้นถาม "ท็อปปิ้งฟรีเลือกไป … จาก 3 อย่าง"</td><td>ถามลูกค้าว่าจะเอาเพิ่มไหม · เอาเพิ่ม กด <span class="k">กลับไปเลือกเพิ่ม</span> · ไม่เอา กด <span class="k">ลูกค้าขอแค่ … อย่าง</span> (ตักโยเกิร์ตปริมาณปกติ)</td></tr>
+    <tr><td>โปรถูกยกเลิกเอง</td><td>ออเดอร์เปลี่ยนจนไม่เข้าเงื่อนไขโปรแล้ว เช่น ลบจนเหลือแก้วเดียวตอนใช้ 1 แถม 1 · เพิ่มแก้วแล้วกดใช้โปรใหม่</td></tr>
+    <tr><td>ลืมรหัส</td><td><b>พนักงาน:</b> ให้เจ้าของตั้งรหัสใหม่ที่ ตั้งค่า → พนักงาน → แก้ไข<br><b>เจ้าของ:</b> กด <span class="k">ลืมรหัสเจ้าของ?</span> แล้วใส่รหัสกู้คืน 8 หลักที่จดไว้</td></tr>
+    <tr><td>แอปกลับไปหน้าใส่รหัสเอง</td><td>เลย 23:00 แล้ว ระบบขึ้นวันขายใหม่ · ใส่รหัสอีกครั้ง ออเดอร์ที่ค้างอยู่ยังอยู่</td></tr>
+    <tr><td>แอปค้าง หรือจอขาว</td><td>ปิดแอปแล้วเปิดใหม่ บิลที่จ่ายแล้วไม่หาย (ออเดอร์ที่ยังไม่จ่ายอาจต้องกดใหม่)</td></tr>
+    <tr><td><span class="warn">แถบสีแดงบนสุดของจอ</span><br>"ไม่ให้บันทึกข้อมูลถาวร" หรือ "บันทึกยอดขายไม่สำเร็จ"</td><td><span class="warn">หยุดขายก่อน</span> · ไปที่ ตั้งค่า → <span class="k">สำรองตอนนี้</span> แล้วส่งไฟล์ให้เจ้าของ · โทรแจ้งเจ้าของทันที</td></tr>
+    <tr><td>ปิดร้านแล้วเงินไม่ตรง</td><td>นับใหม่อีกรอบ · ดูบิลเงินสดใน <span class="k">สรุปยอด</span> → <b>บิล</b> ว่ามีบิลที่ควรยกเลิกไหม · ยังไม่ตรง ให้เขียนหมายเหตุแล้วบันทึกตามจริง ห้ามใส่ตัวเลขให้ตรงเอง</td></tr>
+    <tr><td>อินเทอร์เน็ตหลุด</td><td>ขายต่อได้ตามปกติ QR PromptPay ยังขึ้น · แค่ลูกค้าต้องมีเน็ตในมือถือตัวเองเพื่อโอน</td></tr>
+  </table>
+  <div class="foot">
+    <span>ติดต่อเจ้าของ: <span class="fill"></span> โทร <span class="fill"></span></span>
+    <span>ส่งไฟล์สำรองไปที่: <span class="fill"></span></span>
+  </div>
+</section>
+
+</body>
+</html>
