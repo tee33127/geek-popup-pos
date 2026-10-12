@@ -30,6 +30,7 @@ const stat = () => $$('.stat b').map(e => e.textContent);
 
 open();
 eq('KPI today (void excluded)', stat(), ['฿681','3','4','฿227']);
+eq('opens with today chip on', $$('.chip.on').map(c => c.dataset.range), ['today']);
 eq('void note', $('#modal').textContent.includes('ไม่นับบิลที่ยกเลิก 1 บิล'), true);
 
 // 1) สินค้า
@@ -83,9 +84,12 @@ eq('item lines: new Banana no honey, old Banana bill keeps honey', [ev(`itemLine
 
 // ช่วงวันที่
 click('[data-range="yday"]'); eq('yesterday KPI', stat(), ['฿298','1','2','฿298']);
+eq('selected range chip highlighted', $$('.chip.on').map(c => c.dataset.range), ['yday']);
 click('[data-tab="ingr"]'); r = rowsOf().map(x => x.slice(0,2)); eq('yesterday Banana Choco base x2', (r.find(x => x[0] === 'Banana Choco base (ถ้วย)')||[])[1], '2');
 click('[data-range="all"]'); eq('all KPI', stat(), ['฿979','4','6','฿245']);
 click('[data-range="7d"]'); eq('7d KPI', stat(), ['฿979','4','6','฿245']);
+eq('only 7d chip on', $$('.chip.on').map(c => c.dataset.range), ['7d']);
+const rt = $('#repTo'); rt.value = rt.value; rt.dispatchEvent(new w.Event('change')); eq('custom date clears chips', $$('.chip.on').length, 0);
 $('#repFrom').value = today; $('#repFrom').dispatchEvent(new w.Event('change')); $('#repTo').value = today; $('#repTo').dispatchEvent(new w.Event('change'));
 eq('manual date range', stat(), ['฿681','3','4','฿227']);
 // แท็บบิล + CSV

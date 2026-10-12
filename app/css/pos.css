@@ -110,7 +110,8 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .tab.on{background:var(--blue);color:#fff}
 .rangebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .rangebar input{font:inherit;padding:8px;border:2px solid var(--line);border-radius:10px}
-.chip{background:var(--bg);padding:8px 12px;border-radius:20px;font-size:14px;font-weight:700}
+.chip{background:var(--bg);padding:8px 12px;border-radius:20px;font-size:14px;font-weight:700;border:2px solid transparent}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 th.n,td.n{text-align:right;white-space:nowrap}
 tr.tot td{font-weight:800;border-top:2px solid var(--ink)}
 .sec2{font-weight:800;margin:18px 0 6px;font-size:17px}

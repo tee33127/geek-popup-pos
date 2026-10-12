@@ -1,5 +1,5 @@
 /* ====== รายงานสรุป: คำนวณตัวเลข (ไม่แตะ DOM) ====== */
-const REP = {from:null, to:null, tab:'items', fb:false};
+const REP = {from:null, to:null, tab:'items', fb:false, range:null};   // range = ปุ่มช่วงที่เลือกอยู่ (null = เลือกวันที่เอง)
 
 const thDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'2-digit'}); };
 function roundLabel(from, to){
@@ -16,7 +16,7 @@ function defaultRound(){
 
 function setRange(k){
   const today = bizDate(new Date());
-  REP.fb = false;
+  REP.fb = false; REP.range = k;
   if(k === 'yday') REP.from = REP.to = addDays(today, -1);
   else if(k === '7d'){ REP.from = addDays(today, -6); REP.to = today; }
   else if(k === 'all'){ const ds = loadSales().map(x => x.date).sort(); REP.from = ds[0] || today; REP.to = ds[ds.length - 1] || today; }

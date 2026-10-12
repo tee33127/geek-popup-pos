@@ -2,7 +2,7 @@
 $('btnSummary').onclick = () => {
   if(!needUser()) return;
   const r = can('pastReports') ? defaultRound() : {date:bizDate(new Date()), fallback:false};
-  REP.from = REP.to = r.date; REP.fb = r.fallback; REP.tab = 'items'; renderSummary();
+  REP.from = REP.to = r.date; REP.fb = r.fallback; REP.range = r.fallback ? null : 'today'; REP.tab = 'items'; renderSummary();
 };
 
 let repCsv = null;
@@ -143,8 +143,8 @@ function renderSummary(){
     <h3>${icon('chart', 22)} สรุปยอดขาย</h3>
     ${can('pastReports') ? `<div class="rangebar">
       <input type="date" id="repFrom" value="${REP.from}"><span>ถึง</span><input type="date" id="repTo" value="${REP.to}">
-      <button class="chip" data-range="today">วันนี้</button><button class="chip" data-range="yday">เมื่อวาน</button>
-      <button class="chip" data-range="7d">7 วัน</button><button class="chip" data-range="all">ทั้งหมด</button>
+      ${[['today', 'วันนี้'], ['yday', 'เมื่อวาน'], ['7d', '7 วัน'], ['all', 'ทั้งหมด']].map(([k, l]) =>
+        `<button class="chip ${REP.range === k ? 'on' : ''}" data-range="${k}" aria-pressed="${REP.range === k}">${l}</button>`).join('')}
     </div>` : `<div class="note2">${icon('lock', 14)} พนักงานดูได้เฉพาะรอบขายวันนี้ · ยอดย้อนหลังให้เจ้าของดู</div>`}
     <div class="note2"><b>${roundLabel(REP.from, REP.to)}</b>${R.voided ? ` · ไม่นับบิลที่ยกเลิก ${R.voided} บิล` : ''}</div>
     ${REP.fb ? `<div class="note2" style="color:var(--orange)">รอบปัจจุบันยังไม่มีบิล จึงแสดงรอบล่าสุดที่มีการขาย</div>` : ''}
@@ -164,8 +164,8 @@ function renderSummary(){
     </div>
     <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, true);
   if(!$('repFrom')) return;
-  $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
-  $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
+  $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
+  $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
 }
 let csvPending = null;
 
