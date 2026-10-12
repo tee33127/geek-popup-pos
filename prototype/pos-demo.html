@@ -23,7 +23,7 @@ header h1{margin:0;font-size:19px;font-weight:700}
 header h1 span{color:var(--orange)}
 #nextNo{font-size:14px;margin-left:auto}
 #nextNo b{font-size:20px;font-weight:800;margin-left:2px}
-.hbtn{background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:10px;font-size:15px}
+.hbtn{background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:10px;font-size:15px;min-height:48px}
 .hbtn .ic{vertical-align:-3px}
 .hbtn.off{background:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
 main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-width:1200px;margin:0 auto;align-items:start}
@@ -63,7 +63,7 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .comp .nm{flex:1;font-weight:700}
 .comp .nm small{display:block;font-weight:400;color:var(--mute);font-size:14px}
 .comp .px{color:#b45f00}
-.comp button{background:var(--bg);padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px}
+.comp button{background:var(--bg);padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px;min-height:48px;min-width:48px}
 .comp button.skip{background:none;color:var(--mute);font-weight:400;font-size:13px;text-decoration:underline;padding:8px 6px}
 .comp.removed{background:var(--bg)}
 .comp.removed .nm{color:var(--mute)}
@@ -101,7 +101,7 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .line .t{display:flex;justify-content:space-between;gap:8px;font-weight:700}
 .line .d{color:var(--mute);font-size:14.5px;margin:2px 0 6px}
 .qty{display:flex;align-items:center;gap:10px}
-.qty button{width:38px;height:38px;border-radius:10px;background:var(--bg);font-size:22px;font-weight:700}
+.qty button{width:48px;height:48px;border-radius:10px;background:var(--bg);font-size:22px;font-weight:700}
 .qty .rm{margin-left:auto;width:48px;height:48px;display:grid;place-items:center;color:var(--bad);background:none;border-radius:10px}
 .qty .rm:active{background:#fdecea}
 .total{display:flex;justify-content:space-between;font-size:24px;font-weight:800;padding:14px 0 10px}
@@ -110,12 +110,18 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .clear{width:100%;margin-top:8px;color:var(--bad);padding:11px;border:2px solid var(--line);border-radius:12px;font-weight:700}
 .clear:disabled{opacity:.4}
 .bar{display:none}
+/* จอกว้าง (แนวนอน): กล่องออเดอร์ติดจอใต้แถบหัว ปุ่มชำระเงินเห็นตลอดตอนเลื่อนหน้า · รายการเยอะเลื่อนในกล่อง */
+@media(min-width:901px){
+  .cart{position:sticky;top:88px;max-height:calc(100vh - 104px);display:flex;flex-direction:column}
+  .cart > *{flex-shrink:0}
+  .cart #cart{flex:1 1 auto;min-height:0;overflow-y:auto}
+}
 #modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
 #modal.show{display:flex}
 .box{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:540px;max-height:92vh;overflow:auto}
 .box.wide{max-width:940px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
-.tab{padding:10px 14px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}
+.tab{padding:10px 14px;min-height:48px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}
 .tab.on{background:var(--blue);color:#fff}
 .rangebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .rangebar input{font:inherit;padding:8px;border:2px solid var(--line);border-radius:10px}
@@ -145,7 +151,7 @@ tr.tot td{font-weight:800;border-top:2px solid var(--ink)}
 .payrow .pay{flex:1}
 .q2 small{font-weight:400;color:var(--mute)}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-.quick button{background:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700}
+.quick button{background:var(--bg);padding:10px 16px;min-height:48px;border-radius:10px;font-weight:700}
 input.num{width:100%;font-size:26px;padding:12px;border:2px solid var(--line);border-radius:12px;text-align:right;font-family:inherit}
 .change{font-size:30px;font-weight:800;color:var(--ok);text-align:center;margin:12px 0}
 .big{font-size:56px;text-align:center}
@@ -475,7 +481,11 @@ function itemLines(i, forPrint){
 
 function historyText(s){ return (s.log || []).map(l => `${l.act === 'void' ? 'ยกเลิก' : 'นำกลับ'} ${fmtDT(l.at)}${l.by ? ' โดย ' + l.by : ''}`).join(' / '); }
 
-function csvText(rows){ const q = v => `"${String(v).replace(/"/g, '""')}"`; return rows.map(r => r.map(q).join(',')).join('\r\n'); }
+/* ข้อความที่ขึ้นต้นด้วย = + - @ (หรือ tab/CR) เติม ' ข้างหน้า กัน Excel/Sheets ตีความเป็นสูตร · ตัวเลข (เช่นส่วนลดติดลบ) คงเดิม */
+function csvText(rows){
+  const q = v => { let s = String(v); if(typeof v !== 'number' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+  return rows.map(r => r.map(q).join(',')).join('\r\n');
+}
 </script>
 <script>
 /* ===== js/auth.js ===== */
@@ -832,7 +842,10 @@ function parseBackup(text){
   let d; try{ d = JSON.parse(text); }catch(e){ return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป (อ่านไม่ได้)'}; }
   if(!d || d.app !== BACKUP_APP || !Array.isArray(d.sales)) return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป'};
   if(d.ver > BACKUP_VER) return {ok:false, why:'ไฟล์มาจากแอปเวอร์ชันใหม่กว่า กรุณาอัปเดตแอปก่อน'};
-  const bad = d.sales.find(s => !s || typeof s.id !== 'number' || !s.date || !Array.isArray(s.items));
+  /* ช่องที่หน้าสรุป/พิมพ์ต้องใช้ · ขาดแล้วรับเข้าเครื่อง หน้าสรุปของรอบนั้นจะเปิดไม่ได้ */
+  const itemOk = i => i && typeof i.menu === 'string' && Array.isArray(i.tops) && typeof i.unit === 'number' && typeof i.qty === 'number';
+  const bad = d.sales.find(s => !s || typeof s.id !== 'number' || typeof s.date !== 'string' || !s.date || !Array.isArray(s.items) || !s.items.every(itemOk)
+    || typeof s.total !== 'number' || typeof s.dining !== 'string' || typeof s.method !== 'string' || typeof s.ts !== 'string');
   if(bad) return {ok:false, why:'ข้อมูลบิลในไฟล์ไม่ครบ'};
   const have = new Set(loadSales().map(s => s.id)), dates = d.sales.map(s => s.date).sort();
   const st = d.settings || {};
@@ -3523,7 +3536,7 @@ function receiptHtml(s){
     itemLines(i, true).map(l => `<div class="sm">${esc(l)}</div>`).join('')).join('');
   return `<div class="slip">
     <div class="c b lg">${esc(CONFIG.shopName)}</div><div class="c">${esc(CONFIG.shopSub)}</div><hr>
-    <div class="r b"><span>ออเดอร์ #${pad(s.no, 3)}</span><span>${esc(DINE[s.dining].name)}</span></div>
+    <div class="r b"><span>ออเดอร์ #${esc(pad(s.no, 3))}</span><span>${esc(DINE[s.dining].name)}</span></div>
     <div>${fmtDT(s.ts)}</div>${s.staff ? `<div>พนักงาน: ${esc(s.staff)}</div>` : ''}${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>
     ${lines}<hr>
     ${s.promo ? `<div class="r b"><span>โปร: ${esc(s.promo.name)}</span><span>-${baht(s.promo.discount)}</span></div><div class="sm">${esc(s.promo.detail)}</div>` : ''}
@@ -3543,7 +3556,7 @@ function kitchenHtml(s){
     return `<div class="kt">${i.qty} × ${esc(itemTitle(i))}</div>${l}`;
   }).join('');
   return `<div class="slip">
-    <div class="no">#${pad(s.no, 3)}</div>
+    <div class="no">#${esc(pad(s.no, 3))}</div>
     <div class="dine">${esc(DINE[s.dining].name)}</div>
     <div class="c">${fmtDT(s.ts)}</div>${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>${items}</div>`;
 }
@@ -4001,7 +4014,9 @@ function renderPay(){
   }
 }
 function confirmPay(){
-  if(!pay.dining || !pay.method || STORE_MODE === 'loading') return;
+  if(!pay.dining || !pay.method || !cart.length) return;
+  if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }
+  if(pay.method === 'cash' && pay.received < cartTotal()) return;   // ปุ่มกดไม่ได้อยู่แล้ว กันเรียกโค้ดตรง
   if(!needUser()) return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
@@ -4015,7 +4030,7 @@ function confirmPay(){
   };
   sales.push(sale);
   if(!saveSales(sales)) return;
-  lastSale = sale; cart = []; promo = null; renderCart(); updateNext();
+  lastSale = sale; cart = []; promo = null; pay = {dining:null, method:null, received:0}; renderCart(); updateNext();
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}
@@ -4054,7 +4069,8 @@ function tabItems(R){
   return {
     html: `<div class="sec2">ตามเมนูหลัก</div>` + tbl(H, Object.values(byMenu).map(line).concat(R.discount ? [['ส่วนลดโปรโมชัน', '', '-' + baht(R.discount), '']] : []), ['รวม', R.cups, baht(R.total), '']) +
           `<div class="sec2">ตามรายการ <small>(แยกขนาด)</small></div>` + tbl(H, rows.map(line)),
-    csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]))
+    /* แถวส่วนลดเหมือนตารางบนจอ ผลรวมคอลัมน์ยอดขายใน CSV จึงเท่ายอดขายรวม */
+    csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]), R.discount ? [['ส่วนลดโปรโมชัน', '', -R.discount, '']] : [])
   };
 }
 /* การนับเงินปิดร้านของช่วงที่เลือก (ครั้งล่าสุดของแต่ละรอบ) */
@@ -4129,7 +4145,7 @@ function tabBills(R){
   const multi = REP.from !== REP.to;
   const rows = list.map(x => {
     const t = new Date(x.ts);
-    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small>${x.staff ? `<br><small>${icon('user', 13)} ${esc(x.staff)}</small>` : ''}</td>
+    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? esc(x.date) + '<br>' : ''}#${esc(pad(x.no, 3))}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small>${x.staff ? `<br><small>${icon('user', 13)} ${esc(x.staff)}</small>` : ''}</td>
       <td>${x.items.map(i => `${esc(itemTitle(i))} ×${i.qty}`).join('<br>')}<br><small>${esc(DINE[x.dining].name)}</small></td>
       <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small>${x.promo ? `<br><small class="promotag">${icon('tag', 14)} ${esc(x.promo.name)} -${baht(x.promo.discount)}</small>` : ''}</td>
       <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">${icon('undo', 16)} นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
@@ -4154,7 +4170,7 @@ function tabStaff(R){
     html: `<div class="sec2">ยอดตามคนกดออเดอร์</div>` +
       tbl([['พนักงาน'], ['บิล', 1], ['ยอดขาย', 1], ['บิลที่ถูกยกเลิก', 1], ['กดยกเลิกบิล', 1]], rows.map(r => [esc(r.name), r.bills, baht(r.rev), r.voided, r.voidBy])) +
       `<p class="note2">บิลที่ถูกยกเลิก = บิลที่คนนี้กดออเดอร์แล้วภายหลังถูกยกเลิก (ไม่นับในยอด) · กดยกเลิกบิล = เจ้าของที่ใส่รหัสยกเลิก</p>` +
-      `<div class="sec2">เข้า / ออกระบบ</div>` + (log.length ? tbl([['เวลา'], ['ชื่อ'], ['ตำแหน่ง'], ['']], log.map(l => [tm(l.at), esc(l.name), ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก'])) : EMPTY) +
+      `<div class="sec2">เข้า / ออกระบบ</div>` + (log.length ? tbl([['เวลา'], ['ชื่อ'], ['ตำแหน่ง'], ['']], log.map(l => [tm(l.at), esc(l.name), ROLE_NAME[l.role] || esc(l.role), l.act === 'in' ? 'เข้า' : 'ออก'])) : EMPTY) +
       `<p class="note2">ขึ้นรอบขายใหม่ (${pad(CONFIG.resetHour)}:00) ระบบออกให้เองโดยไม่บันทึกเวลาออก</p>`,
     csv: [['พนักงาน','บิล','ยอดขาย','บิลที่ถูกยกเลิก','กดยกเลิกบิล']].concat(rows.map(r => [r.name, r.bills, r.rev, r.voided, r.voidBy]),
       [[]], [['วันที่รอบขาย','เวลา','ชื่อ','ตำแหน่ง','เข้า/ออก']], log.map(l => [l.date, fmtDT(l.at), l.name, ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก']))
@@ -4282,7 +4298,7 @@ function openSettings(){
     <div class="slist"><div class="srow"><span class="nm">${pp ? esc(PP.format(pp)) : '<span style="color:var(--bad)">ยังไม่ได้ตั้ง</span>'}</span><button class="ghost" id="ppOpen">${pp ? 'เปลี่ยน' : 'ตั้งเลข'}</button></div></div>`;
   if(can('users')) h += `<div class="q2">พนักงานและรหัส</div><div class="slist">` + users().map(u =>
       `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
-        <button class="ghost" data-uedit="${u.id}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${u.id}">ลบ</button>`}</div>`).join('') +
+        <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
     <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${SETTINGS.recovery ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
   else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;

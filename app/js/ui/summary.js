@@ -25,7 +25,8 @@ function tabItems(R){
   return {
     html: `<div class="sec2">ตามเมนูหลัก</div>` + tbl(H, Object.values(byMenu).map(line).concat(R.discount ? [['ส่วนลดโปรโมชัน', '', '-' + baht(R.discount), '']] : []), ['รวม', R.cups, baht(R.total), '']) +
           `<div class="sec2">ตามรายการ <small>(แยกขนาด)</small></div>` + tbl(H, rows.map(line)),
-    csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]))
+    /* แถวส่วนลดเหมือนตารางบนจอ ผลรวมคอลัมน์ยอดขายใน CSV จึงเท่ายอดขายรวม */
+    csv: [['รายการ','จำนวน (แก้ว)','ยอดขาย','สัดส่วนยอดขาย %']].concat(rows.map(r => [r.name, r.qty, r.rev, pct(r.rev, R.total)]), R.discount ? [['ส่วนลดโปรโมชัน', '', -R.discount, '']] : [])
   };
 }
 /* การนับเงินปิดร้านของช่วงที่เลือก (ครั้งล่าสุดของแต่ละรอบ) */
@@ -100,7 +101,7 @@ function tabBills(R){
   const multi = REP.from !== REP.to;
   const rows = list.map(x => {
     const t = new Date(x.ts);
-    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? x.date + '<br>' : ''}#${pad(x.no, 3)}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small>${x.staff ? `<br><small>${icon('user', 13)} ${esc(x.staff)}</small>` : ''}</td>
+    return `<tr class="${x.void ? 'void' : ''}"><td>${multi ? esc(x.date) + '<br>' : ''}#${esc(pad(x.no, 3))}<br><small>${pad(t.getHours())}:${pad(t.getMinutes())}</small>${x.staff ? `<br><small>${icon('user', 13)} ${esc(x.staff)}</small>` : ''}</td>
       <td>${x.items.map(i => `${esc(itemTitle(i))} ×${i.qty}`).join('<br>')}<br><small>${esc(DINE[x.dining].name)}</small></td>
       <td>${baht(x.total)}<br><small>${esc(METHOD[x.method].name)}</small>${x.promo ? `<br><small class="promotag">${icon('tag', 14)} ${esc(x.promo.name)} -${baht(x.promo.discount)}</small>` : ''}</td>
       <td><button class="sbtn" data-prr="${x.id}">ใบเสร็จ</button><button class="sbtn" data-prk="${x.id}">ตั๋วครัว</button>${x.void ? `<br><small style="color:var(--bad)">ยกเลิกแล้ว</small> <button class="rbtn" data-restore="${x.id}">${icon('undo', 16)} นำกลับ</button>` : `<button class="vbtn" data-v="${x.id}">ยกเลิกบิล</button>`}${(x.log || []).length ? `<br><small style="color:var(--mute)">${esc(historyText(x))}</small>` : ''}</td></tr>`;
@@ -125,7 +126,7 @@ function tabStaff(R){
     html: `<div class="sec2">ยอดตามคนกดออเดอร์</div>` +
       tbl([['พนักงาน'], ['บิล', 1], ['ยอดขาย', 1], ['บิลที่ถูกยกเลิก', 1], ['กดยกเลิกบิล', 1]], rows.map(r => [esc(r.name), r.bills, baht(r.rev), r.voided, r.voidBy])) +
       `<p class="note2">บิลที่ถูกยกเลิก = บิลที่คนนี้กดออเดอร์แล้วภายหลังถูกยกเลิก (ไม่นับในยอด) · กดยกเลิกบิล = เจ้าของที่ใส่รหัสยกเลิก</p>` +
-      `<div class="sec2">เข้า / ออกระบบ</div>` + (log.length ? tbl([['เวลา'], ['ชื่อ'], ['ตำแหน่ง'], ['']], log.map(l => [tm(l.at), esc(l.name), ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก'])) : EMPTY) +
+      `<div class="sec2">เข้า / ออกระบบ</div>` + (log.length ? tbl([['เวลา'], ['ชื่อ'], ['ตำแหน่ง'], ['']], log.map(l => [tm(l.at), esc(l.name), ROLE_NAME[l.role] || esc(l.role), l.act === 'in' ? 'เข้า' : 'ออก'])) : EMPTY) +
       `<p class="note2">ขึ้นรอบขายใหม่ (${pad(CONFIG.resetHour)}:00) ระบบออกให้เองโดยไม่บันทึกเวลาออก</p>`,
     csv: [['พนักงาน','บิล','ยอดขาย','บิลที่ถูกยกเลิก','กดยกเลิกบิล']].concat(rows.map(r => [r.name, r.bills, r.rev, r.voided, r.voidBy]),
       [[]], [['วันที่รอบขาย','เวลา','ชื่อ','ตำแหน่ง','เข้า/ออก']], log.map(l => [l.date, fmtDT(l.at), l.name, ROLE_NAME[l.role] || l.role, l.act === 'in' ? 'เข้า' : 'ออก']))

@@ -36,7 +36,9 @@ function renderPay(){
   }
 }
 function confirmPay(){
-  if(!pay.dining || !pay.method || STORE_MODE === 'loading') return;
+  if(!pay.dining || !pay.method || !cart.length) return;
+  if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }
+  if(pay.method === 'cash' && pay.received < cartTotal()) return;   // ปุ่มกดไม่ได้อยู่แล้ว กันเรียกโค้ดตรง
   if(!needUser()) return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
@@ -50,7 +52,7 @@ function confirmPay(){
   };
   sales.push(sale);
   if(!saveSales(sales)) return;
-  lastSale = sale; cart = []; promo = null; renderCart(); updateNext();
+  lastSale = sale; cart = []; promo = null; pay = {dining:null, method:null, received:0}; renderCart(); updateNext();
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}

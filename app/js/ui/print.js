@@ -5,7 +5,7 @@ function receiptHtml(s){
     itemLines(i, true).map(l => `<div class="sm">${esc(l)}</div>`).join('')).join('');
   return `<div class="slip">
     <div class="c b lg">${esc(CONFIG.shopName)}</div><div class="c">${esc(CONFIG.shopSub)}</div><hr>
-    <div class="r b"><span>ออเดอร์ #${pad(s.no, 3)}</span><span>${esc(DINE[s.dining].name)}</span></div>
+    <div class="r b"><span>ออเดอร์ #${esc(pad(s.no, 3))}</span><span>${esc(DINE[s.dining].name)}</span></div>
     <div>${fmtDT(s.ts)}</div>${s.staff ? `<div>พนักงาน: ${esc(s.staff)}</div>` : ''}${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>
     ${lines}<hr>
     ${s.promo ? `<div class="r b"><span>โปร: ${esc(s.promo.name)}</span><span>-${baht(s.promo.discount)}</span></div><div class="sm">${esc(s.promo.detail)}</div>` : ''}
@@ -25,7 +25,7 @@ function kitchenHtml(s){
     return `<div class="kt">${i.qty} × ${esc(itemTitle(i))}</div>${l}`;
   }).join('');
   return `<div class="slip">
-    <div class="no">#${pad(s.no, 3)}</div>
+    <div class="no">#${esc(pad(s.no, 3))}</div>
     <div class="dine">${esc(DINE[s.dining].name)}</div>
     <div class="c">${fmtDT(s.ts)}</div>${s.void ? '<div class="c b">*** ยกเลิกบิล ***</div>' : ''}<hr>${items}</div>`;
 }

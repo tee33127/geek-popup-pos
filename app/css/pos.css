@@ -14,7 +14,7 @@ header h1{margin:0;font-size:19px;font-weight:700}
 header h1 span{color:var(--orange)}
 #nextNo{font-size:14px;margin-left:auto}
 #nextNo b{font-size:20px;font-weight:800;margin-left:2px}
-.hbtn{background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:10px;font-size:15px}
+.hbtn{background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:10px;font-size:15px;min-height:48px}
 .hbtn .ic{vertical-align:-3px}
 .hbtn.off{background:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
 main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-width:1200px;margin:0 auto;align-items:start}
@@ -54,7 +54,7 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .comp .nm{flex:1;font-weight:700}
 .comp .nm small{display:block;font-weight:400;color:var(--mute);font-size:14px}
 .comp .px{color:#b45f00}
-.comp button{background:var(--bg);padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px}
+.comp button{background:var(--bg);padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px;min-height:48px;min-width:48px}
 .comp button.skip{background:none;color:var(--mute);font-weight:400;font-size:13px;text-decoration:underline;padding:8px 6px}
 .comp.removed{background:var(--bg)}
 .comp.removed .nm{color:var(--mute)}
@@ -92,7 +92,7 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .line .t{display:flex;justify-content:space-between;gap:8px;font-weight:700}
 .line .d{color:var(--mute);font-size:14.5px;margin:2px 0 6px}
 .qty{display:flex;align-items:center;gap:10px}
-.qty button{width:38px;height:38px;border-radius:10px;background:var(--bg);font-size:22px;font-weight:700}
+.qty button{width:48px;height:48px;border-radius:10px;background:var(--bg);font-size:22px;font-weight:700}
 .qty .rm{margin-left:auto;width:48px;height:48px;display:grid;place-items:center;color:var(--bad);background:none;border-radius:10px}
 .qty .rm:active{background:#fdecea}
 .total{display:flex;justify-content:space-between;font-size:24px;font-weight:800;padding:14px 0 10px}
@@ -101,12 +101,18 @@ input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12
 .clear{width:100%;margin-top:8px;color:var(--bad);padding:11px;border:2px solid var(--line);border-radius:12px;font-weight:700}
 .clear:disabled{opacity:.4}
 .bar{display:none}
+/* จอกว้าง (แนวนอน): กล่องออเดอร์ติดจอใต้แถบหัว ปุ่มชำระเงินเห็นตลอดตอนเลื่อนหน้า · รายการเยอะเลื่อนในกล่อง */
+@media(min-width:901px){
+  .cart{position:sticky;top:88px;max-height:calc(100vh - 104px);display:flex;flex-direction:column}
+  .cart > *{flex-shrink:0}
+  .cart #cart{flex:1 1 auto;min-height:0;overflow-y:auto}
+}
 #modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
 #modal.show{display:flex}
 .box{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:540px;max-height:92vh;overflow:auto}
 .box.wide{max-width:940px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
-.tab{padding:10px 14px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}
+.tab{padding:10px 14px;min-height:48px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}
 .tab.on{background:var(--blue);color:#fff}
 .rangebar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .rangebar input{font:inherit;padding:8px;border:2px solid var(--line);border-radius:10px}
@@ -136,7 +142,7 @@ tr.tot td{font-weight:800;border-top:2px solid var(--ink)}
 .payrow .pay{flex:1}
 .q2 small{font-weight:400;color:var(--mute)}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-.quick button{background:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700}
+.quick button{background:var(--bg);padding:10px 16px;min-height:48px;border-radius:10px;font-weight:700}
 input.num{width:100%;font-size:26px;padding:12px;border:2px solid var(--line);border-radius:12px;text-align:right;font-family:inherit}
 .change{font-size:30px;font-weight:800;color:var(--ok);text-align:center;margin:12px 0}
 .big{font-size:56px;text-align:center}

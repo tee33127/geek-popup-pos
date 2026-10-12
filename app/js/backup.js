@@ -15,7 +15,10 @@ function parseBackup(text){
   let d; try{ d = JSON.parse(text); }catch(e){ return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป (อ่านไม่ได้)'}; }
   if(!d || d.app !== BACKUP_APP || !Array.isArray(d.sales)) return {ok:false, why:'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอป'};
   if(d.ver > BACKUP_VER) return {ok:false, why:'ไฟล์มาจากแอปเวอร์ชันใหม่กว่า กรุณาอัปเดตแอปก่อน'};
-  const bad = d.sales.find(s => !s || typeof s.id !== 'number' || !s.date || !Array.isArray(s.items));
+  /* ช่องที่หน้าสรุป/พิมพ์ต้องใช้ · ขาดแล้วรับเข้าเครื่อง หน้าสรุปของรอบนั้นจะเปิดไม่ได้ */
+  const itemOk = i => i && typeof i.menu === 'string' && Array.isArray(i.tops) && typeof i.unit === 'number' && typeof i.qty === 'number';
+  const bad = d.sales.find(s => !s || typeof s.id !== 'number' || typeof s.date !== 'string' || !s.date || !Array.isArray(s.items) || !s.items.every(itemOk)
+    || typeof s.total !== 'number' || typeof s.dining !== 'string' || typeof s.method !== 'string' || typeof s.ts !== 'string');
   if(bad) return {ok:false, why:'ข้อมูลบิลในไฟล์ไม่ครบ'};
   const have = new Set(loadSales().map(s => s.id)), dates = d.sales.map(s => s.date).sort();
   const st = d.settings || {};
