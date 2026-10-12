@@ -9,7 +9,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const w = dom.window, d = w.document, $ = s => d.querySelector(s);
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   w.addEventListener('load', () => {
-    eq('all scripts loaded & UI rendered', [$('[data-menu="greek"]') !== null, $('#nextNo').textContent], [true, 'ออเดอร์ถัดไป #001']);
+    eq('all scripts loaded & UI rendered', [$('[data-menu="greek"]') !== null, $('#nextNo').textContent], [true, 'ออเดอร์ #001']);
     eq('menu photo uses file path', $('[data-menu="acai"] img').getAttribute('src'), 'img/acai.jpg');
     $('[data-menu="greek"]').click(); $('[data-pick="Banana"]').click(); $('[data-pick="Granola"]').click();
     eq('price via pricing.js', $('#btnAdd').textContent.includes('฿99'), true);
@@ -19,7 +19,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];
       eq('sale saved', [s.no, s.total, s.change, s.dining], [1, 99, 1, 'takeaway']);
       eq('print slips rendered', $('#printArea').querySelectorAll('.slip').length, 2);
-      $('#nextOrder').click(); eq('next order number', $('#nextNo').textContent, 'ออเดอร์ถัดไป #002');
+      $('#nextOrder').click(); eq('next order number', $('#nextNo').textContent, 'ออเดอร์ #002');
       eq('no runtime errors', errors, []);
       console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);
     }, 200);

@@ -12,7 +12,8 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 header{background:var(--blue);color:#fff;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:5}
 header h1{margin:0;font-size:19px;font-weight:700}
 header h1 span{color:var(--orange)}
-#nextNo{font-size:14px;opacity:.9;margin-left:auto}
+#nextNo{font-size:14px;margin-left:auto}
+#nextNo b{font-size:20px;font-weight:800;margin-left:2px}
 .hbtn{background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:10px;font-size:15px}
 .hbtn .ic{vertical-align:-3px}
 .hbtn.off{background:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
