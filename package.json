@@ -5,12 +5,14 @@
   "description": "POS สำหรับร้าน Geek Yogurt & Smoothie Bar สาขา pop-up",
   "scripts": {
     "build:prototype": "node tools/build-prototype.js",
-    "test": "node tools/build-prototype.js && node tests/run-tests.js"
+    "test": "node tools/build-prototype.js && node tests/run-tests.js",
+    "qa:e2e": "node tests/qa/e2e.test.js"
   },
   "devDependencies": {
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24.0.0",
     "jsqr": "^1.4.0",
+    "playwright": "^1.64.0",
     "promptpay-qr": "^0.5.0"
   }
 }

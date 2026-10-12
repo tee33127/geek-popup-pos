@@ -26,6 +26,13 @@ const runs = [
   ['prototype/demo-business-round.test.js', '2026,10,6,9,0'],
   ['prototype/demo-business-round.test.js', '2026,10,6,14,30'],
   ['prototype/demo-business-round.test.js', '2026,10,6,14,30', 'block'],
+  // QA ตาม docs/qa-checklist.md (/check-all) · บั๊กที่รายงานแล้วพิมพ์ KNOWN-BUG ไม่ทำให้แดง
+  ['qa/pricing.test.js'],
+  ['qa/promo.test.js'],
+  ['qa/sales-ui.test.js'],
+  ['qa/reports-export.test.js'],
+  ['qa/data-security.test.js'],
+  ['qa/print-manual.test.js'],
 ];
 let failed = 0;
 for (const [file, ...args] of runs) {
