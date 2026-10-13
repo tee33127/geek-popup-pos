@@ -8,14 +8,22 @@ const read = f => fs.readFileSync(f, 'utf8');
 let html = read(path.join(APP, 'index.html'));
 const once = (s, a, b) => { if(s.split(a).length !== 2) throw new Error('ต้องเจอพอดี 1 ครั้ง: ' + a); return s.replace(a, () => b); };
 
-/* app/sw.js: รายการไฟล์ทั้งหมดใน app/ + VERSION จาก hash เนื้อหา (ไฟล์เปลี่ยน → แท็บเล็ตโหลดชุดใหม่) */
+/* app/sw.js: รายการไฟล์ทั้งหมดใน app/ + VERSION จาก hash เนื้อหา (ไฟล์เปลี่ยน → แท็บเล็ตโหลดชุดใหม่)
+   app/js/version.js: VERSION เดียวกัน + วันเวลา build ให้หน้าตั้งค่าแสดง (เช็กว่าแท็บเล็ตอัปเดตแล้วหรือยัง)
+   ไม่นับ version.js ใน hash (ไม่งั้นวนไม่จบ) · เขียนวันที่ใหม่เฉพาะตอน VERSION เปลี่ยน build ซ้ำแล้วไฟล์ไม่เปลี่ยน */
+const VER_FILE = 'js/version.js', verPath = path.join(APP, VER_FILE);
 const appFiles = (dir, pre = '') => fs.readdirSync(dir, {withFileTypes:true}).flatMap(e =>
   e.isDirectory() ? appFiles(path.join(dir, e.name), pre + e.name + '/') : [pre + e.name]).sort();
-const swFiles = appFiles(APP).filter(f => f !== 'sw.js' && !f.endsWith('.svg') && !f.startsWith('.'));
 const hash = crypto.createHash('sha256');
-swFiles.forEach(f => hash.update(f + '\0').update(fs.readFileSync(path.join(APP, f))));
+appFiles(APP).filter(f => f !== 'sw.js' && f !== VER_FILE && !f.endsWith('.svg') && !f.startsWith('.'))
+  .forEach(f => hash.update(f + '\0').update(fs.readFileSync(path.join(APP, f))));
+const VERSION = hash.digest('hex').slice(0, 12);
+const oldVer = fs.existsSync(verPath) ? read(verPath) : '';
+if(!oldVer.includes(`v:'${VERSION}'`)) fs.writeFileSync(verPath,
+  `/* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */\nconst APP_VERSION = {v:'${VERSION}', built:'${new Date().toISOString()}'};\n`);
+const swFiles = appFiles(APP).filter(f => f !== 'sw.js' && !f.endsWith('.svg') && !f.startsWith('.'));
 const swPath = path.join(APP, 'sw.js'), sw = read(swPath);
-const sw2 = sw.replace(/^const VERSION = .*$/m, `const VERSION = '${hash.digest('hex').slice(0, 12)}';`)
+const sw2 = sw.replace(/^const VERSION = .*$/m, `const VERSION = '${VERSION}';`)
   .replace(/^const FILES = .*$/m, `const FILES = ${JSON.stringify(['./', ...swFiles])};`);
 if(sw2 !== sw) fs.writeFileSync(swPath, sw2);
 

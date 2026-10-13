@@ -19,6 +19,12 @@ const ctx0 = vm.createContext({self:{addEventListener(){}}});
 vm.runInContext(swSrc.replace(/const /g, 'var '), ctx0);
 const FILES = ctx0.FILES;
 eq('VERSION stamped by build', /^[0-9a-f]{12}$/.test(ctx0.VERSION), true);
+/* version.js (หน้าตั้งค่าแสดง) ตรงกับ sw.js · build ซ้ำแล้วไม่เปลี่ยน (วันที่ build ไม่เลื่อนเอง) */
+const ctxV = vm.createContext({}); vm.runInContext(read('js/version.js').replace(/const /g, 'var '), ctxV);
+const ver0 = read('js/version.js');
+require('child_process').execFileSync('node', [path.join(__dirname, '../../tools/build-prototype.js')]);
+eq('version.js matches sw.js VERSION, has build time, stable on rebuild', [ctxV.APP_VERSION.v, !isNaN(Date.parse(ctxV.APP_VERSION.built)), read('js/version.js') === ver0], [ctx0.VERSION, true, true]);
+eq('version.js is cached and loaded first', [ctx0.FILES.includes('js/version.js'), html.indexOf('js/version.js') < html.indexOf('js/config.js')], [true, true]);
 const used = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map(m => m[1])
   .concat(...fs.readdirSync(path.join(APP, 'js'), {recursive:true}).filter(f => f.endsWith('.js')).map(f => [...read('js/' + f).matchAll(/'(img\/[^']+)'/g)].map(m => m[1])))
   .concat(man.icons.map(i => i.src));
