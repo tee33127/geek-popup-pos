@@ -29,7 +29,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     type('#ppIn', '1-2345-67890-12-1'); eq('valid: test QR ฿1 shown', [$('#setSave').disabled, !!$('#ppPrev svg.qr'), $('#ppMsg').textContent.includes('1-2345-67890-12-1')], [false, true, true]);
     $('#setSave').click();
     eq('saved digits only, back to settings', [JSON.parse(w.localStorage.getItem('geek_popup_settings')).promptpay, $('#modal').textContent.includes('1-2345-67890-12-1'), $('#ppOpen').textContent], ['1234567890121', true, 'เปลี่ยน']);
-    $('#ppOpen').click(); eq('reopen shows formatted', $('#ppIn').value, '1-2345-67890-12-1'); $('#setBack').click(); $('#closeX').click();
+    $('#ppOpen').click(); eq('reopen shows digits only (formatted number in message)', [$('#ppIn').value, $('#ppMsg').textContent.includes('1-2345-67890-12-1')], ['1234567890121', true]); $('#setBack').click(); $('#closeX').click();
     // หน้าชำระเงินแสดง QR ยอดบิล
     $('#btnClear').click(); if($('#cfYes')) $('#cfYes').click();
     toPay();

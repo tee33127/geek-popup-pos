@@ -18,6 +18,8 @@ const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));
 const enter = code => { keys(code); click('#lgGo'); };
+/* ช่องตั้งรหัส 2 ช่องบนแป้นของแอป: ช่องแรก → แตะช่องสอง → ช่องสอง (ใส่ไม่ครบก็ได้) */
+const codes = (a, b) => { click('[data-kp="clear"]'); keys(a); click('[data-cpf="1"]'); keys(b); };
 const shown = () => $('#login').classList.contains('show');
 const save = () => { store = {}; for(let i = 0; i < w.localStorage.length; i++){ const k = w.localStorage.key(i); store[k] = w.localStorage.getItem(k); } };
 const reopen = async () => { save(); w.close(); w = open(); d = w.document; await wait(60); };
@@ -28,14 +30,17 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
 (async () => {
   await wait(60);
   // ---- ครั้งแรก: ตั้งเจ้าของ ----
-  eq('first run shows setup', [shown(), !!$('#lgName'), !!$('[data-kp]'), $('#btnUser').style.display], [true, true, false, 'none']);
-  type('#lgName', 'ตี๋'); type('#lgCode', '12'); type('#lgCode2', '12'); click('#lgSave');
+  eq('first run shows setup (code on app keypad, no password input)', [shown(), !!$('#lgName'), !!$('[data-pad="lgset"]'), $$('input[type=password]').length, $('#btnUser').style.display], [true, true, true, 0, 'none']);
+  type('#lgName', 'ตี๋'); codes('12', '12'); click('#lgSave');
   eq('code must be 4 digits', $('.lgmsg').textContent, 'รหัสต้องเป็นตัวเลข 4 หลัก');
-  type('#lgName', 'ตี๋'); type('#lgCode', '4321'); type('#lgCode2', '4322'); click('#lgSave');
-  eq('codes must match', $('.lgmsg').textContent, 'รหัสสองช่องไม่ตรงกัน');
-  type('#lgName', ''); type('#lgCode', '4321'); type('#lgCode2', '4321'); click('#lgSave');
+  type('#lgName', 'ตี๋'); codes('4321', '4322'); click('#lgSave');
+  eq('codes must match · name kept · codes cleared', [$('.lgmsg').textContent, $('#lgName').value, $$('.dots i.on').length], ['รหัสสองช่องไม่ตรงกัน', 'ตี๋', 0]);
+  keys('4321'); eq('full first field moves to second', [$('[data-cpf="1"]').classList.contains('cur'), $$('[data-cpf="0"] .dots i.on').length], [true, 4]);
+  click('[data-kp="back"]'); eq('backspace on empty second field goes back to first', $('[data-cpf="0"]').classList.contains('cur'), true);
+  click('[data-kp="back"]'); eq('…and deletes there', $$('[data-cpf="0"] .dots i.on').length, 3);
+  type('#lgName', ''); codes('4321', '4321'); click('#lgSave');
   eq('name required', $('.lgmsg').textContent, 'ใส่ชื่อก่อน');
-  type('#lgName', 'ตี๋'); type('#lgCode', '4321'); type('#lgCode2', '4321'); click('#lgSave');
+  type('#lgName', 'ตี๋'); codes('4321', '4321'); click('#lgSave');
   const rc = $('.recov').textContent.replace(/\s/g, '');
   eq('recovery code shown once (8 digits)', /^\d{8}$/.test(rc), true);
   const st = settings();
@@ -49,9 +54,12 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   eq('owner sees PromptPay, staff list, recovery', [!!$('#ppOpen'), !!$('#usrAdd'), !!$('#rcNew'), $$('[data-uedit]').length], [true, true, true, 1]);
   eq('cannot delete self', !!$('[data-udel]'), false);
   click('#usrAdd'); eq('new user defaults to staff', $('[data-urole].on').dataset.urole, 'staff');
-  type('#usrName', 'แพร'); type('#usrCode', '4321'); type('#usrCode2', '4321'); click('#usrSave');
+  eq('staff form: code on app keypad', [!!$('[data-pad="usr"]'), $$('input[type=password]').length], [true, 0]);
+  type('#usrName', 'แพร'); codes('4321', '4321'); click('#usrSave');
   eq('duplicate code rejected', $('#modal .ppmsg').textContent.includes('รหัสนี้มีคนใช้แล้ว'), true);
-  type('#usrName', 'แพร'); type('#usrCode', '1111'); type('#usrCode2', '1111'); click('#usrSave');
+  click('[data-urole="owner"]'); click('[data-urole="staff"]');   // เปลี่ยนตำแหน่ง = วาดใหม่ รหัสที่กดไว้ยังอยู่
+  type('#usrName', 'แพร'); codes('1111', '1111'); click('[data-urole="owner"]'); click('[data-urole="staff"]');
+  eq('role toggle keeps typed code', $$('#modal .dots i.on').length, 8); click('#usrSave');
   eq('staff added', [settings().users.map(u => [u.name, u.role]), !!$('[data-udel]')], [[['ตี๋', 'owner'], ['แพร', 'staff']], true]);
   click($$('[data-uedit]')[0]); click('[data-urole="staff"]'); type('#usrName', 'ตี๋'); click('#usrSave');
   eq('last owner cannot become staff', $('#modal .ppmsg').textContent.includes('ต้องมีเจ้าของอย่างน้อย 1 คน'), true);
@@ -84,11 +92,11 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   click('[data-tab="bills"]');
   eq('bills tab shows who', $('#modal').textContent.includes('แพร') && $('#modal').textContent.includes('ตี๋'), true);
   click($$('[data-v]')[0]);
-  eq('staff void asks owner code', [!!$('#pinIn'), $('#modal').textContent.includes('ต้องใช้รหัสเจ้าของ')], [true, true]);
-  $('#pinIn').value = '1111'; click('#pinOk'); eq('staff code rejected', $('#modal').textContent.includes('รหัสนี้ไม่ใช่รหัสเจ้าของ'), true);
-  $('#pinIn').value = '0000'; click('#pinOk'); eq('wrong code rejected', $('#modal').textContent.includes('รหัสไม่ถูกต้อง'), true);
+  eq('staff void asks owner code on app keypad', [!!$('[data-pad="owner"]'), $$('input[type=password]').length, $('#modal').textContent.includes('ต้องใช้รหัสเจ้าของ'), $('#pinOk').disabled], [true, 0, true, true]);
+  keys('1111'); click('#pinOk'); eq('staff code rejected', $('#modal').textContent.includes('รหัสนี้ไม่ใช่รหัสเจ้าของ'), true);
+  keys('0000'); click('#pinOk'); eq('wrong code rejected', $('#modal').textContent.includes('รหัสไม่ถูกต้อง'), true);
   click('#pinNo'); eq('cancel returns to summary', $('#modal').textContent.includes('สรุปยอดขาย'), true);
-  click('[data-tab="bills"]'); click($$('[data-v]')[0]); $('#pinIn').value = '4321'; click('#pinOk');
+  click('[data-tab="bills"]'); click($$('[data-v]')[0]); keys('4321'); click('#pinOk');
   eq('owner code → confirm', $('#modal').textContent.includes('ยกเลิกบิล #002?'), true);
   click('#cfYes');
   const v = ev('loadSales()').find(x => x.void);
@@ -112,9 +120,9 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
 
   // ---- ลืมรหัสเจ้าของ: รหัสกู้คืน ----
   click('#lgForgot'); enter('00000000'); eq('wrong recovery', $('.lgmsg').textContent, 'รหัสกู้คืนไม่ถูกต้อง');
-  enter(rc); eq('recovery → set new owner code', [!!$('#lgCode'), $('.lgsub').textContent.includes('ตี๋')], [true, true]);
-  type('#lgCode', '1111'); type('#lgCode2', '1111'); click('#lgSave'); eq('new code must be unique', $('.lgmsg').textContent, 'รหัสนี้มีคนใช้แล้ว');
-  type('#lgCode', '5678'); type('#lgCode2', '5678'); click('#lgSave');
+  enter(rc); eq('recovery → set new owner code', [!!$('[data-pad="lgset"]'), $('.lgsub').textContent.includes('ตี๋')], [true, true]);
+  codes('1111', '1111'); click('#lgSave'); eq('new code must be unique', $('.lgmsg').textContent, 'รหัสนี้มีคนใช้แล้ว');
+  codes('5678', '5678'); click('#lgSave');
   eq('owner signed in with new code', [shown(), $('#btnUser').textContent.includes('ตี๋')], [false, true]);
   click('#btnUser'); click('#cfYes'); enter('4321'); eq('old owner code no longer works', shown(), true);
   click('[data-kp="clear"]'); enter('5678'); eq('new owner code works', shown(), false);
@@ -125,6 +133,14 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   eq('staff deleted, code dead', [settings().users.map(u => u.name), ev("userByCode('1111')")], [['ตี๋'], null]);
   click('#closeX');
   eq('old bills keep deleted staff name', ev('loadSales()')[1].staff, 'แพร');
+
+  // ---- iPad: ไม่มีช่อง password ในแอป (iOS ขึ้นแป้นเต็ม) · ช่องตัวเลขที่ยังเป็น input กรองเหลือแต่ตัวเลข ----
+  const src = require('fs').readdirSync(require('path').join(__dirname, '../../app/js/ui')).map(f => fs.readFileSync(require('path').join(__dirname, '../../app/js/ui', f), 'utf8')).join('\n');
+  const numInputs = src.match(/<input[^>]*inputmode="numeric"[^>]*>/g) || [];
+  eq('no type=password anywhere · every numeric input filters digits + iOS pattern', [/type="password"/.test(src), numInputs.length > 0, numInputs.filter(i => !/data-digits/.test(i) || !/pattern="\[0-9\]\*"/.test(i))], [false, true, []]);
+  ev('openClose()'); const cc = $('#clCount'); cc.value = '1,2a3 ๔'; cc.dispatchEvent(new w.Event('input', {bubbles:true}));
+  eq('numeric input keeps digits only (before its own handler)', [cc.value, $('#clSave').disabled], ['123', $('#clFloat').value === '']);
+  click('#clBack'); click('#closeX');
 
   eq('no runtime errors', errors, []);
   w.close();

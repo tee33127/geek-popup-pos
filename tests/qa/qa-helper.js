@@ -54,7 +54,8 @@ function open(o = {}){
   const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input', {bubbles:true})); };
   const P = {w, d, $, $$, click, ev, type, errors};
   P.signIn = (code = '1234') => A.signIn(w, code);
-  P.enter = code => { code.split('').forEach(c => click(`[data-kp="${c}"]`)); click('#lgGo'); };
+  P.keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));   // กดแป้นรหัสของแอป (codepad.js)
+  P.enter = code => { P.keys(code); click('#lgGo'); };
   /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer} · answer = id ปุ่มในหน้าต่างถาม */
   P.add = (c) => {
     click(`[data-menu="${c.menu}"]`);

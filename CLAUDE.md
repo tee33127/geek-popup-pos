@@ -53,7 +53,8 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/pricing.js           ← priceItem(menu, state) ฟังก์ชันล้วน + priceSel() สำหรับหน้าจอ
   js/store.js             ← loadSales/saveSales (sync, ถือข้อมูลในหน่วยความจำ) เขียนลง IndexedDB เบื้องหลัง + สำรอง localStorage · storeReady ต้องรอก่อนใช้ · saveSales ไม่ลบบิล · clearSales ใช้เฉพาะ DEMO
   js/reports.js           ← buildReport, รอบขาย/ช่วงวันที่ (REP)
-  js/ui/modal.js          ← $, toast, openModal, askConfirm, askPin
+  js/ui/modal.js          ← $, toast, openModal, askConfirm, askOwner (รหัสเจ้าของ)
+  js/ui/codepad.js        ← แป้นรหัสของแอป ใช้ทุกที่ที่ใส่รหัส (padNew/padHtml/padVal/padError) · **ห้ามใช้ `<input type=password>`** iPad ขึ้นแป้นพิมพ์เต็ม · ช่องตัวเลขอื่นใส่ `data-digits pattern="[0-9]*"`
   js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
   js/ui/builder.js, cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
@@ -113,7 +114,7 @@ npm run build:prototype     # build อย่างเดียว (ใช้แ
 - **ข้อมูลยอดขาย**: ห้ามลบบิล ใช้ `void` + `log` เสมอ · เปลี่ยนรูปแบบข้อมูลต้องมี migration และห้ามทำให้ข้อมูลเก่าหาย · ห้าม commit ไฟล์ CSV ยอดขายจริง
 - **ออฟไลน์ก่อน**: ทุกฟีเจอร์ขายและพิมพ์ต้องทำงานได้โดยไม่มีเน็ต ห้ามโหลด font/สคริปต์จาก CDN ตอนใช้งานจริง
 - **UI สำหรับพนักงานใหม่**: ปุ่มใหญ่ (≥ 48px), ข้อความไทยสั้นชัด, ปุ่มหลักเด่นกว่าปุ่มรอง (เช่น "เปลี่ยน" เด่นกว่า "ไม่รับ"), การกระทำที่ย้อนไม่ได้ต้องยืนยันก่อน
-- **ห้ามใช้ `alert/confirm/prompt`** ของเบราว์เซอร์ (ถูกบล็อกในบางโหมด) ใช้ modal ของระบบเอง (`askConfirm`, `askPin`)
+- **ห้ามใช้ `alert/confirm/prompt`** ของเบราว์เซอร์ (ถูกบล็อกในบางโหมด) ใช้ modal ของระบบเอง (`askConfirm`, `askOwner`)
 - **ส่งออกไฟล์** ห้ามพาออกจากหน้า POS (เคยเกิดจอขาว) ใช้หน้าต่างเลือก ดาวน์โหลด/แชร์/คัดลอก
 - **ภาษาไทยบนตั๋ว**: render เป็นภาพเสมอ ไม่พึ่งฟอนต์ในปริ้นเตอร์
 - **รอบขาย** เปลี่ยนวันเวลา 23:00 — ใช้ `bizDate()` เสมอ ห้ามใช้วันที่ปฏิทินตรงๆ ในรายงานหรือเลขออเดอร์

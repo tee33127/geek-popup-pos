@@ -16,7 +16,7 @@ function renderPay(){
   if(!pay.method){ /* ยังไม่เลือกวิธีชำระ: ไม่แสดงส่วนรับเงิน */ }
   else if(pay.method === 'cash'){
     h += `<div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
-      <input class="num" id="recv" inputmode="numeric" placeholder="รับเงินมา" value="${pay.received || ''}">
+      <input class="num" id="recv" inputmode="numeric" pattern="[0-9]*" data-digits placeholder="รับเงินมา" value="${pay.received || ''}">
       <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
     h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}

@@ -305,6 +305,14 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .rscheck input{width:22px;height:22px;flex:none;margin-top:2px}
 .rscheck small{display:block;color:var(--mute);font-size:13px}
 .lgbox.lgwide{max-width:540px;text-align:left}
+/* แป้นรหัสของแอป (codepad.js): ช่องจุด + แป้นตัวเลข · 2 ช่อง (ตั้งรหัส + ใส่อีกครั้ง) วางข้างกัน ช่องที่กำลังใส่ขอบน้ำเงิน */
+.cpad{text-align:center}
+.cpfs{display:flex;justify-content:center;gap:10px}
+.cpf{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px;min-height:48px}
+.cpfs.multi .cpf{flex:1;border:2px solid var(--line);border-radius:14px;background:#fff}
+.cpfs.multi .cpf.cur{border-color:var(--blue);background:var(--blue-soft)}
+.cpl{font-size:14px;font-weight:700;color:var(--mute)}
+.cpf .dots{margin:0}
 </style>
 </head>
 <body>
@@ -3574,20 +3582,81 @@ function askConfirm(o){
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
     <div class="row"><button class="ghost" id="cfNo">กลับ</button><button class="pay" id="cfYes" style="background:${o.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
-/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) */
-function askOwner(onOk, msg, err){
+/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ใช้แป้นของแอป (codepad.js) */
+function askOwner(onOk, msg){
   pinCb = onOk; pinMsg = msg || '';
+  padNew('owner', {len:CODE_LEN, onEnter:checkPin, onChange: () => { const b = $('pinOk'); if(b) b.disabled = !padFull('owner'); }});
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
-    <input class="num" id="pinIn" type="password" inputmode="numeric" autocomplete="off" maxlength="${CODE_LEN}" style="text-align:center;letter-spacing:8px">
-    ${err ? `<p style="color:var(--bad);margin:8px 0 0">${esc(err)}</p>` : ''}
-    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
-  const i = $('pinIn'); i.focus(); i.onkeydown = e => { if(e.key === 'Enter') checkPin(); };
+    ${padHtml('owner')}
+    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk" disabled>ตกลง</button></div>`);
 }
 function checkPin(){
-  const u = userByCode($('pinIn').value), cb = pinCb;
+  if(!padFull('owner')) return;
+  const u = userByCode(padVal('owner')), cb = pinCb;
   if(u && u.role === 'owner'){ pinCb = null; if(cb) cb(u); }
-  else askOwner(cb, pinMsg, u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
+  else padError('owner', u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
 }
+</script>
+<script>
+/* ===== js/ui/codepad.js ===== */
+/* ---------- แป้นใส่รหัสของแอปเอง: ใช้ทุกที่ที่ใส่รหัส (เข้าใช้งาน, ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, รหัสเจ้าของ, ฟอร์มพนักงาน, รหัสกู้คืน)
+   ไม่ใช้ <input type=password> เพราะ iPad (Safari) ไม่สนใจ inputmode บนช่อง password จึงขึ้นแป้นพิมพ์เต็ม (Tee 2026-10-13)
+   1 แป้นมีได้หลายช่อง (รหัส + ใส่อีกครั้ง) ใส่ครบช่องแรกแล้วไปช่องถัดไปเอง · แตะช่องเพื่อแก้ · ⌫ ที่ช่องว่างกลับไปช่องก่อน
+   padNew(id, {len, labels, msg, onEnter, onChange}) → padHtml(id) ใส่ในหน้า · padVal(id, i) อ่านค่า · padError(id, msg) ล้างทุกช่องแล้วแสดงข้อความ
+   กดปุ่มวาดใหม่เฉพาะแป้น ช่องอื่นในหน้า (เช่น ชื่อ) ไม่หาย */
+const PADS = {};
+function padNew(id, o = {}){
+  const labels = o.labels || [''];
+  return PADS[id] = {id, len:o.len || CODE_LEN, labels, bufs:labels.map(() => ''), cur:0, msg:o.msg || '', onEnter:o.onEnter || null, onChange:o.onChange || null};
+}
+const padVal = (id, i = 0) => PADS[id] ? PADS[id].bufs[i] : '';
+const padFull = (id, i = 0) => padVal(id, i).length === (PADS[id] || {}).len;
+function padHtml(id){ return `<div class="cpad" id="cp-${id}" data-pad="${id}">${padInner(PADS[id])}</div>`; }
+function padInner(p){
+  const multi = p.labels.length > 1;
+  const fields = p.labels.map((lb, i) => {
+    const dots = Array.from({length:p.len}, (_, k) => `<i class="${k < p.bufs[i].length ? 'on' : ''}"></i>`).join('');
+    const body = `${lb ? `<span class="cpl">${esc(lb)}</span>` : ''}<span class="dots ${p.len > CODE_LEN ? 'long' : ''}">${dots}</span>`;
+    return multi ? `<button type="button" class="cpf ${i === p.cur ? 'cur' : ''}" data-cpf="${i}" aria-label="${esc(lb)} ใส่แล้ว ${p.bufs[i].length} จาก ${p.len} หลัก">${body}</button>`
+      : `<div class="cpf" aria-label="ใส่แล้ว ${p.bufs[i].length} จาก ${p.len} หลัก">${body}</div>`;
+  }).join('');
+  return `<div class="cpfs ${multi ? 'multi' : ''}">${fields}</div><div class="lgmsg" role="alert">${esc(p.msg)}</div>
+    <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button type="button" data-kp="${n}">${n}</button>`).join('')}
+    <button type="button" data-kp="clear" class="kfn">ล้าง</button><button type="button" data-kp="0">0</button><button type="button" data-kp="back" class="kfn" aria-label="ลบ">⌫</button></div>`;
+}
+function padDraw(p){ const el = document.getElementById('cp-' + p.id); if(el) el.innerHTML = padInner(p); if(p.onChange) p.onChange(p); }
+function padKey(p, k){
+  const a = document.activeElement;
+  if(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur();   // iPad: ปิดแป้นพิมพ์ระบบที่ค้างจากช่องชื่อ
+  const b = p.bufs[p.cur];
+  if(k === 'back'){ if(!b && p.cur > 0) p.cur--; else p.bufs[p.cur] = b.slice(0, -1); }
+  else if(k === 'clear'){ p.bufs = p.bufs.map(() => ''); p.cur = 0; }
+  else if(/^\d$/.test(k) && b.length < p.len){ p.bufs[p.cur] = b + k; if(p.bufs[p.cur].length === p.len && p.cur < p.bufs.length - 1) p.cur++; }
+  p.msg = ''; padDraw(p);
+}
+function padError(id, msg){ const p = PADS[id]; if(!p) return; p.bufs = p.bufs.map(() => ''); p.cur = 0; p.msg = msg; padDraw(p); }
+
+document.addEventListener('click', e => {
+  const box = e.target.closest('[data-pad]'), p = box && PADS[box.dataset.pad]; if(!p) return;
+  const k = e.target.closest('[data-kp]'), f = e.target.closest('[data-cpf]');
+  if(k) padKey(p, k.dataset.kp);
+  else if(f){ p.cur = Number(f.dataset.cpf); padDraw(p); }
+});
+/* แป้นพิมพ์จริง (คอมพิวเตอร์): ตัวเลข / Backspace / Enter ไปที่แป้นที่เปิดอยู่ · ยกเว้นตอนพิมพ์ในช่องข้อความ */
+document.addEventListener('keydown', e => {
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '')) return;
+  const box = [...document.querySelectorAll('[data-pad]')].pop(), p = box && PADS[box.dataset.pad]; if(!p) return;
+  if(/^\d$/.test(e.key)) padKey(p, e.key);
+  else if(e.key === 'Backspace') padKey(p, 'back');
+  else if(e.key === 'Enter' && p.onEnter){ e.preventDefault(); p.onEnter(); }
+});
+
+/* ช่องตัวเลขที่ยังเป็น <input> (เงิน, เลข PromptPay): data-digits = เหลือแต่ตัวเลข ก่อนตัวจัดการของช่องนั้นจะเห็นค่า
+   pattern="[0-9]*" ทำให้ iPad ขึ้นแป้นตัวเลข */
+document.addEventListener('input', e => {
+  const i = e.target; if(!i.hasAttribute || !i.hasAttribute('data-digits')) return;
+  const v = i.value.replace(/\D/g, ''); if(v !== i.value) i.value = v;
+}, true);
 </script>
 <script>
 /* ===== js/ui/print.js ===== */
@@ -4056,7 +4125,7 @@ function renderPay(){
   if(!pay.method){ /* ยังไม่เลือกวิธีชำระ: ไม่แสดงส่วนรับเงิน */ }
   else if(pay.method === 'cash'){
     h += `<div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
-      <input class="num" id="recv" inputmode="numeric" placeholder="รับเงินมา" value="${pay.received || ''}">
+      <input class="num" id="recv" inputmode="numeric" pattern="[0-9]*" data-digits placeholder="รับเงินมา" value="${pay.received || ''}">
       <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
     h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}
@@ -4392,6 +4461,7 @@ function openUserForm(id){
   if(!can('users')) return;
   const u = id ? users().find(x => x.id === id) : null;
   userForm = {id: u ? u.id : null, role: u ? u.role : 'staff', msg:''};
+  padNew('usr', {labels:[u ? 'รหัสใหม่' : `รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], onEnter:userFormSave});   // เปลี่ยนตำแหน่งแล้ววาดใหม่ รหัสที่กดไว้ยังอยู่
   renderUserForm(u ? u.name : '');
 }
 function renderUserForm(name){
@@ -4401,10 +4471,8 @@ function renderUserForm(name){
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
-    <div class="q2">${f.id ? 'รหัสใหม่ <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `รหัส ${CODE_LEN} หลัก`}</div>
-    <input class="num" id="usrCode" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
-    <div class="q2">ใส่รหัสอีกครั้ง</div>
-    <input class="num" id="usrCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
+    <div class="q2">${f.id ? 'เปลี่ยนรหัส <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `ตั้งรหัส ${CODE_LEN} หลัก`}</div>
+    ${padHtml('usr')}
     <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
     <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
 }
@@ -4414,8 +4482,9 @@ $('modal').addEventListener('click', e => {
 });
 function userFormSave(){
   const f = userForm; if(!f || !can('users')) return;
-  const name = $('usrName').value, code = $('usrCode').value, code2 = $('usrCode2').value;
-  f.msg = code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : saveUser({id:f.id, name, role:f.role}, code);
+  const name = $('usrName').value, code = padVal('usr', 0), code2 = padVal('usr', 1);
+  if(code !== code2) return padError('usr', 'รหัสสองช่องไม่ตรงกัน');
+  f.msg = saveUser({id:f.id, name, role:f.role}, code);
   if(f.msg) return renderUserForm(name);
   if(USER && f.id === USER.id) USER = users().find(x => x.id === USER.id);   // แก้ชื่อตัวเอง → แถบหัวเปลี่ยนตาม
   userForm = null; renderUser(); toast('บันทึกแล้ว', 'check'); openSettings();
@@ -4433,7 +4502,7 @@ function openPromptPay(){
   if(!can('promptpay')) return;
   openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
     <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
-    <input class="num" id="ppIn" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="ยังไม่ได้ตั้ง" value="${esc(PP.format(SETTINGS.promptpay || ''))}">
+    <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="ยังไม่ได้ตั้ง" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
     <div id="ppPrev"></div>
     <div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`);
@@ -4463,24 +4532,23 @@ function settingsSave(){
 /* ===== js/ui/login.js ===== */
 /* ---------- หน้าเข้าใช้งาน (เต็มจอ ทับทุกอย่าง) ----------
    ครั้งแรก (ยังไม่มีเจ้าของ) → ตั้งชื่อ + รหัสเจ้าของ → แสดงรหัสกู้คืนให้จด
-   ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่ */
-let LG = {mode:'code', buf:'', msg:''};
+   ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่
+   ทุกช่องรหัสใช้แป้นของแอป (codepad.js) · pad 'login' = รหัส/รหัสกู้คืน · pad 'lgset' = ตั้งรหัส + ใส่อีกครั้ง */
+let LG = {mode:'code', msg:''};
 let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
 function showLogin(){
   closeModal();
   /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
-  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', buf:'', msg:''};
+  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', msg:''};
   renderLogin(); $('login').classList.add('show'); renderUser();
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
 
+/* แป้นรหัส 1 ช่อง + ปุ่มยืนยัน (กดได้เมื่อครบหลัก) */
 function keypad(len){
-  const dots = Array.from({length:len}, (_, i) => `<i class="${i < LG.buf.length ? 'on' : ''}"></i>`).join('');
-  return `<div class="dots ${len > CODE_LEN ? 'long' : ''}">${dots}</div><div class="lgmsg">${esc(LG.msg)}</div>
-    <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-kp="${n}">${n}</button>`).join('')}
-    <button data-kp="clear" class="kfn">ล้าง</button><button data-kp="0">0</button><button data-kp="back" class="kfn" aria-label="ลบ">⌫</button></div>
-    <button class="pay" id="lgGo" ${LG.buf.length === len ? '' : 'disabled'}>${LG.mode === 'recover' ? 'ตรวจรหัสกู้คืน' : 'เข้าสู่ระบบ'}</button>`;
+  padNew('login', {len, msg:LG.msg, onEnter:keySubmit, onChange: () => { const b = $('lgGo'); if(b) b.disabled = !padFull('login'); }});
+  return `${padHtml('login')}<button class="pay" id="lgGo" disabled>${LG.mode === 'recover' ? 'ตรวจรหัสกู้คืน' : 'เข้าสู่ระบบ'}</button>`;
 }
 function renderLogin(){
   const head = `<div class="lgtitle">Geek <span>Pop-up</span> POS</div>`;
@@ -4505,9 +4573,7 @@ function renderLogin(){
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
       ${LG.mode === 'setup' ? `<label>ชื่อ<input id="lgName" maxlength="20" autocomplete="off" placeholder="เช่น ตี๋"></label>` : ''}
-      <label>รหัส ${CODE_LEN} หลัก<input id="lgCode" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
-      <label>ใส่รหัสอีกครั้ง<input id="lgCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
-      <div class="lgmsg">${esc(LG.msg)}</div>
+      ${(padNew('lgset', {labels:[`รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], msg:LG.msg, onEnter:loginSave}), padHtml('lgset'))}
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
       ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
@@ -4518,63 +4584,48 @@ function renderLogin(){
       <button class="pay" id="lgDone">จดแล้ว เข้าใช้งาน</button>
     </div>`;
   $('login').innerHTML = `<div class="lgbox">${h}</div>`;
-  const f = $('lgName') || $('lgCode'); if(f) f.focus();
+  if($('lgName')) $('lgName').focus();
 }
 
-function keyIn(k){
-  const len = LG.mode === 'recover' ? RECOVERY_LEN : CODE_LEN;
-  if(k === 'back') LG.buf = LG.buf.slice(0, -1);
-  else if(k === 'clear') LG.buf = '';
-  else if(LG.buf.length < len) LG.buf += k;
-  LG.msg = '';
-  renderLogin();
-}
 /* กด เข้าสู่ระบบ (หรือ Enter) */
 function keySubmit(){
-  const len = LG.mode === 'recover' ? RECOVERY_LEN : CODE_LEN;
-  if(LG.buf.length !== len) return;
+  if(!padFull('login')) return;
+  const code = padVal('login');
   if(LG.mode === 'code'){
-    const u = userByCode(LG.buf);
+    const u = userByCode(code);
     if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
-    LG.msg = 'รหัสไม่ถูกต้อง';
+    padError('login', 'รหัสไม่ถูกต้อง');
   } else if(LG.mode === 'recover'){
-    if(recoveryOk(LG.buf)){ LG = LG.after === 'setup' ? {mode:'setup', buf:'', msg:'', recovered:true} : {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
-    LG.msg = 'รหัสกู้คืนไม่ถูกต้อง';
+    if(recoveryOk(code)){ LG = LG.after === 'setup' ? {mode:'setup', msg:'', recovered:true} : {mode:'reset', msg:''}; renderLogin(); return; }
+    padError('login', 'รหัสกู้คืนไม่ถูกต้อง');
   }
-  LG.buf = ''; renderLogin();
 }
 function loginSave(){
-  const code = $('lgCode').value, code2 = $('lgCode2').value;
+  const code = padVal('lgset', 0), code2 = padVal('lgset', 1);
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
-  if(err){ LG.msg = err; return renderLogin(); }
+  if(err) return padError('lgset', err);
   if(LG.mode === 'setup'){
     if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
-    const e2 = saveUser({name, role:'owner'}, code); if(e2){ LG.msg = e2; return renderLogin(); }
+    const e2 = saveUser({name, role:'owner'}, code); if(e2) return padError('lgset', e2);
     const rc = newRecovery();
     signIn(owners()[0]);
-    LG = {mode:'setupDone', buf:'', msg:'', recovery: rc || ''}; renderLogin();
+    LG = {mode:'setupDone', msg:'', recovery: rc || ''}; renderLogin();
   } else {
-    const o = owners()[0], e2 = saveUser({...o}, code); if(e2){ LG.msg = e2; return renderLogin(); }
+    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return padError('lgset', e2);
     signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }
 $('login').onclick = e => {
-  const k = e.target.closest('[data-kp]'); if(k) return keyIn(k.dataset.kp);
   const id = (e.target.closest('button') || {}).id;
-  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
+  if(id === 'lgForgot'){ LG = {mode:'recover', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
   else if(id === 'lgBack') showLogin();
-  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', buf:'', msg:'', after:'setup'}; renderLogin(); }
+  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', msg:'', after:'setup'}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
   else if(id === 'lgDone'){ hideLogin(); askFloat(); }
   else if(id === 'lgRestore') openRestore(true);
 };
-document.addEventListener('keydown', e => {
-  if(!$('login').classList.contains('show') || !(LG.mode === 'code' || LG.mode === 'recover')) return;
-  if(/^\d$/.test(e.key)) keyIn(e.key); else if(e.key === 'Backspace') keyIn('back'); else if(e.key === 'Enter') keySubmit();
-});
-
 /* ---------- ปุ่มผู้ใช้บนแถบหัว: ชื่อคนที่เข้าอยู่ · กด = ออกจากระบบ ---------- */
 function renderUser(){
   const b = $('btnUser');
@@ -4600,7 +4651,7 @@ function askFloat(){
   openModal(`<h3>${icon('cash', 22)} เปิดร้าน · เงินทอนตั้งต้น</h3>
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
     <div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
-    <input class="num" id="floatIn" inputmode="numeric" autocomplete="off" placeholder="เงินทอนตั้งต้น (บาท)">
+    <input class="num" id="floatIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="เงินทอนตั้งต้น (บาท)">
     <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`);
   $('floatIn').oninput = floatInput;
 }
@@ -4625,10 +4676,10 @@ function renderClose(){
     <div class="note2" style="margin-top:-6px"><b>${roundLabel(d.date, d.date)}</b></div>
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
     <div class="cashbox">
-      <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
+      <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
       <div class="crow"><span>เงินสดจากการขาย <small>(${c.cashBills} บิล)</small></span><b>${baht(c.cashSales)}</b></div>
       <div class="crow tot"><span>ควรมีในลิ้นชัก</span><b id="clExp">${d.float === null ? '–' : baht(c.expected)}</b></div>
-      <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
+      <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
     </div>
     <div class="cldiff" id="clDiff">&nbsp;</div>
     <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">

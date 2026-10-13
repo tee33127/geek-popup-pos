@@ -296,3 +296,11 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .rscheck input{width:22px;height:22px;flex:none;margin-top:2px}
 .rscheck small{display:block;color:var(--mute);font-size:13px}
 .lgbox.lgwide{max-width:540px;text-align:left}
+/* แป้นรหัสของแอป (codepad.js): ช่องจุด + แป้นตัวเลข · 2 ช่อง (ตั้งรหัส + ใส่อีกครั้ง) วางข้างกัน ช่องที่กำลังใส่ขอบน้ำเงิน */
+.cpad{text-align:center}
+.cpfs{display:flex;justify-content:center;gap:10px}
+.cpf{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px;min-height:48px}
+.cpfs.multi .cpf{flex:1;border:2px solid var(--line);border-radius:14px;background:#fff}
+.cpfs.multi .cpf.cur{border-color:var(--blue);background:var(--blue-soft)}
+.cpl{font-size:14px;font-weight:700;color:var(--mute)}
+.cpf .dots{margin:0}

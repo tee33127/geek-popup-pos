@@ -52,6 +52,7 @@ function openUserForm(id){
   if(!can('users')) return;
   const u = id ? users().find(x => x.id === id) : null;
   userForm = {id: u ? u.id : null, role: u ? u.role : 'staff', msg:''};
+  padNew('usr', {labels:[u ? 'รหัสใหม่' : `รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], onEnter:userFormSave});   // เปลี่ยนตำแหน่งแล้ววาดใหม่ รหัสที่กดไว้ยังอยู่
   renderUserForm(u ? u.name : '');
 }
 function renderUserForm(name){
@@ -61,10 +62,8 @@ function renderUserForm(name){
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
-    <div class="q2">${f.id ? 'รหัสใหม่ <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `รหัส ${CODE_LEN} หลัก`}</div>
-    <input class="num" id="usrCode" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
-    <div class="q2">ใส่รหัสอีกครั้ง</div>
-    <input class="num" id="usrCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off">
+    <div class="q2">${f.id ? 'เปลี่ยนรหัส <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `ตั้งรหัส ${CODE_LEN} หลัก`}</div>
+    ${padHtml('usr')}
     <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
     <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
 }
@@ -74,8 +73,9 @@ $('modal').addEventListener('click', e => {
 });
 function userFormSave(){
   const f = userForm; if(!f || !can('users')) return;
-  const name = $('usrName').value, code = $('usrCode').value, code2 = $('usrCode2').value;
-  f.msg = code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : saveUser({id:f.id, name, role:f.role}, code);
+  const name = $('usrName').value, code = padVal('usr', 0), code2 = padVal('usr', 1);
+  if(code !== code2) return padError('usr', 'รหัสสองช่องไม่ตรงกัน');
+  f.msg = saveUser({id:f.id, name, role:f.role}, code);
   if(f.msg) return renderUserForm(name);
   if(USER && f.id === USER.id) USER = users().find(x => x.id === USER.id);   // แก้ชื่อตัวเอง → แถบหัวเปลี่ยนตาม
   userForm = null; renderUser(); toast('บันทึกแล้ว', 'check'); openSettings();
@@ -93,7 +93,7 @@ function openPromptPay(){
   if(!can('promptpay')) return;
   openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
     <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
-    <input class="num" id="ppIn" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="ยังไม่ได้ตั้ง" value="${esc(PP.format(SETTINGS.promptpay || ''))}">
+    <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="ยังไม่ได้ตั้ง" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
     <div id="ppPrev"></div>
     <div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`);

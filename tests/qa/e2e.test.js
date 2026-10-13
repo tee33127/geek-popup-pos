@@ -1,6 +1,8 @@
-// QA ผ่านเบราว์เซอร์จริง (Chromium + Playwright): UI01 UI02 C06 E01 Z08 D03 UI08 X02(จอ)
+// QA ผ่านเบราว์เซอร์จริง (Playwright): UI01 UI02 C06 E01 Z08 D03 UI08 X02(จอ)
+// จอ: Redmi Pad 2 (Chromium 1280×800 / 800×1280) + iPad (WebKit แบบ Safari 1180×820 / 820×1180 · ไม่มี WebKit ใช้ Chromium แทน)
+// ติดตั้ง WebKit ครั้งแรก: npx playwright install webkit
 // รัน: npm run qa:e2e · ไม่อยู่ใน npm test (ช้า) · screenshot → docs/qa/screens/YYYY-MM-DD/
-const {chromium} = require('playwright');
+const {chromium, webkit} = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
 const {eq, done} = require('./qa-helper');
 const ROOT = path.join(__dirname, '../..');
@@ -17,6 +19,11 @@ const server = http.createServer((q, r) => {
   await new Promise(ok => server.listen(0, '127.0.0.1', ok));
   const BASE = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch();
+  const safari = await webkit.launch().catch(() => { console.log('INFO ไม่มี WebKit (npx playwright install webkit) · จอ iPad ใช้ Chromium แทน'); return browser; });
+  /* จอที่ตรวจ: [ชื่อ, ขนาด, เบราว์เซอร์] */
+  const SCREENS = [['landscape', {width:1280, height:800}, browser], ['portrait', {width:800, height:1280}, browser],
+    ['ipad-landscape', {width:1180, height:820}, safari], ['ipad-portrait', {width:820, height:1180}, safari]];
+  const LABELS = SCREENS.map(x => x[0]);
   const consoleErrors = [];
   const watch = (page, tag) => { page.on('pageerror', e => consoleErrors.push(`${tag}: ${e.message}`)); page.on('console', m => { if(m.type() === 'error') consoleErrors.push(`${tag}: ${m.text()}`); }); };
   const enter = async (page, code) => { for(const c of code) await page.click(`[data-kp="${c}"]`); await page.click('#lgGo'); };
@@ -25,8 +32,8 @@ const server = http.createServer((q, r) => {
   // ---------- UI01 / UI02 สองทิศทางจอ ----------
   const small = new Map();
   const layouts = {};
-  for(const [label, vp] of [['landscape', {width:1280, height:800}], ['portrait', {width:800, height:1280}]]){
-    const ctx = await browser.newContext({viewport:vp, hasTouch:true, isMobile:true, deviceScaleFactor:1.5});
+  for(const [label, vp, br] of SCREENS){
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true, deviceScaleFactor: label.startsWith('ipad') ? 2 : 1.5});
     await ctx.addInitScript(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
     const page = await ctx.newPage(); watch(page, label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]');
@@ -60,15 +67,19 @@ const server = http.createServer((q, r) => {
     L.pay = await check('pay'); await page.screenshot({path:path.join(SHOTS, `${label}-06-pay.png`)});
     await page.click('#payCancel');
     await page.click('#btnSummary'); L.summary = await check('summary'); await page.screenshot({path:path.join(SHOTS, `${label}-07-summary.png`)});
-    await page.click('#closeX');
+    await page.click('[data-tab="bills"]'); await page.click('[data-v]');   // พนักงานกดยกเลิกบิล → แป้นรหัสเจ้าของ
+    L.owner = await check('owner'); L.ownerPad = await page.evaluate(() => [!!document.querySelector('[data-pad="owner"] [data-kp="5"]'), document.querySelectorAll('input[type=password]').length]);
+    await page.screenshot({path:path.join(SHOTS, `${label}-08-owner-code.png`)});
+    await page.click('#pinNo'); await page.click('#closeX');
     L.cartOverflow = await page.evaluate(() => [...document.querySelectorAll('#cart .line')].some(l => l.scrollWidth > l.clientWidth + 1));
-    layouts[label] = Object.fromEntries(Object.entries(L).map(([k, v]) => [k, typeof v === 'boolean' ? v : {hscroll:v.hscroll, offscreen:v.offscreen, payVis:v.payVis}]));
+    layouts[label] = Object.fromEntries(Object.entries(L).map(([k, v]) => [k, typeof v === 'boolean' || Array.isArray(v) ? v : {hscroll:v.hscroll, offscreen:v.offscreen, payVis:v.payVis}]));
     await ctx.close();
   }
-  for(const label of ['landscape', 'portrait']){
+  for(const label of LABELS){
     const L = layouts[label];
     eq(`UI01 ${label}: ไม่เลื่อนแนวนอน ไม่มีปุ่มหลุดจอ (หน้าแรก Acai Greek ตะกร้า ชำระเงิน สรุป)`,
-      ['home', 'acai', 'greek', 'cart', 'pay', 'summary'].map(k => [L[k].hscroll, L[k].offscreen]), Array(6).fill([false, []]));
+      ['home', 'acai', 'greek', 'cart', 'pay', 'summary', 'owner'].map(k => [L[k].hscroll, L[k].offscreen]), Array(7).fill([false, []]));
+    eq(`U01 ${label}: รหัสเจ้าของใช้แป้นของแอป ไม่มีช่อง password (iPad ไม่ขึ้นแป้นพิมพ์เต็ม)`, L.ownerPad, [true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงินเห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
   }
@@ -76,6 +87,19 @@ const server = http.createServer((q, r) => {
   console.log(`INFO UI02 ปุ่มที่เล็กกว่า 48 px (${smallList.length}):`);
   smallList.forEach(s => console.log(`INFO UI02   ${s.w}×${s.h}  "${s.l}"  .${s.cls || '-'}  @${s.where}`));
   fs.writeFileSync(path.join(SHOTS, 'ui02-small-buttons.json'), JSON.stringify(smallList, null, 1));
+  // ---------- iPad เครื่องใหม่: ตั้งเจ้าของครั้งแรกด้วยแป้นของแอป ----------
+  {
+    const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2});
+    const page = await ctx.newPage(); watch(page, 'ipad-setup');
+    await page.goto(`${BASE}/prototype/pos.html`); await page.waitForSelector('#lgName');
+    await page.fill('#lgName', 'เจ้าของ'); for(const c of '12341234') await page.tap(`[data-kp="${c}"]`);
+    await page.screenshot({path:path.join(SHOTS, 'ipad-portrait-00-setup.png')});
+    const r = await page.evaluate(() => [document.querySelectorAll('input[type=password]').length, document.querySelectorAll('[data-pad="lgset"] .dots i.on').length]);
+    await page.tap('#lgSave'); const done = await page.isVisible('#lgDone');
+    eq('U01 iPad ตั้งค่าครั้งแรก: ไม่มีช่อง password · กดแป้นของแอปครบ 2 ช่อง · สร้างเจ้าของได้', [...r, done], [0, 8, true]);
+    await ctx.close();
+  }
+
   eq('UI02 ปุ่มระหว่างขาย (หน้าแรก Acai Greek ตะกร้า ชำระเงิน) ≥ 48×48 px', smallList.filter(s => !/summary$/.test(s.where)).map(s => `${s.l} ${s.w}×${s.h}`), []);
 
   // ---------- C06 กดยืนยันชำระเงินรัวๆ · E01 ส่งออกไม่ออกจากหน้า ----------
@@ -125,7 +149,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const A = await ctx.newPage(); watch(A, 'tabA');
     await A.goto(`${BASE}/app/index.html`); await A.waitForSelector('#lgName');
-    await A.fill('#lgName', 'เจ้าของ'); await A.fill('#lgCode', '1234'); await A.fill('#lgCode2', '1234'); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
+    await A.fill('#lgName', 'เจ้าของ'); for(const c of '12341234') await A.click(`[data-kp="${c}"]`); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
     const B = await ctx.newPage(); watch(B, 'tabB');
     await B.goto(`${BASE}/app/index.html`); await B.waitForSelector('#builder'); await B.waitForTimeout(300); await skipFloat(B);
     const sell = async (pg, menu) => { await pg.click(`[data-menu="${menu}"]`); if(await pg.$('[data-honey]')) await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd');
@@ -156,6 +180,7 @@ const server = http.createServer((q, r) => {
   }
 
   eq('Z08 ไม่มี console error ระหว่างใช้งานทุกหน้า', consoleErrors, []);
+  if(safari !== browser) await safari.close();
   await browser.close(); server.close();
   console.log('INFO screenshots:', path.relative(ROOT, SHOTS));
   done();

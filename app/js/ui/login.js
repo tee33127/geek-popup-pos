@@ -1,23 +1,22 @@
 /* ---------- หน้าเข้าใช้งาน (เต็มจอ ทับทุกอย่าง) ----------
    ครั้งแรก (ยังไม่มีเจ้าของ) → ตั้งชื่อ + รหัสเจ้าของ → แสดงรหัสกู้คืนให้จด
-   ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่ */
-let LG = {mode:'code', buf:'', msg:''};
+   ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่
+   ทุกช่องรหัสใช้แป้นของแอป (codepad.js) · pad 'login' = รหัส/รหัสกู้คืน · pad 'lgset' = ตั้งรหัส + ใส่อีกครั้ง */
+let LG = {mode:'code', msg:''};
 let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
 function showLogin(){
   closeModal();
   /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
-  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', buf:'', msg:''};
+  LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', msg:''};
   renderLogin(); $('login').classList.add('show'); renderUser();
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
 
+/* แป้นรหัส 1 ช่อง + ปุ่มยืนยัน (กดได้เมื่อครบหลัก) */
 function keypad(len){
-  const dots = Array.from({length:len}, (_, i) => `<i class="${i < LG.buf.length ? 'on' : ''}"></i>`).join('');
-  return `<div class="dots ${len > CODE_LEN ? 'long' : ''}">${dots}</div><div class="lgmsg">${esc(LG.msg)}</div>
-    <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-kp="${n}">${n}</button>`).join('')}
-    <button data-kp="clear" class="kfn">ล้าง</button><button data-kp="0">0</button><button data-kp="back" class="kfn" aria-label="ลบ">⌫</button></div>
-    <button class="pay" id="lgGo" ${LG.buf.length === len ? '' : 'disabled'}>${LG.mode === 'recover' ? 'ตรวจรหัสกู้คืน' : 'เข้าสู่ระบบ'}</button>`;
+  padNew('login', {len, msg:LG.msg, onEnter:keySubmit, onChange: () => { const b = $('lgGo'); if(b) b.disabled = !padFull('login'); }});
+  return `${padHtml('login')}<button class="pay" id="lgGo" disabled>${LG.mode === 'recover' ? 'ตรวจรหัสกู้คืน' : 'เข้าสู่ระบบ'}</button>`;
 }
 function renderLogin(){
   const head = `<div class="lgtitle">Geek <span>Pop-up</span> POS</div>`;
@@ -42,9 +41,7 @@ function renderLogin(){
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
       ${LG.mode === 'setup' ? `<label>ชื่อ<input id="lgName" maxlength="20" autocomplete="off" placeholder="เช่น ตี๋"></label>` : ''}
-      <label>รหัส ${CODE_LEN} หลัก<input id="lgCode" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
-      <label>ใส่รหัสอีกครั้ง<input id="lgCode2" type="password" inputmode="numeric" maxlength="${CODE_LEN}" autocomplete="off"></label>
-      <div class="lgmsg">${esc(LG.msg)}</div>
+      ${(padNew('lgset', {labels:[`รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], msg:LG.msg, onEnter:loginSave}), padHtml('lgset'))}
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
       ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
@@ -55,63 +52,48 @@ function renderLogin(){
       <button class="pay" id="lgDone">จดแล้ว เข้าใช้งาน</button>
     </div>`;
   $('login').innerHTML = `<div class="lgbox">${h}</div>`;
-  const f = $('lgName') || $('lgCode'); if(f) f.focus();
+  if($('lgName')) $('lgName').focus();
 }
 
-function keyIn(k){
-  const len = LG.mode === 'recover' ? RECOVERY_LEN : CODE_LEN;
-  if(k === 'back') LG.buf = LG.buf.slice(0, -1);
-  else if(k === 'clear') LG.buf = '';
-  else if(LG.buf.length < len) LG.buf += k;
-  LG.msg = '';
-  renderLogin();
-}
 /* กด เข้าสู่ระบบ (หรือ Enter) */
 function keySubmit(){
-  const len = LG.mode === 'recover' ? RECOVERY_LEN : CODE_LEN;
-  if(LG.buf.length !== len) return;
+  if(!padFull('login')) return;
+  const code = padVal('login');
   if(LG.mode === 'code'){
-    const u = userByCode(LG.buf);
+    const u = userByCode(code);
     if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
-    LG.msg = 'รหัสไม่ถูกต้อง';
+    padError('login', 'รหัสไม่ถูกต้อง');
   } else if(LG.mode === 'recover'){
-    if(recoveryOk(LG.buf)){ LG = LG.after === 'setup' ? {mode:'setup', buf:'', msg:'', recovered:true} : {mode:'reset', buf:'', msg:''}; renderLogin(); return; }
-    LG.msg = 'รหัสกู้คืนไม่ถูกต้อง';
+    if(recoveryOk(code)){ LG = LG.after === 'setup' ? {mode:'setup', msg:'', recovered:true} : {mode:'reset', msg:''}; renderLogin(); return; }
+    padError('login', 'รหัสกู้คืนไม่ถูกต้อง');
   }
-  LG.buf = ''; renderLogin();
 }
 function loginSave(){
-  const code = $('lgCode').value, code2 = $('lgCode2').value;
+  const code = padVal('lgset', 0), code2 = padVal('lgset', 1);
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
-  if(err){ LG.msg = err; return renderLogin(); }
+  if(err) return padError('lgset', err);
   if(LG.mode === 'setup'){
     if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
-    const e2 = saveUser({name, role:'owner'}, code); if(e2){ LG.msg = e2; return renderLogin(); }
+    const e2 = saveUser({name, role:'owner'}, code); if(e2) return padError('lgset', e2);
     const rc = newRecovery();
     signIn(owners()[0]);
-    LG = {mode:'setupDone', buf:'', msg:'', recovery: rc || ''}; renderLogin();
+    LG = {mode:'setupDone', msg:'', recovery: rc || ''}; renderLogin();
   } else {
-    const o = owners()[0], e2 = saveUser({...o}, code); if(e2){ LG.msg = e2; return renderLogin(); }
+    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return padError('lgset', e2);
     signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }
 $('login').onclick = e => {
-  const k = e.target.closest('[data-kp]'); if(k) return keyIn(k.dataset.kp);
   const id = (e.target.closest('button') || {}).id;
-  if(id === 'lgForgot'){ LG = {mode:'recover', buf:'', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
+  if(id === 'lgForgot'){ LG = {mode:'recover', msg: recoveryHash() ? '' : 'เครื่องนี้ไม่มีรหัสกู้คืน'}; renderLogin(); }
   else if(id === 'lgBack') showLogin();
-  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', buf:'', msg:'', after:'setup'}; renderLogin(); }
+  else if(id === 'lgRebuild' && recoveryHash()){ LG = {mode:'recover', msg:'', after:'setup'}; renderLogin(); }
   else if(id === 'lgGo') keySubmit();
   else if(id === 'lgSave') loginSave();
   else if(id === 'lgDone'){ hideLogin(); askFloat(); }
   else if(id === 'lgRestore') openRestore(true);
 };
-document.addEventListener('keydown', e => {
-  if(!$('login').classList.contains('show') || !(LG.mode === 'code' || LG.mode === 'recover')) return;
-  if(/^\d$/.test(e.key)) keyIn(e.key); else if(e.key === 'Backspace') keyIn('back'); else if(e.key === 'Enter') keySubmit();
-});
-
 /* ---------- ปุ่มผู้ใช้บนแถบหัว: ชื่อคนที่เข้าอยู่ · กด = ออกจากระบบ ---------- */
 function renderUser(){
   const b = $('btnUser');

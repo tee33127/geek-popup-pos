@@ -175,7 +175,7 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('success screen: no print choices, one next button', [!!$('#prRec'), !!$('#prKit'), $$('#modal button.pay').length, $('#modal button.pay').id], [false, false, 1, 'nextOrder']);
   click('#prBoth'); await wait(150); eq('reprint link prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
   click('#nextOrder');
-  click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('#pinIn'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
+  click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('[data-pad]'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
   click('[data-tab="bills"]'); click('[data-v]'); eq('void confirm modal', $('#modal').textContent.includes('ยกเลิกบิล #001?'), true);
   click('#cfYes'); eq('voided & back to summary', [JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0].void, $('#modal').textContent.includes('สรุปยอดขาย')], [true, true]);
   eq('no native dialogs used', nativeCalls, 0);
