@@ -143,9 +143,17 @@ main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + 16p
   .cart > *{flex-shrink:0}
   .cart #cart{flex:1 1 auto;min-height:0;overflow-y:auto}
 }
-#modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
+/* Modal: overlay fixed เต็มจอ · กล่องสูงไม่เกินจอ · หัว (ชื่อ + X) และแถบปุ่มหลักติดกล่อง · เลื่อนเฉพาะ .mbody ไม่ส่งต่อไปหน้าหลัง */
+#modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px;overscroll-behavior:contain}
 #modal.show{display:flex}
-.box{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:540px;max-height:92vh;overflow:auto}
+.box{background:#fff;border-radius:20px;width:100%;max-width:540px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden}
+.mhead{flex:none;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 20px;border-bottom:1px solid var(--line)}
+.box .mhead h3{flex:1;min-width:0;margin:0;font-size:21px}
+.mx{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;color:var(--ink)}
+.mx:active{background:var(--bg)}
+.mbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px 20px 20px}
+.mfoot{flex:none;padding:10px 20px 12px;border-top:1px solid var(--line);background:#fff}
+.mfoot .row{margin:0}
 .box.wide{max-width:940px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
 .tab{padding:10px 14px;min-height:48px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}
@@ -398,7 +406,7 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'42b005fc62ba', built:'2026-10-13T09:44:32.267Z'};
+const APP_VERSION = {v:'5051f279bd18', built:'2026-10-13T13:17:24.777Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -716,6 +724,7 @@ function signOut(){
 const ICONS = {
   cash:     '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
   check:    '<path d="M20 6 9 17l-5-5"/>',
+  x:        '<path d="M18 6 6 18M6 6l12 12"/>',
   eye:      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>',
   alert:    '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
@@ -3620,9 +3629,39 @@ const $ = id => document.getElementById(id);
 
 function toast(msg, ic){ const t = $('toast'); t.innerHTML = (ic ? icon(ic, 18) + ' ' : '') + esc(msg); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(()=> t.style.display='none', 1800); }
 
-/* ---------- Modal ---------- */
-function openModal(html, wide){ $('modal').innerHTML = `<div class="box ${wide?'wide':''}">${html}</div>`; $('modal').classList.add('show'); }
-function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML = ''; }
+/* ---------- Modal: แบบเดียวกันทุกหน้าต่าง (Tee 2026-10-13 · iPad ปัดในตั้งค่าแล้วหน้าขายข้างหลังเลื่อนแทน) ----------
+   openModal(body, o) · o = {title, key, foot, wide, backdrop, onClose} (ส่ง true = wide แบบเดิม)
+   - title → หัวติดบน: ชื่อซ้าย + ปุ่ม X ขวา (id closeX, aria-label "ปิด") · X เรียก o.onClose หรือ closeModal
+   - foot → แถบล่างติดกล่อง (ปุ่มหลัก) · เนื้อหาเลื่อนเฉพาะใน .mbody (overscroll-behavior: contain)
+   - key → เปิดหน้าต่างเดิมซ้ำ (เช่น กดสวิตช์ในตั้งค่า เปลี่ยนแท็บสรุปยอด) คงตำแหน่งเลื่อน · หน้าต่างใหม่เริ่มบนสุด
+   - backdrop → แตะพื้นหลังนอกกล่องเพื่อปิด (เฉพาะตั้งค่าและสรุปยอด กันข้อมูลที่กรอกหาย)
+   ระหว่างเปิด ล็อกหน้าหลัง: iOS ไม่สน overflow:hidden จึงใช้ body position:fixed + จำ scrollY แล้วคืนตอนปิด */
+let MD = null, mdLockY = null;
+function lockPage(){
+  if(mdLockY !== null) return;
+  mdLockY = window.scrollY || 0;
+  const b = document.body.style; b.position = 'fixed'; b.top = -mdLockY + 'px'; b.left = '0'; b.right = '0'; b.width = '100%';
+}
+function unlockPage(){
+  if(mdLockY === null) return;
+  const y = mdLockY; mdLockY = null;
+  const b = document.body.style; b.position = b.top = b.left = b.right = b.width = '';
+  (document.scrollingElement || document.documentElement).scrollTop = y;
+}
+function openModal(body, o = {}){
+  if(o === true || o === false) o = {wide:o};
+  const prev = MD, body0 = $('modal').querySelector('.mbody'), keep = prev && o.key && prev.key === o.key && body0 ? body0.scrollTop : 0;
+  MD = {key:o.key || null, backdrop:!!o.backdrop, onClose:o.onClose || null};
+  $('modal').innerHTML = `<div class="box ${o.wide ? 'wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' aria-labelledby="mdTitle"' : ''}>` +
+    (o.title ? `<div class="mhead"><h3 id="mdTitle">${o.title}</h3><button class="mx" id="closeX" aria-label="ปิด">${icon('x', 26)}</button></div>` : '') +
+    `<div class="mbody">${body}</div>` + (o.foot ? `<div class="mfoot">${o.foot}</div>` : '') + `</div>`;
+  $('modal').classList.add('show'); lockPage();
+  if(keep) $('modal').querySelector('.mbody').scrollTop = keep;
+}
+function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML = ''; MD = null; unlockPage(); }
+/* ปุ่ม X / แตะพื้นหลัง: ใช้ onClose ของหน้าต่างนั้น (ล้างข้อมูลที่ค้าง) ถ้ามี */
+function modalClose(){ const f = MD && MD.onClose; if(f) f(); else closeModal(); }
+$('modal').addEventListener('click', e => { if(e.target === $('modal') && MD && MD.backdrop) modalClose(); });
 /* หน้าต่างยืนยัน/PIN ของระบบเอง (ไม่ใช้ confirm/prompt ของเบราว์เซอร์ เพราะบางโหมดเปิดไฟล์จะถูกบล็อก) */
 let confirmCb = null, confirmNo = null, pinCb = null, pinMsg = '';
 function askConfirm(o){
@@ -3846,11 +3885,9 @@ async function connectPrinter(){
 }
 function openPrinterInfo(){
   const d = usbPrinter.dev;
-  openModal(`<h3>${icon('printer', 22)} ปริ้นเตอร์</h3>
-    <p style="margin:0 0 6px"><b>เชื่อมอยู่:</b> ${esc((d && d.productName) || 'ปริ้นเตอร์ USB')}</p>
+  openModal(`<p style="margin:0 0 6px"><b>เชื่อมอยู่:</b> ${esc((d && d.productName) || 'ปริ้นเตอร์ USB')}</p>
     <p style="color:var(--mute);margin:0 0 6px">ใบเสร็จและตั๋วครัวจะพิมพ์ออกเครื่องนี้ทันทีหลังชำระเงิน</p>
-    <div class="row"><button class="ghost" id="prOff">ยกเลิกการเชื่อม</button><button class="pay" id="prTest">พิมพ์ทดสอบ</button></div>
-    <button class="linkbtn" id="closeX">ปิด</button>`);
+    <div class="row"><button class="ghost" id="prOff">ยกเลิกการเชื่อม</button><button class="pay" id="prTest">พิมพ์ทดสอบ</button></div>`, {title:`${icon('printer', 22)} ปริ้นเตอร์`, key:'printer'});
 }
 function printTest(){
   closeModal();
@@ -4220,7 +4257,7 @@ let promoDraft = null;
 function openPromo(){ promoDraft = promo ? {...promo} : null; renderPromo(); }
 function renderPromo(){
   const d = promoDraft, rd = d ? promoEval(PROMO[d.id], cart, d) : null;
-  let h = `<h3>${icon('tag', 22)} โปรโมชัน</h3><p class="note2" style="margin:-6px 0 10px">1 บิลใช้ได้ 1 โปร · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยกท็อปปิ้ง) คิดตามปกติ</p><div class="popts">`;
+  let h = `<p class="note2" style="margin:0 0 10px">1 บิลใช้ได้ 1 โปร · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยกท็อปปิ้ง) คิดตามปกติ</p><div class="popts">`;
   CONFIG.promos.forEach(p => {
     const r = promoEval(p, cart, d && d.id === p.id ? d : null);
     h += `<button class="popt ${d && d.id === p.id ? 'on' : ''}" data-pid="${p.id}" ${r.ok ? '' : 'disabled'}><span><b>${esc(p.name)}</b><small>${esc(p.sub)}</small>${r.ok ? '' : `<small class="why">${icon('alert', 14)} ${esc(r.why)}</small>`}</span>${r.ok ? `<b class="px">-${baht(r.discount)}</b>` : ''}</button>`;
@@ -4230,9 +4267,9 @@ function renderPromo(){
     h += `<div class="q2">ใช้กับ</div><div class="ptargets">` + rd.targets.map((t, i) =>
       `<button class="opt ${t.key === rd.target.key && (t.top || null) === (rd.target.top || null) ? 'on' : ''}" data-ptarget="${i}">${esc(t.label)}</button>`).join('') + '</div>';
   }
-  h += `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
+  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
     `<button class="pay" id="promoOk" ${rd && rd.ok ? '' : 'disabled'}>${rd && rd.ok ? `ใช้โปรนี้ · -${baht(rd.discount)}` : 'เลือกโปรก่อน'}</button></div>`;
-  openModal(h);
+  openModal(h, {title:`${icon('tag', 22)} โปรโมชัน`, key:'promo', foot, onClose: () => { promoDraft = null; closeModal(); }});
 }
 function promoPick(id){ promoDraft = {id, key:null, top:null}; renderPromo(); }
 function promoTarget(i){
@@ -4259,7 +4296,7 @@ function renderPay(){
   const ok = !!pay.dining && !!pay.method && cashOk;
   const hadFocus = document.activeElement && document.activeElement.id === 'recv';
   const pr = promoNow();
-  let h = `<h3>ชำระเงิน · ${baht(total)}</h3>${pr && pr.ok ? `<p class="note2" style="margin:-6px 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
+  let h = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
     <div class="q2">รับที่ร้านหรือกลับบ้าน?</div>
     <div class="row">${CONFIG.dining.map(d => `<button class="opt ${pay.dining === d.id ? 'on':''}" data-dine="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
@@ -4277,9 +4314,9 @@ function renderPay(){
     if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
-  h += `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h);
+  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot});   // X = ยกเลิก
   const r = $('recv');
   if(r){
     r.oninput = () => { pay.received = Number(r.value.replace(/\D/g, '')) || 0; renderPay(); const n = $('recv'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
@@ -4458,7 +4495,6 @@ function renderSummary(){
   const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills, staff:tabStaff}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
   openModal(`
-    <h3>${icon('chart', 22)} สรุปยอดขาย</h3>
     ${can('pastReports') ? `<div class="rangebar">
       <input type="date" id="repFrom" value="${REP.from}"><span>ถึง</span><input type="date" id="repTo" value="${REP.to}">
       ${[['today', 'วันนี้'], ['yday', 'เมื่อวาน'], ['7d', '7 วัน'], ['all', 'ทั้งหมด']].map(([k, l]) =>
@@ -4478,9 +4514,8 @@ function renderSummary(){
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
       <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
-      <button class="pay" id="closeX">ปิด</button>
     </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, true);
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true});
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
@@ -4497,16 +4532,16 @@ function exportFile(o){
   csvPending = {filename:o.filename, text:o.text, back:o.back || null, type:o.type, bom:!!o.bom, onDone:o.onDone || null};
   const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], o.filename, {type:o.type})]}); }catch(e){ return false; } })());
   const filename = o.filename;
-  openModal(`<h3>${icon('file', 22)} ${esc(o.title)}</h3>
-    <p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
+  openModal(`<p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
     <div class="row wrap">
       <button class="opt" id="csvDl">${icon('download')} ดาวน์โหลดไฟล์</button>
       ${canShare ? `<button class="opt" id="csvShare">${icon('share')} แชร์ / บันทึกลง Files</button>` : ''}
       <button class="opt" id="csvCopy">${icon('copy')} คัดลอกข้อความ</button>
     </div>
     <p class="note2">${esc(o.tip)}</p>
-    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}
-    <div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`);
+    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}`,
+    {title:`${icon('file', 22)} ${esc(o.title)}`, key:'export', onClose: () => { csvPending = null; closeModal(); },
+     foot:`<div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`});
   if($('csvText')) $('csvText').value = csvPending.text;   // ไฟล์สำรองอาจใหญ่มาก ไม่แสดงในหน้าจอ
 }
 const exportDone = () => { const c = csvPending; if(c && c.onDone) c.onDone(); };
@@ -4558,9 +4593,8 @@ function stockRow(kind, key, label, out){
     `<button class="sw ${out ? '' : 'on'}" role="switch" aria-checked="${!out}" aria-label="${esc(label)} ${out ? 'หมด' : 'มี'}" data-stock="${kind}" data-key="${esc(key)}"><span></span></button></div>`;
 }
 function openSettings(){
-  const box = $('modal').querySelector('.box'), top = box && $('stockList') ? box.scrollTop : 0;
   const pp = SETTINGS.promptpay;
-  let h = `<h3>${icon('settings', 22)} ตั้งค่า</h3><div id="stockList">
+  let h = `<div id="stockList">
     <div class="q2">เมนู</div><div class="slist">` + CONFIG.menus.map(m => stockRow('menus', m.id, m.name, m.out)).join('') + '</div>';
   CONFIG.cats.forEach(c => {
     h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
@@ -4578,11 +4612,9 @@ function openSettings(){
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
     ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;
-  h += `<div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
   /* เวอร์ชันที่เครื่องนี้ใช้อยู่จริง (โหลดจาก cache เดียวกับโค้ด) · เทียบกับที่ Tee บอก ถ้ายังเก่า ปัดปิดแอปแล้วเปิดใหม่ */
   h += `<p class="appver">เวอร์ชัน ${typeof APP_VERSION === 'object' ? `${esc(APP_VERSION.v)} · build ${fmtDT(APP_VERSION.built)}` : 'ไม่ทราบ'}</p>`;
-  openModal(h);
-  if(top) $('modal').querySelector('.box').scrollTop = top;   // กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
+  openModal(h, {title:`${icon('settings', 22)} ตั้งค่า`, key:'settings', backdrop:true});   // key เดิม = กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
 }
 $('modal').addEventListener('click', e => {
   const ue = e.target.closest('[data-uedit]'); if(ue && can('users')) return openUserForm(ue.dataset.uedit);
@@ -4610,8 +4642,7 @@ function openUserForm(id){
 }
 function renderUserForm(name){
   const f = userForm, keep = ['usrCode', 'usrCode2'].map(id => $(id) ? $(id).value : '');   // เปลี่ยนตำแหน่ง/แจ้งปัญหา แล้ววาดใหม่ รหัสที่พิมพ์ไว้ยังอยู่
-  openModal(`<h3>${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}</h3>
-    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
+  openModal(`<div class="q2" style="margin-top:0">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
@@ -4619,8 +4650,9 @@ function renderUserForm(name){
     ${codeField('usrCode', 'usrSave', CODE_LEN, keep[0])}
     <div class="q2">ใส่รหัสอีกครั้ง</div>
     ${codeField('usrCode2', 'usrSave', CODE_LEN, keep[1])}
-    <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
-    <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
+    <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>`,
+    {title:`${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}`, key:'user', onClose: () => { userForm = null; closeModal(); },
+     foot:`<div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`});
 }
 $('modal').addEventListener('click', e => {
   const r = e.target.closest('[data-urole]'); if(!r || !userForm) return;
@@ -4645,12 +4677,11 @@ function recoveryNew(){
 /* ---------- เลข PromptPay ---------- */
 function openPromptPay(){
   if(!can('promptpay')) return;
-  openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
-    <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
+  openModal(`<p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
     <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="ยังไม่ได้ตั้ง" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
-    <div id="ppPrev"></div>
-    <div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`);
+    <div id="ppPrev"></div>`, {title:`${icon('settings', 22)} เลข PromptPay ของร้าน`, key:'pp',
+    foot:`<div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`});
   const i = $('ppIn'); i.oninput = settingsCheck; settingsCheck();
 }
 /* เช็กเลขระหว่างพิมพ์ · ใช้ได้ → แสดง QR ทดสอบ 1 บาท ให้สแกนดูชื่อบัญชีก่อน */
@@ -4824,8 +4855,7 @@ function openClose(){
 }
 function renderClose(){
   const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
-  openModal(`<h3>${icon('cash', 22)} ปิดร้าน · นับเงิน</h3>
-    <div class="note2" style="margin-top:-6px"><b>${roundLabel(d.date, d.date)}</b></div>
+  openModal(`<div class="note2" style="margin-top:0"><b>${roundLabel(d.date, d.date)}</b></div>
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
     <div class="cashbox">
       <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
@@ -4834,8 +4864,9 @@ function renderClose(){
       <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
     </div>
     <div class="cldiff" id="clDiff">&nbsp;</div>
-    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">
-    <div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`);
+    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">`,
+    {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', onClose: () => { closeDraft = null; closeModal(); },
+     foot:`<div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
   $('clFloat').oninput = $('clCount').oninput = closeInput;
 }
 /* พิมพ์ตัวเลข: อัปเดตยอดโดยไม่วาดใหม่ (คีย์บอร์ดไม่หาย) */
@@ -4892,8 +4923,8 @@ function restoreHtml(){
     (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
       : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
-  return h;
+  const foot = `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  return {body:h, foot};
 }
 function openRestore(inLogin){
   if(!inLogin && !can('users')) return;
@@ -4901,8 +4932,9 @@ function openRestore(inLogin){
   renderRestore();
 }
 function renderRestore(){
-  const h = `<h3>${icon('upload', 22)} นำข้อมูลกลับจากไฟล์สำรอง</h3>` + restoreHtml();
-  if(RS.inLogin){ $('login').innerHTML = `<div class="lgbox lgwide">${h}</div>`; } else openModal(h);
+  const title = `${icon('upload', 22)} นำข้อมูลกลับจากไฟล์สำรอง`, r = restoreHtml();
+  if(RS.inLogin){ $('login').innerHTML = `<div class="lgbox lgwide"><h3>${title}</h3>${r.body}${r.foot}</div>`; }
+  else openModal(r.body, {title, key:'restore', foot:r.foot, onClose: () => { RS = null; closeModal(); }});
 }
 /* อ่านข้อความในไฟล์ (แยกจาก FileReader ให้เทสต์เรียกตรงได้) */
 function restoreText(text){
@@ -4972,7 +5004,8 @@ $('modal').onclick = e => {
   if(el = g('tab')){ REP.tab = el.dataset.tab; renderSummary(); return; }
   if(el = g('range')){ setRange(el.dataset.range); renderSummary(); return; }
   const b = e.target.closest('button'); const id = b && b.id;
-  if(id === 'payCancel' || id === 'closeX') closeModal();
+  if(id === 'payCancel') closeModal();
+  else if(id === 'closeX') modalClose();   // ปุ่ม X บนหัวหน้าต่าง (หรือปุ่ม "ปิด" ในหน้าต่างที่ไม่มีหัว)
   else if(id === 'nextOrder'){ closeModal(); backToMenu(); }
   else if(id === 'pinNo'){ pinCb = null; renderSummary(); }   // ใช้จากแท็บบิลเท่านั้น
   else if(id === 'cfYes'){ const cb = confirmCb; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }

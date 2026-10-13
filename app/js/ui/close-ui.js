@@ -27,8 +27,7 @@ function openClose(){
 }
 function renderClose(){
   const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
-  openModal(`<h3>${icon('cash', 22)} ปิดร้าน · นับเงิน</h3>
-    <div class="note2" style="margin-top:-6px"><b>${roundLabel(d.date, d.date)}</b></div>
+  openModal(`<div class="note2" style="margin-top:0"><b>${roundLabel(d.date, d.date)}</b></div>
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
     <div class="cashbox">
       <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
@@ -37,8 +36,9 @@ function renderClose(){
       <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
     </div>
     <div class="cldiff" id="clDiff">&nbsp;</div>
-    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">
-    <div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`);
+    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">`,
+    {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', onClose: () => { closeDraft = null; closeModal(); },
+     foot:`<div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
   $('clFloat').oninput = $('clCount').oninput = closeInput;
 }
 /* พิมพ์ตัวเลข: อัปเดตยอดโดยไม่วาดใหม่ (คีย์บอร์ดไม่หาย) */
@@ -95,8 +95,8 @@ function restoreHtml(){
     (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
       : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  h += `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
-  return h;
+  const foot = `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  return {body:h, foot};
 }
 function openRestore(inLogin){
   if(!inLogin && !can('users')) return;
@@ -104,8 +104,9 @@ function openRestore(inLogin){
   renderRestore();
 }
 function renderRestore(){
-  const h = `<h3>${icon('upload', 22)} นำข้อมูลกลับจากไฟล์สำรอง</h3>` + restoreHtml();
-  if(RS.inLogin){ $('login').innerHTML = `<div class="lgbox lgwide">${h}</div>`; } else openModal(h);
+  const title = `${icon('upload', 22)} นำข้อมูลกลับจากไฟล์สำรอง`, r = restoreHtml();
+  if(RS.inLogin){ $('login').innerHTML = `<div class="lgbox lgwide"><h3>${title}</h3>${r.body}${r.foot}</div>`; }
+  else openModal(r.body, {title, key:'restore', foot:r.foot, onClose: () => { RS = null; closeModal(); }});
 }
 /* อ่านข้อความในไฟล์ (แยกจาก FileReader ให้เทสต์เรียกตรงได้) */
 function restoreText(text){

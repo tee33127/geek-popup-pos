@@ -182,6 +182,59 @@ const server = http.createServer((q, r) => {
     await ctx.close();
   }
 
+  // ---------- UI15 หน้าต่าง: เลื่อนในกล่องอย่างเดียว · หน้าหลังไม่ขยับ · X อยู่ในจอทุกตำแหน่ง · ปิดแล้วหน้าขายกลับที่เดิม (Tee 2026-10-13) ----------
+  // WebKit โหมดมือถือส่ง wheel ไม่ได้ จอ iPad จึงใช้ WebKit แบบไม่ isMobile (Safari บน iPad รายงานตัวเป็นเดสก์ท็อปอยู่แล้ว)
+  for(const [label, vp, br] of SCREENS){
+    const mobile = !label.startsWith('ipad');
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:mobile});
+    await ctx.addInitScript(() => { window.print = () => {}; });
+    const page = await ctx.newPage(); watch(page, 'ui15-' + label);
+    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1234'); await skipFloat(page);
+    await page.click('[data-menu="acai"]'); await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
+    await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]');
+    const nap = ms => page.waitForTimeout(ms || 150);
+    const Y0 = await page.evaluate(() => { scrollTo(0, Math.min(400, document.documentElement.scrollHeight - innerHeight)); return Math.round(scrollY); }); await nap();
+    const pageTop = () => page.evaluate(() => Math.round(document.getElementById('builder').getBoundingClientRect().top));
+    const top0 = await pageTop();
+    const mb = () => page.evaluate(() => { const m = document.querySelector('#modal .mbody'); return {st:Math.round(m.scrollTop), max:m.scrollHeight - m.clientHeight}; });
+    /* ปัดด้วย wheel ในกล่อง: ลงสุด → ลงต่อ (ห้ามส่งต่อหน้าหลัง) → ขึ้นสุด */
+    const gesture = async () => {
+      const b = await page.locator('#modal .mbody').boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      for(let i = 0; i < 6; i++){ await page.mouse.wheel(0, 3000); await nap(80); }
+      await nap(500); const down = await mb(); const pDown = await pageTop();
+      for(let i = 0; i < 4; i++){ await page.mouse.wheel(0, 3000); await nap(80); }
+      await nap(300); const pMore = await pageTop();
+      for(let i = 0; i < 12; i++){ await page.mouse.wheel(0, -3000); await nap(80); }
+      await nap(600); const up = await mb();
+      return [down.max > 0 && down.st >= down.max - 1, up.st, pDown === top0 && pMore === top0];
+    };
+    /* X อยู่ในจอและกดถึงได้ ที่ตำแหน่งเลื่อน บน / กลาง / ล่าง */
+    const xVisible = () => page.evaluate(async () => {
+      const m = document.querySelector('#modal .mbody'), max = m.scrollHeight - m.clientHeight, out = [];
+      for(const t of [0, max / 2, max]){ m.scrollTop = t; await new Promise(r => setTimeout(r, 30));
+        const x = document.getElementById('closeX').getBoundingClientRect(), hit = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
+        out.push(x.top >= 0 && x.bottom <= innerHeight && x.left >= 0 && x.right <= innerWidth && x.width >= 48 && x.height >= 48 && !!hit && !!hit.closest('#closeX')); }
+      return out.every(Boolean);
+    });
+    const G = {}, X = {};
+    await page.click('#btnSettings'); await nap(); G.settings = await gesture(); X.settings = await xVisible();
+    await page.click('#closeX'); await nap(); const backS = [await page.evaluate(() => Math.round(scrollY)), await pageTop()];
+    await page.click('#btnSummary'); await nap(); await page.click('[data-tab="bills"]'); await nap(); G.summary = await gesture(); X.summary = await xVisible();
+    await page.click('#csvTab'); await nap(); X.export = await xVisible(); await page.click('#closeX');
+    await page.click('#btnSummary'); await page.click('#closeDay'); await nap(); X.close = await xVisible(); await page.click('#closeX');
+    await nap(); const backM = [await page.evaluate(() => Math.round(scrollY)), await pageTop()];
+    /* ปุ่มชำระเงินในแถบล่าง (ถ้ามี) ไม่ทำให้หน้าเลื่อนก่อนเปิดหน้าต่าง */
+    await page.click(await page.isVisible('#btnPay2') ? '#btnPay2' : '#btnPay'); await nap(); await page.click('[data-dine="dinein"]'); await page.click('[data-method="cash"]'); X.pay = await xVisible(); await page.click('#closeX');
+    await page.evaluate(() => { document.getElementById('promoOpen').click(); }); await nap(); X.promo = await xVisible(); await page.click('#closeX');
+    for(const [k, js] of [['user', 'openUserForm(null)'], ['promptpay', 'openPromptPay()'], ['restore', 'openRestore(false)']]){ await page.evaluate(js); await nap(); X[k] = await xVisible(); await page.click('#closeX'); }
+    await nap(); const backEnd = [await page.evaluate(() => Math.round(scrollY)), await pageTop(), await page.evaluate(() => document.body.style.position)];
+    console.log(`INFO UI15 ${label}: หน้าเลื่อนไว้ ${Y0}px · ปัดในตั้งค่า ${JSON.stringify(G.settings)} สรุปยอด ${JSON.stringify(G.summary)} · X ${JSON.stringify(X)} · ปิดแล้ว ${JSON.stringify([backS, backM, backEnd])}`);
+    eq(`UI15 ${label}: ตั้งค่า/สรุปยอด ปัดลงสุดแล้วปัดกลับขึ้นบนสุดได้ · ปัดเกินไม่ทำให้หน้าขายข้างหลังขยับ`, [G.settings, G.summary], [[true, 0, true], [true, 0, true]]);
+    eq(`UI15 ${label}: ปุ่ม X (≥48px) อยู่ในจอและกดถึงได้ทุกตำแหน่งการเลื่อน ทุกหน้าต่าง`, X, {settings:true, summary:true, export:true, close:true, pay:true, promo:true, user:true, promptpay:true, restore:true});
+    eq(`UI15 ${label}: ปิดหน้าต่างแล้วหน้าขายกลับที่เดิม · ปลดล็อกหน้า`, [backS, backM, backEnd], [[Y0, top0], [Y0, top0], [Y0, top0, '']]);
+    await ctx.close();
+  }
+
   // ---------- iPad เครื่องใหม่: ตั้งเจ้าของครั้งแรกด้วยแป้นของแอป ----------
   {
     const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2});

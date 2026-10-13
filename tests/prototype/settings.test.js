@@ -47,7 +47,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
 
   // ---- เวอร์ชันแอปท้ายหน้าตั้งค่า (เช็กว่าแท็บเล็ตอัปเดตแล้วหรือยัง) ----
   openSet(); const swV = fs.readFileSync(require('path').join(__dirname, '../../app/sw.js'), 'utf8').match(/const VERSION = '(\w+)'/)[1];
-  eq('settings shows app version (same as sw.js) + build date, last thing in the box', [$('.appver').textContent.includes(swV), /build \d\d\/\d\d\/\d{4} \d\d:\d\d/.test($('.appver').textContent), $('#modal .box').lastElementChild.className], [true, true, 'appver']);
+  eq('settings shows app version (same as sw.js) + build date, last thing in the box', [$('.appver').textContent.includes(swV), /build \d\d\/\d\d\/\d{4} \d\d:\d\d/.test($('.appver').textContent), $('#modal .mbody').lastElementChild.className], [true, true, 'appver']);
   click('#closeX');
   // ---- PromptPay อยู่ในหน้าเดียวกัน ----
   openSet(); eq('PromptPay row present', [!!$('#ppOpen'), $('#modal').textContent.includes('ยังไม่ได้ตั้ง')], [true, true]);

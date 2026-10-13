@@ -8,7 +8,7 @@ function renderPay(){
   const ok = !!pay.dining && !!pay.method && cashOk;
   const hadFocus = document.activeElement && document.activeElement.id === 'recv';
   const pr = promoNow();
-  let h = `<h3>ชำระเงิน · ${baht(total)}</h3>${pr && pr.ok ? `<p class="note2" style="margin:-6px 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
+  let h = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
     <div class="q2">รับที่ร้านหรือกลับบ้าน?</div>
     <div class="row">${CONFIG.dining.map(d => `<button class="opt ${pay.dining === d.id ? 'on':''}" data-dine="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
@@ -26,9 +26,9 @@ function renderPay(){
     if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
-  h += `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h);
+  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot});   // X = ยกเลิก
   const r = $('recv');
   if(r){
     r.oninput = () => { pay.received = Number(r.value.replace(/\D/g, '')) || 0; renderPay(); const n = $('recv'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };

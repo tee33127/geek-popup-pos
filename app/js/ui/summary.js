@@ -141,7 +141,6 @@ function renderSummary(){
   const T = {items:tabItems, pay:tabPay, opts:tabOpts, ingr:tabIngr, bills:tabBills, staff:tabStaff}[REP.tab](R);
   repCsv = {name: `geek-popup-${REP.tab}-${REP.from}_${REP.to}.csv`, rows: T.csv};
   openModal(`
-    <h3>${icon('chart', 22)} สรุปยอดขาย</h3>
     ${can('pastReports') ? `<div class="rangebar">
       <input type="date" id="repFrom" value="${REP.from}"><span>ถึง</span><input type="date" id="repTo" value="${REP.to}">
       ${[['today', 'วันนี้'], ['yday', 'เมื่อวาน'], ['7d', '7 วัน'], ['all', 'ทั้งหมด']].map(([k, l]) =>
@@ -161,9 +160,8 @@ function renderSummary(){
     <div class="row" style="margin-top:16px">
       ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
       <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
-      <button class="pay" id="closeX">ปิด</button>
     </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, true);
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true});
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
@@ -180,16 +178,16 @@ function exportFile(o){
   csvPending = {filename:o.filename, text:o.text, back:o.back || null, type:o.type, bom:!!o.bom, onDone:o.onDone || null};
   const canShare = !!(navigator.canShare && window.File && (() => { try{ return navigator.canShare({files:[new File(['x'], o.filename, {type:o.type})]}); }catch(e){ return false; } })());
   const filename = o.filename;
-  openModal(`<h3>${icon('file', 22)} ${esc(o.title)}</h3>
-    <p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
+  openModal(`<p class="note2" style="margin-top:0">${esc(filename)} · ${esc(o.size)}</p>
     <div class="row wrap">
       <button class="opt" id="csvDl">${icon('download')} ดาวน์โหลดไฟล์</button>
       ${canShare ? `<button class="opt" id="csvShare">${icon('share')} แชร์ / บันทึกลง Files</button>` : ''}
       <button class="opt" id="csvCopy">${icon('copy')} คัดลอกข้อความ</button>
     </div>
     <p class="note2">${esc(o.tip)}</p>
-    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}
-    <div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`);
+    ${o.type === 'text/csv' ? '<textarea class="csvbox" id="csvText" readonly></textarea>' : ''}`,
+    {title:`${icon('file', 22)} ${esc(o.title)}`, key:'export', onClose: () => { csvPending = null; closeModal(); },
+     foot:`<div class="row"><button class="pay" id="csvBack">${o.back === true ? 'กลับไปหน้าสรุป' : o.back ? 'กลับ' : 'ปิด'}</button></div>`});
   if($('csvText')) $('csvText').value = csvPending.text;   // ไฟล์สำรองอาจใหญ่มาก ไม่แสดงในหน้าจอ
 }
 const exportDone = () => { const c = csvPending; if(c && c.onDone) c.onDone(); };

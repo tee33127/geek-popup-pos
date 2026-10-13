@@ -134,9 +134,17 @@ main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + 16p
   .cart > *{flex-shrink:0}
   .cart #cart{flex:1 1 auto;min-height:0;overflow-y:auto}
 }
-#modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
+/* Modal: overlay fixed เต็มจอ · กล่องสูงไม่เกินจอ · หัว (ชื่อ + X) และแถบปุ่มหลักติดกล่อง · เลื่อนเฉพาะ .mbody ไม่ส่งต่อไปหน้าหลัง */
+#modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:12px;overscroll-behavior:contain}
 #modal.show{display:flex}
-.box{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:540px;max-height:92vh;overflow:auto}
+.box{background:#fff;border-radius:20px;width:100%;max-width:540px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden}
+.mhead{flex:none;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 20px;border-bottom:1px solid var(--line)}
+.box .mhead h3{flex:1;min-width:0;margin:0;font-size:21px}
+.mx{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;color:var(--ink)}
+.mx:active{background:var(--bg)}
+.mbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px 20px 20px}
+.mfoot{flex:none;padding:10px 20px 12px;border-top:1px solid var(--line);background:#fff}
+.mfoot .row{margin:0}
 .box.wide{max-width:940px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
 .tab{padding:10px 14px;min-height:48px;border-radius:12px;background:var(--bg);font-weight:700;font-size:15px}

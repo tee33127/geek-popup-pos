@@ -18,7 +18,7 @@ let promoDraft = null;
 function openPromo(){ promoDraft = promo ? {...promo} : null; renderPromo(); }
 function renderPromo(){
   const d = promoDraft, rd = d ? promoEval(PROMO[d.id], cart, d) : null;
-  let h = `<h3>${icon('tag', 22)} โปรโมชัน</h3><p class="note2" style="margin:-6px 0 10px">1 บิลใช้ได้ 1 โปร · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยกท็อปปิ้ง) คิดตามปกติ</p><div class="popts">`;
+  let h = `<p class="note2" style="margin:0 0 10px">1 บิลใช้ได้ 1 โปร · ค่าที่บวกเพิ่ม (เปลี่ยน/เพิ่มท็อปปิ้ง, แยกท็อปปิ้ง) คิดตามปกติ</p><div class="popts">`;
   CONFIG.promos.forEach(p => {
     const r = promoEval(p, cart, d && d.id === p.id ? d : null);
     h += `<button class="popt ${d && d.id === p.id ? 'on' : ''}" data-pid="${p.id}" ${r.ok ? '' : 'disabled'}><span><b>${esc(p.name)}</b><small>${esc(p.sub)}</small>${r.ok ? '' : `<small class="why">${icon('alert', 14)} ${esc(r.why)}</small>`}</span>${r.ok ? `<b class="px">-${baht(r.discount)}</b>` : ''}</button>`;
@@ -28,9 +28,9 @@ function renderPromo(){
     h += `<div class="q2">ใช้กับ</div><div class="ptargets">` + rd.targets.map((t, i) =>
       `<button class="opt ${t.key === rd.target.key && (t.top || null) === (rd.target.top || null) ? 'on' : ''}" data-ptarget="${i}">${esc(t.label)}</button>`).join('') + '</div>';
   }
-  h += `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
+  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
     `<button class="pay" id="promoOk" ${rd && rd.ok ? '' : 'disabled'}>${rd && rd.ok ? `ใช้โปรนี้ · -${baht(rd.discount)}` : 'เลือกโปรก่อน'}</button></div>`;
-  openModal(h);
+  openModal(h, {title:`${icon('tag', 22)} โปรโมชัน`, key:'promo', foot, onClose: () => { promoDraft = null; closeModal(); }});
 }
 function promoPick(id){ promoDraft = {id, key:null, top:null}; renderPromo(); }
 function promoTarget(i){

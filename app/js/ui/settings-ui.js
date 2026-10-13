@@ -7,9 +7,8 @@ function stockRow(kind, key, label, out){
     `<button class="sw ${out ? '' : 'on'}" role="switch" aria-checked="${!out}" aria-label="${esc(label)} ${out ? 'หมด' : 'มี'}" data-stock="${kind}" data-key="${esc(key)}"><span></span></button></div>`;
 }
 function openSettings(){
-  const box = $('modal').querySelector('.box'), top = box && $('stockList') ? box.scrollTop : 0;
   const pp = SETTINGS.promptpay;
-  let h = `<h3>${icon('settings', 22)} ตั้งค่า</h3><div id="stockList">
+  let h = `<div id="stockList">
     <div class="q2">เมนู</div><div class="slist">` + CONFIG.menus.map(m => stockRow('menus', m.id, m.name, m.out)).join('') + '</div>';
   CONFIG.cats.forEach(c => {
     h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
@@ -27,11 +26,9 @@ function openSettings(){
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
     ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;
-  h += `<div class="row payrow"><button class="pay" id="closeX">ปิด</button></div>`;
   /* เวอร์ชันที่เครื่องนี้ใช้อยู่จริง (โหลดจาก cache เดียวกับโค้ด) · เทียบกับที่ Tee บอก ถ้ายังเก่า ปัดปิดแอปแล้วเปิดใหม่ */
   h += `<p class="appver">เวอร์ชัน ${typeof APP_VERSION === 'object' ? `${esc(APP_VERSION.v)} · build ${fmtDT(APP_VERSION.built)}` : 'ไม่ทราบ'}</p>`;
-  openModal(h);
-  if(top) $('modal').querySelector('.box').scrollTop = top;   // กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
+  openModal(h, {title:`${icon('settings', 22)} ตั้งค่า`, key:'settings', backdrop:true});   // key เดิม = กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
 }
 $('modal').addEventListener('click', e => {
   const ue = e.target.closest('[data-uedit]'); if(ue && can('users')) return openUserForm(ue.dataset.uedit);
@@ -59,8 +56,7 @@ function openUserForm(id){
 }
 function renderUserForm(name){
   const f = userForm, keep = ['usrCode', 'usrCode2'].map(id => $(id) ? $(id).value : '');   // เปลี่ยนตำแหน่ง/แจ้งปัญหา แล้ววาดใหม่ รหัสที่พิมพ์ไว้ยังอยู่
-  openModal(`<h3>${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}</h3>
-    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
+  openModal(`<div class="q2" style="margin-top:0">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
@@ -68,8 +64,9 @@ function renderUserForm(name){
     ${codeField('usrCode', 'usrSave', CODE_LEN, keep[0])}
     <div class="q2">ใส่รหัสอีกครั้ง</div>
     ${codeField('usrCode2', 'usrSave', CODE_LEN, keep[1])}
-    <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
-    <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
+    <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>`,
+    {title:`${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}`, key:'user', onClose: () => { userForm = null; closeModal(); },
+     foot:`<div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`});
 }
 $('modal').addEventListener('click', e => {
   const r = e.target.closest('[data-urole]'); if(!r || !userForm) return;
@@ -94,12 +91,11 @@ function recoveryNew(){
 /* ---------- เลข PromptPay ---------- */
 function openPromptPay(){
   if(!can('promptpay')) return;
-  openModal(`<h3>${icon('settings', 22)} เลข PromptPay ของร้าน</h3>
-    <p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
+  openModal(`<p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
     <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="ยังไม่ได้ตั้ง" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
-    <div id="ppPrev"></div>
-    <div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`);
+    <div id="ppPrev"></div>`, {title:`${icon('settings', 22)} เลข PromptPay ของร้าน`, key:'pp',
+    foot:`<div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`});
   const i = $('ppIn'); i.oninput = settingsCheck; settingsCheck();
 }
 /* เช็กเลขระหว่างพิมพ์ · ใช้ได้ → แสดง QR ทดสอบ 1 บาท ให้สแกนดูชื่อบัญชีก่อน */
