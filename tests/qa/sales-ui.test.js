@@ -31,7 +31,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   eq('P09 89 + กล้วย ×2 ยืนยัน 2 อย่าง → บิล fewTops 2 · ตั๋วครัวพิมพ์ "ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ"', [s9.total, s9.items[0].fewTops, kitchen(s9).includes('ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ')], [89, 2, true]);
 
   // P05 ตัวนับ · P12 สลับขนาด
-  click('[data-menu="greek"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
+  click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
   eq('P05 ตัวนับ ฟรี 3/3 ราคา 89', [$('.cnt').textContent, addBtn().includes('฿89')], ['ฟรี 3/3', true]);
   click('[data-pick="Granola"]');
   const sz = s => { click(`[data-size="${s}"]`); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };

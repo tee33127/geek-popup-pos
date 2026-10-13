@@ -4,6 +4,7 @@ function priceBase(m, st){
   if(!m) return null;
   if(m.sizes){
     const s = m.sizes.find(x => x.id === st.size);
+    if(!s) return {unit:0, tops:[], sizeName:'', freeUsed:0, noTop:false, perTop:0, needSize:true};   // ยังไม่เลือกขนาด (Greek ไม่เลือกให้ก่อน)
     let unit = s.price, free = 0; const tops = [];
     if(!s.noTop) st.picks.forEach(n => {           // เลือกซ้ำได้ (Banana ×3) นับทีละชิ้น
       const it = ITEM[n]; let extra = 0;

@@ -28,7 +28,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   eq('saved immediately', stored(), {items:['Mango']});
   click(sw('items', 'Strawberries')); click(sw('menus', 'banana'));
   click('#closeX');
-  click('[data-menu="greek"]');
+  click('[data-menu="greek"]'); click('[data-size="g1"]');
   const mango = $$('.topw.out').find(x => x.textContent.includes('มะม่วง'));
   eq('greek: sold-out tile grey + disabled', [!!mango, mango && mango.querySelector('button').disabled, mango && mango.textContent.includes('หมด'), !!$('[data-pick="Mango"]')], [true, true, true, false]);
   eq('banana choco menu grey + disabled', [$('.base.out') && $('.base.out').textContent.includes('Banana Choco'), !!$('[data-menu="banana"]')], [true, false]);
@@ -41,7 +41,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   // ---- เปิดกลับ ----
   openSet(); click(sw('items', 'Mango'));
   eq('back on: row normal', [row('items', 'Mango').classList.contains('out'), stored().items], [false, ['Strawberries']]);
-  click('#closeX'); ev('resetSel(); renderBuilder()'); click('[data-menu="greek"]');
+  click('#closeX'); ev('resetSel(); renderBuilder()'); click('[data-menu="greek"]'); click('[data-size="g1"]');
   eq('greek: Mango selectable again', !!$('[data-pick="Mango"]'), true);
 
   // ---- PromptPay อยู่ในหน้าเดียวกัน ----

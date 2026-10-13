@@ -703,6 +703,7 @@ function priceBase(m, st){
   if(!m) return null;
   if(m.sizes){
     const s = m.sizes.find(x => x.id === st.size);
+    if(!s) return {unit:0, tops:[], sizeName:'', freeUsed:0, noTop:false, perTop:0, needSize:true};   // ยังไม่เลือกขนาด (Greek ไม่เลือกให้ก่อน)
     let unit = s.price, free = 0; const tops = [];
     if(!s.noTop) st.picks.forEach(n => {           // เลือกซ้ำได้ (Banana ×3) นับทีละชิ้น
       const it = ITEM[n]; let extra = 0;
@@ -3814,13 +3815,15 @@ let sel;
 function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''}; }
 resetSel();
 const curMenu = () => sel.menu ? MENU[sel.menu] : null;
-/* น้ำผึ้งไม่มีค่าเริ่มต้น ต้องเลือกก่อนเพิ่มลงออเดอร์ (ยกเว้นเมนูที่ไม่มีน้ำผึ้ง) */
+/* น้ำผึ้งไม่มีค่าเริ่มต้น ต้องเลือกก่อนเพิ่มลงออเดอร์ (ยกเว้นเมนูที่ไม่มีน้ำผึ้ง)
+   ขนาดก็ไม่มีค่าเริ่มต้น (Tee 2026-10-13 กันพนักงานลืมถามขนาด) · ยังไม่เลือกขนาด = ไม่แสดงท็อปปิ้ง */
 const needHoney = () => { const m = curMenu(); return !!m && !m.noHoney && !sel.honey; };
+const needSize = () => { const m = curMenu(); return !!m && !!m.sizes && !sel.size; };
 
 function pickMenu(id){
   if(sel.menu === id) return;
   const m = MENU[id];
-  sel = {menu:id, size:m.sizes ? 'g1' : null, picks:[], comps:m.defaults ? [...m.defaults] : [], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''};
+  sel = {menu:id, size:null, picks:[], comps:m.defaults ? [...m.defaults] : [], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''};
 }
 
 function sec(n, title, body, right=''){ return `<div class="sec"><p class="step"><b>${n}</b> ${title}${right}</p>${body}</div>`; }
@@ -3916,8 +3919,10 @@ function renderBuilder(){
   if(m){
     if(m.sizes){
       h += sec(++n, 'เลือกขนาด', '<div class="sizes">' + m.sizes.map(s =>
-        `<button class="size ${sel.size === s.id ? 'on':''}" data-size="${s.id}">${esc(s.name)}<small>${esc(s.sub)}</small><small><b>${baht(s.price)}</b></small></button>`).join('') + '</div>');
-      if(P.noTop) h += sec(++n, 'ท็อปปิ้ง', '<div class="empty" style="padding:6px 0">ขนาดนี้ไม่มีท็อปปิ้ง</div>');
+        `<button class="size ${sel.size === s.id ? 'on':''}" data-size="${s.id}">${esc(s.name)}<small>${esc(s.sub)}</small><small><b>${baht(s.price)}</b></small></button>`).join('') + '</div>',
+        sel.size ? '' : '<span class="cnts"><span class="cnt need">ต้องเลือก</span></span>');
+      if(!sel.size){ /* ยังไม่เลือกขนาด: ยังไม่แสดงท็อปปิ้ง (ราคาท็อปปิ้งขึ้นกับขนาด) */ }
+      else if(P.noTop) h += sec(++n, 'ท็อปปิ้ง', '<div class="empty" style="padding:6px 0">ขนาดนี้ไม่มีท็อปปิ้ง</div>');
       else h += sec(++n, 'ท็อปปิ้ง', greekTopsHtml(P), topCounter(P));
     } else {
       h += sec(++n, 'ท็อปปิ้งที่มากับเมนู', presetHtml(m));
@@ -3929,8 +3934,8 @@ function renderBuilder(){
   }
   $('builder').innerHTML = h;
   const add = $('btnAdd');
-  add.disabled = !m || needHoney();
-  add.textContent = !m ? 'เลือกเมนูก่อน' : needHoney() ? `เลือกน้ำผึ้งก่อน · ${baht(P.unit)}` : `เพิ่มลงออเดอร์ · ${baht(P.unit)}`;
+  add.disabled = !m || needSize() || needHoney();
+  add.textContent = !m ? 'เลือกเมนูก่อน' : needSize() ? 'เลือกขนาดก่อน' : needHoney() ? `เลือกน้ำผึ้งก่อน · ${baht(P.unit)}` : `เพิ่มลงออเดอร์ · ${baht(P.unit)}`;
 }
 $('builder').onclick = e => {
   const g = a => e.target.closest(`[data-${a}]`); let el;
@@ -3957,7 +3962,7 @@ $('builder').addEventListener('input', e => { if(e.target.id === 'note') sel.not
 /* เพิ่มรายการที่เลือกอยู่ลงตะกร้า · fewTops = จำนวนท็อปปิ้งฟรีที่ลูกค้าขอ เมื่อน้อยกว่าโควตาและพนักงานยืนยันแล้ว
    (ใช้พิมพ์เตือนบนตั๋วครัว และนับในรายงานเพื่อเทียบสต็อก) */
 function addSel(fewTops){
-  const m = curMenu(); if(!m || needHoney()) return;
+  const m = curMenu(); if(!m || needSize() || needHoney()) return;
   const P = priceSel();
   const item = {menu:m.id, name:m.name, sizeName:P.sizeName, tops:P.tops, ...(!m.noHoney && {honey:sel.honey}), note:sel.note.trim(), unit:P.unit, qty:1, ...(P.sep && {sep:P.sep})};
   if(fewTops !== undefined) item.fewTops = fewTops;
@@ -4010,7 +4015,7 @@ function cheaperAnswer(id){
   addSel();
 }
 $('btnAdd').onclick = () => {
-  const m = curMenu(); if(!m || needHoney()) return;
+  const m = curMenu(); if(!m || needSize() || needHoney()) return;
   const P = priceSel();
   if(m.sizes && !P.noTop && !P.perTop && P.freeUsed < CONFIG.freeToppingCount) return askFewTops(m, P);
   const c = m.sizes && cheaperSize(m, P); if(c) return askCheaper(m, P, c);

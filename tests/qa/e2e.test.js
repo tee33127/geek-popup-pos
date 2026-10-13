@@ -56,7 +56,7 @@ const server = http.createServer((q, r) => {
     await page.click('[data-menu="acai"]'); await page.click('[data-swap="0"]'); await page.click('[data-addopen]');
     L.acai = await check('acai'); await page.screenshot({path:path.join(SHOTS, `${label}-03-acai.png`), fullPage:true});
     await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
-    await page.click('[data-menu="greek"]'); for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
+    await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]'); for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
     L.greek = await check('greek'); await page.screenshot({path:path.join(SHOTS, `${label}-04-greek.png`), fullPage:true});
     await page.click('[data-honey="lots"]');
     await page.fill('#note', 'ลูกค้าแพ้ถั่วลิสงขอไม่ใส่เนยถั่วและช็อกโกแลตชิพ '.repeat(10) + '😀👍🏽 ฮ่าาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาา่');   // X02 หมายเหตุยาว

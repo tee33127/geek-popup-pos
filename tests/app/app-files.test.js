@@ -13,7 +13,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     A.signIn(w);
     eq('all scripts loaded & UI rendered', [$('[data-menu="greek"]') !== null, $('#nextNo').textContent], [true, 'ออเดอร์ #001']);
     eq('menu photo uses file path', $('[data-menu="acai"] img').getAttribute('src'), 'img/acai.jpg');
-    $('[data-menu="greek"]').click(); $('[data-pick="Banana"]').click(); $('[data-pick="Granola"]').click();
+    $('[data-menu="greek"]').click(); $('[data-size="g1"]').click(); $('[data-pick="Banana"]').click(); $('[data-pick="Granola"]').click();
     eq('price via pricing.js', $('#btnAdd').textContent.includes('฿99'), true);
     $('[data-honey="normal"]').click(); $('#btnAdd').click(); eq('few toppings asks first', $('#fewOk').textContent, 'ลูกค้าขอแค่ 1 อย่าง'); $('#fewOk').click();
     $('#btnPay').click(); $('[data-dine="takeaway"]').click(); $('[data-method="cash"]').click(); $('[data-q="100"]').click(); $('#payOk').click();

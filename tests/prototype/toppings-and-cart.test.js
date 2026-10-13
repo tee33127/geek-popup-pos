@@ -38,8 +38,18 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   click('[data-menu="acai"]'); for(let k = 0; k < 5; k++) click(`[data-skip="${k}"]`);
   eq('acai with every topping removed: no sep button', !!$('.sep'), false);
   while($$('#cart .rm').length) click($$('#cart .rm')[0]);
-  // ---- 1) ท็อปปิ้งซ้ำได้ ----
+  // ---- 1a) Greek ไม่เลือกขนาดไว้ก่อน (Tee 2026-10-13): ไม่แสดงท็อปปิ้ง ปุ่มเพิ่มกดไม่ได้ ----
+  const cart0 = ev('cart.length');
   click('[data-menu="greek"]');
+  eq('greek: no size preselected → no toppings, add says เลือกขนาดก่อน', [ev('sel.size'), $$('.size.on').length, $$('[data-pick]').length, $$('.step').some(x => x.textContent.includes('ท็อปปิ้ง')), $('#btnAdd').disabled, $('#btnAdd').textContent, !!$('.cnt.need')],
+    [null, 0, 0, false, true, 'เลือกขนาดก่อน', true]);
+  click('[data-honey="normal"]'); eq('honey chosen but size still missing: still blocked', [$('#btnAdd').disabled, $('#btnAdd').textContent], [true, 'เลือกขนาดก่อน']);
+  click('#btnAdd'); ev('addSel()'); eq('blocked add does nothing (button + direct call)', ev('cart.length'), cart0);
+  eq('priceSel / priceItem with size null do not crash', [ev('priceSel().unit'), ev('priceSel().needSize'), ev('priceSel().tops.length'), ev('priceItem(MENU.greek, {size:null, picks:["Banana"], sep:true}).unit')], [0, true, 0, 0]);
+  click('[data-size="g1"]'); eq('size chosen: toppings appear, add enabled at 89', [$$('[data-pick]').length > 0, $('#btnAdd').disabled, addPrice(), !!$('.cnt.need')], [true, false, '89', false]);
+  click('[data-menu="acai"]'); click('[data-menu="greek"]'); eq('switching menu back: size not remembered', ev('sel.size'), null);
+  // ---- 1) ท็อปปิ้งซ้ำได้ ----
+  click('[data-menu="greek"]'); click('[data-size="g1"]');
   click('[data-pick="Banana"]');
   eq('tap selects 1 + shows stepper', [ev('sel.picks'), $('[data-more="Banana"]').parentNode.querySelector('b').textContent], [['Banana'], '1']);
   click('[data-pick="Banana"]'); eq('tap again removes', [ev('sel.picks'), $('.trow')], [[], null]);
@@ -77,15 +87,15 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   const nCart = () => ev('cart.reduce((a, i) => a + i.qty, 0)');
   const baseLines = $$('#cart .line').length;
   let before = nCart();
-  click('[data-menu="greek"]'); click('[data-pick="Banana"]'); click('[data-pick="Granola"]'); add();
+  click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-pick="Granola"]'); add();
   eq('warn: counts only free group', [$('#modal h3').textContent, $('#fewOk').textContent, $('#modal p')], [' ท็อปปิ้งฟรีเลือกไป 1 จาก 3 อย่าง', 'ลูกค้าขอแค่ 1 อย่าง', null]);
   eq('back is primary button', $('#fewBack').className, 'pay');
   click('#fewBack'); eq('back keeps selection, nothing added', [nCart(), ev('sel.picks')], [before, ['Banana', 'Granola']]);
   add(); click('#fewOk');
   eq('confirmed add stores fewTops', [nCart(), ev('cart[cart.length-1].fewTops')], [before + 1, 1]);
-  click('[data-menu="greek"]'); click('[data-pick="Banana"]'); click('[data-pick="Mango"]'); click('[data-pick="Kiwi"]'); add();
+  click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-pick="Mango"]'); click('[data-pick="Kiwi"]'); add();
   eq('3 free toppings: no warning', [!!$('#fewBack'), ev('cart[cart.length-1].fewTops')], [false, undefined]);
-  click('[data-menu="greek"]'); add();
+  click('[data-menu="greek"]'); click('[data-size="g1"]'); add();
   eq('0 toppings on 1 scoop: offer plain size instead', [!!$('#fewPlain'), !!$('#fewOk'), $('#fewPlain').textContent.includes('฿69')], [true, false, true]);
   click('#fewPlain'); eq('cart back to start + 3', nCart(), before + 3); eq('switched to 69 plain', [ev('cart[cart.length-1].unit'), ev('cart[cart.length-1].fewTops')], [69, undefined]);
   click('[data-menu="greek"]'); click('[data-size="g2"]'); add();
@@ -155,7 +165,7 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   click('[data-menu="acai"]'); click('#btnClear'); click('#cfYes');
   eq('clear empties cart + resets builder', [ev('cart.length'), ev('sel.menu'), $('#btnClear').disabled, $('#btnPay').disabled], [0, null, true, true]);
   // ---- 5) PIN modal + pay + void ----
-  click('[data-menu="greek"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); add(); click('#fewOk');
+  click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); add(); click('#fewOk');
   click('#btnPay');
   eq('pay: nothing preselected, methods locked', [$$('#modal .opt.on').length, $$('[data-method]').every(b => b.disabled), !!$('[data-q]'), $('#payOk').disabled, $('#payOk').textContent], [0, true, false, true, 'เลือกกินเลย / กลับบ้านก่อน']);
   eq('pay: no emoji', /\p{Extended_Pictographic}/u.test($('#modal').textContent), false);
