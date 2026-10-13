@@ -12,7 +12,7 @@ function renderPromoBox(){
   const any = !!promo || CONFIG.promos.some(p => promoEval(p, cart, null).ok);
   box.innerHTML = promo
     ? `<button class="promo on" id="promoOpen">${icon('tag', 20)}<span><b>${esc(PROMO[promo.id].name)}</b><small>${esc(r.detail)}</small></span><b class="px">-${baht(r.discount)}</b></button>`
-    : `<button class="promo" id="promoOpen" ${any ? '' : 'disabled'}>${icon('tag', 20)}<span>ใช้โปรโมชัน<small>${any ? '1 บิลใช้ได้ 1 โปร' : 'ยังไม่มีโปรที่ใช้ได้'}</small></span></button>`;
+    : `<button class="promo" id="promoOpen" ${any ? '' : 'disabled'}>${icon('tag', 20)}<span><b>ใช้โปรโมชัน</b><small>${any ? '1 บิลใช้ได้ 1 โปร' : 'ยังไม่มีโปรที่ใช้ได้'}</small></span></button>`;
 }
 let promoDraft = null;
 function openPromo(){ promoDraft = promo ? {...promo} : null; renderPromo(); }

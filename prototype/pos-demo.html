@@ -207,21 +207,19 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .ppmsg .ic{vertical-align:-3px}
 .ppwarn{background:#fff4e5;color:#8a4b00;border-radius:12px;padding:10px 12px;margin:12px 0 0;font-size:15px}
 .ppwarn .ic{vertical-align:-4px}
-/* ปุ่มแยกท็อปปิ้ง: ท้ายขั้นท็อปปิ้ง เด่นพอให้พนักงานเห็น */
-.sep{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;margin:14px 0 6px;padding:10px 16px;border:3px dashed var(--orange);border-radius:14px;background:#fff;font-weight:700;font-size:18px;text-align:left}
-.sep small{display:block;font-weight:400;font-size:13px;color:var(--mute)}
-.sep b{margin-left:auto;color:#a35400;font-size:18px}
-.sepbox{width:28px;height:28px;flex:none;border:3px solid var(--orange);border-radius:8px;display:grid;place-items:center;background:#fff;color:var(--blue)}
-.sep.on{background:var(--orange);border-style:solid;color:var(--blue)}
-.sep.on small,.sep.on b{color:var(--blue)}
-.sep.on .sepbox{border-color:#fff}
+/* แยกท็อปปิ้ง: แถว + สวิตช์ (แบบหน้าตั้งค่า) · ปิด = เรียบ · เปิด = พื้นส้มอ่อน */
+.sep{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;margin:14px 0 6px;padding:8px 12px 8px 16px;border:2px solid var(--line);border-radius:14px;background:#fff;font-weight:700;text-align:left}
+.sep .nm{flex:1}
+.sep .nm b{color:#a35400;white-space:nowrap}
+.sep.on{border-color:var(--orange);background:var(--orange-soft)}
 .cnt.need{background:#fde8e8;color:var(--bad);font-weight:700}
 /* โปรโมชัน: ปุ่มในกล่องออเดอร์ + หน้าต่างเลือกโปร */
-.promo{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:10px 0 0;padding:8px 14px;border:2px dashed var(--blue);border-radius:12px;background:#fff;color:var(--blue);font-weight:700;text-align:left}
+.promo{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:10px 0 0;padding:8px 14px;border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-align:left}
+.promo > .ic{color:var(--blue)}
 .promo small{display:block;font-weight:400;font-size:13px;color:var(--mute)}
-.promo.on{border-style:solid;background:var(--blue-soft)}
+.promo.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
 .promo:disabled{border-color:var(--line);background:#f3f3f7;color:#9a9aab;cursor:not-allowed}
-.promo:disabled small{color:#9a9aab}
+.promo:disabled > .ic,.promo:disabled small{color:#9a9aab}
 .promo .px{margin-left:auto;color:var(--ok);font-size:18px;white-space:nowrap}
 .popts{display:grid;gap:8px}
 .popt{display:flex;align-items:center;gap:10px;border:3px solid var(--line);border-radius:14px;padding:12px 14px;text-align:left;min-height:64px;background:#fff}
@@ -3842,12 +3840,13 @@ function topCounter(P){
     (pcs ? `<span class="cnt over">คิดเพิ่ม ${pcs} ชิ้น +${baht(money)}</span>` : '') + `</span>`;
 }
 
-/* ปุ่มแยกท็อปปิ้ง: ท้ายขั้นท็อปปิ้ง ใหญ่เต็มแถว ขอบส้มให้เห็นชัด · แสดงเมื่อแก้วมีท็อปปิ้ง */
+/* แยกท็อปปิ้ง: แถวมีสวิตช์ เปิด/ปิด แบบหน้าตั้งค่า (แตะได้ทั้งแถว) ท้ายขั้นท็อปปิ้ง · แสดงเมื่อแก้วมีท็อปปิ้ง
+   ปิด = แถวเรียบ ไม่แย่งสายตา · เปิด = พื้นส้มอ่อน (Tee 2026-10-13 เลิกกรอบเส้นประ) */
 function sepHtml(P){
   if(!P.tops.some(t => !t.removed)) return '';
   const on = !!sel.sep;
-  return `<button class="sep ${on ? 'on' : ''}" data-sep aria-pressed="${on}"><span class="sepbox">${on ? icon('check', 20) : ''}</span>` +
-    `<span>แยกท็อปปิ้ง<small>ใส่ถ้วยแยกจากโยเกิร์ต</small></span><b>+${baht(CONFIG.separateToppingPrice)}</b></button>`;
+  return `<button class="sep ${on ? 'on' : ''}" data-sep role="switch" aria-checked="${on}">` +
+    `<span class="nm">แยกท็อปปิ้ง · ใส่ถ้วยแยก <b>+${baht(CONFIG.separateToppingPrice)}</b></span><span class="sw ${on ? 'on' : ''}"><span></span></span></button>`;
 }
 function greekTopsHtml(P){
   const chip = it => {
@@ -4081,7 +4080,7 @@ function renderPromoBox(){
   const any = !!promo || CONFIG.promos.some(p => promoEval(p, cart, null).ok);
   box.innerHTML = promo
     ? `<button class="promo on" id="promoOpen">${icon('tag', 20)}<span><b>${esc(PROMO[promo.id].name)}</b><small>${esc(r.detail)}</small></span><b class="px">-${baht(r.discount)}</b></button>`
-    : `<button class="promo" id="promoOpen" ${any ? '' : 'disabled'}>${icon('tag', 20)}<span>ใช้โปรโมชัน<small>${any ? '1 บิลใช้ได้ 1 โปร' : 'ยังไม่มีโปรที่ใช้ได้'}</small></span></button>`;
+    : `<button class="promo" id="promoOpen" ${any ? '' : 'disabled'}>${icon('tag', 20)}<span><b>ใช้โปรโมชัน</b><small>${any ? '1 บิลใช้ได้ 1 โปร' : 'ยังไม่มีโปรที่ใช้ได้'}</small></span></button>`;
 }
 let promoDraft = null;
 function openPromo(){ promoDraft = promo ? {...promo} : null; renderPromo(); }

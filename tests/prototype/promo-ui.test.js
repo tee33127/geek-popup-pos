@@ -37,6 +37,7 @@ const total = () => $('#total').textContent;
   // ---- ปุ่มโปร + เลือกโปร ----
   order('banana');
   eq('promo button shown', $('#promoOpen').textContent.includes('ใช้โปรโมชัน'), true);
+  eq('promo button: secondary style, solid thin border, tag icon', [/dashed/.test(w.getComputedStyle($('#promoOpen')).borderTopStyle), !!$('#promoOpen svg'), $('#promoOpen').classList.contains('on')], [false, true, false]);
   click('#promoOpen');
   const opt = id => $(`[data-pid="${id}"]`);
   eq('options: b1g1 -149, off30 -30, freetop -15 (Mango add-on)', [opt('b1g1').textContent.includes('-฿149'), opt('off30').textContent.includes('-฿30'), opt('freetop').textContent.includes('-฿15')], [true, true, true]);

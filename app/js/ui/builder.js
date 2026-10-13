@@ -27,12 +27,13 @@ function topCounter(P){
     (pcs ? `<span class="cnt over">คิดเพิ่ม ${pcs} ชิ้น +${baht(money)}</span>` : '') + `</span>`;
 }
 
-/* ปุ่มแยกท็อปปิ้ง: ท้ายขั้นท็อปปิ้ง ใหญ่เต็มแถว ขอบส้มให้เห็นชัด · แสดงเมื่อแก้วมีท็อปปิ้ง */
+/* แยกท็อปปิ้ง: แถวมีสวิตช์ เปิด/ปิด แบบหน้าตั้งค่า (แตะได้ทั้งแถว) ท้ายขั้นท็อปปิ้ง · แสดงเมื่อแก้วมีท็อปปิ้ง
+   ปิด = แถวเรียบ ไม่แย่งสายตา · เปิด = พื้นส้มอ่อน (Tee 2026-10-13 เลิกกรอบเส้นประ) */
 function sepHtml(P){
   if(!P.tops.some(t => !t.removed)) return '';
   const on = !!sel.sep;
-  return `<button class="sep ${on ? 'on' : ''}" data-sep aria-pressed="${on}"><span class="sepbox">${on ? icon('check', 20) : ''}</span>` +
-    `<span>แยกท็อปปิ้ง<small>ใส่ถ้วยแยกจากโยเกิร์ต</small></span><b>+${baht(CONFIG.separateToppingPrice)}</b></button>`;
+  return `<button class="sep ${on ? 'on' : ''}" data-sep role="switch" aria-checked="${on}">` +
+    `<span class="nm">แยกท็อปปิ้ง · ใส่ถ้วยแยก <b>+${baht(CONFIG.separateToppingPrice)}</b></span><span class="sw ${on ? 'on' : ''}"><span></span></span></button>`;
 }
 function greekTopsHtml(P){
   const chip = it => {

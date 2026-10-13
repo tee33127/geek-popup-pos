@@ -20,7 +20,10 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   click('#btnAdd'); eq('blocked add does nothing', ev('cart.length'), 0);
   click('[data-honey="side"]'); eq('honey chosen: add enabled, badge gone, side honey free', [$('#btnAdd').disabled, !!$('.cnt.need'), addPrice()], [false, false, '189']);
   eq('sep button shown, off', [!!$('.sep'), $('.sep').classList.contains('on'), $('.sep b').textContent], [true, false, '+฿5']);
+  eq('sep is a switch row (no dashed frame), label + price', [$('.sep').getAttribute('role'), $('.sep').getAttribute('aria-checked'), !!$('.sep .sw:not(.on)'), $('.sep .nm').textContent, /dashed/.test(w.getComputedStyle($('.sep')).borderTopStyle)], ['switch', 'false', true, 'แยกท็อปปิ้ง · ใส่ถ้วยแยก +฿5', false]);
+  eq('sep row tap target >= 48px (CSS min-height)', parseInt(w.getComputedStyle($('.sep')).minHeight) >= 48, true);
   click('.sep'); eq('sep on: +5', [$('.sep').classList.contains('on'), addPrice()], [true, '194']);
+  eq('sep on: switch on + aria-checked', [$('.sep').getAttribute('aria-checked'), !!$('.sep .sw.on')], ['true', true]);
   click('#btnAdd'); eq('item stores sep 5 + honey side', [ev('cart[0].unit'), ev('cart[0].sep'), ev('cart[0].honey')], [194, 5, 'side']);
   eq('builder reset: honey cleared, sep off', [ev('sel.honey'), ev('sel.sep')], [null, false]);
   click('[data-menu="acai"]'); click('[data-honey="side"]'); click('.sep'); click('#btnAdd');
