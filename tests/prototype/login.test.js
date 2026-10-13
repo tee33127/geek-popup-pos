@@ -25,13 +25,15 @@ const codes = (a, b, p = 'lg') => { type(`#${p}Code`, a); type(`#${p}Code2`, b);
 const secretOk = sel => { const i = $(sel); return !!i && [i.type, i.getAttribute('inputmode'), i.getAttribute('pattern'), i.getAttribute('autocomplete'), i.classList.contains('secret'), w.getComputedStyle(i).webkitTextSecurity || 'disc', !!d.querySelector(`[data-eye="${i.id}"]`)].join() === 'text,numeric,[0-9]*,off,true,disc,true'; };
 const shown = () => $('#login').classList.contains('show');
 const save = () => { store = {}; for(let i = 0; i < w.localStorage.length; i++){ const k = w.localStorage.key(i); store[k] = w.localStorage.getItem(k); } };
-const reopen = async () => { save(); w.close(); w = open(); d = w.document; await wait(60); };
+/* รอหน้าโหลดเสร็จจริง (storeReady → showLogin/renderUser) แทนการรอเวลาตายตัว 60 ms ที่ไม่พอตอนเครื่องช้า */
+const ready = async () => { await w.eval('storeReady'); await wait(10); };
+const reopen = async () => { save(); w.close(); w = open(); d = w.document; await ready(); };
 const settings = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}');
 const type = (sel, v) => { $(sel).value = v; };
 const sell = async menu => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
 
 (async () => {
-  await wait(60);
+  await ready();
   // ---- ครั้งแรก: ตั้งเจ้าของ ----
   eq('first run shows setup (code fields: numeric text, hidden by CSS, eye button · no password input · no app keypad)', [shown(), !!$('#lgName'), secretOk('#lgCode'), secretOk('#lgCode2'), $$('input[type=password]').length, !!$('[data-kp]'), $('#btnUser').style.display], [true, true, true, true, 0, false, 'none']);
   eq('first field focused', d.activeElement && d.activeElement.id, 'lgName');

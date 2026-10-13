@@ -19,21 +19,20 @@ header h1 span{color:var(--orange)}
 .hbtn.off{background:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
 main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-width:1200px;margin:0 auto;align-items:start}
 .card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 1px 3px rgba(20,0,120,.08)}
-/* ขั้นของหน้าเลือกออเดอร์: โครงเดียวกันทุกสถานะ · วงกลม 28px + ช่องไฟ 10px → ข้อความหัวขั้นและเนื้อหา (.sb) เริ่มที่ 38px */
-.sec{display:block;width:100%;margin:0 0 10px;padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;text-align:left;font:inherit;color:inherit}
+/* ขั้นของหน้าเลือกออเดอร์: กล่องเดียวกันทุกขั้น · วงกลมเลขขั้นอยู่แค่ในหัวขั้น · เนื้อหา (.sb) เต็มความกว้างกล่อง
+   ครบแล้ว = วงกลมเป็นเครื่องหมายถูกสีเขียว · ขั้นใหม่ slide down + fade · กดปุ่มหลักตอนยังขาด = กรอบกะพริบ 1 ครั้ง */
+.sec{display:block;width:100%;margin:0 0 10px;padding:12px;border:2px solid var(--line);border-radius:14px;background:#fff}
 .sh{display:flex;align-items:center;gap:10px;min-height:32px}
 .sn{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:700;line-height:1;color:#fff;background:var(--blue)}
-.st{flex:1;min-width:0;font-size:17px;font-weight:700;line-height:1.35}
-.st small{font-weight:400;color:var(--mute);font-size:14px}
-.sb{margin:12px 0 2px 38px}
-.sec.done,.sec.pending{background:var(--bg);cursor:pointer}
 .sec.done .sn{background:var(--ok)}
-.sec.pending .sn{background:#9a9aab}
-.sec .lbl{font-weight:400;color:var(--mute);margin-right:2px}
-.sec .px{color:var(--mute);font-weight:400}
-.sec .xtra{color:#a35400}
-.sec .need{color:var(--bad)}
-.chg{flex:none;margin-left:auto;color:var(--blue);font-weight:700;font-size:15px;text-decoration:underline}
+.stitle{flex:1;min-width:0;font-size:17px;font-weight:700;line-height:1.4}
+.stitle small{font-weight:400;color:var(--mute);font-size:14px}
+.sb{margin-top:12px}
+.sec.enter{animation:stepIn .24s ease-out}
+@keyframes stepIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.sec.flash{animation:stepFlash .9s ease-out 1}
+@keyframes stepFlash{0%,40%{border-color:var(--orange);box-shadow:0 0 0 4px var(--orange-soft)}100%{border-color:var(--line);box-shadow:none}}
+@media(prefers-reduced-motion:reduce){.sec.enter,.sec.flash{animation:none}.sec.flash{border-color:var(--orange)}}
 .hint{color:var(--mute);font-size:14px;margin:8px 0 0}
 .gt{font-weight:700;color:var(--mute);font-size:15px;margin:14px 0 8px}
 .bases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -69,9 +68,9 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .comp.removed .nm{text-decoration:line-through}
 .comp.removed .nm small{text-decoration:none}
 /* ปุ่มท็อปปิ้ง Greek: สูงเท่ากันทุกปุ่มทุกสถานะ · ✓ เป็นวงกลมที่มุมซ้ายบนตำแหน่งเดียวกันทุกปุ่ม */
-.topw{position:relative;height:64px;border:2px solid var(--line);border-radius:12px;background:#fff}
-.topw .top{border:0;background:none;width:100%;height:100%;padding:6px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.topw .tn{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* ชื่อไม่ขึ้นบรรทัดใหม่ */
+.topw{position:relative;min-height:64px;border:2px solid var(--line);border-radius:12px;background:#fff}   /* ชื่อยาวขึ้น 2 บรรทัด แถวเดียวกันสูงเท่ากัน (grid stretch) */
+.topw .top{border:0;background:none;width:100%;height:100%;min-height:60px;padding:6px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.35}
+.topw .tn{max-width:100%;overflow-wrap:anywhere}   /* ห้าม … (Tee 2026-10-13) */
 .topw.on{border-color:var(--blue);background:var(--blue-soft)}
 .topw.on .top small{color:var(--blue)}
 .topw.on::before{content:"✓";position:absolute;top:-8px;left:-8px;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center;pointer-events:none;z-index:1}
@@ -92,23 +91,27 @@ main{display:grid;grid-template-columns:1fr 390px;gap:16px;padding:16px;max-widt
 .hon{border:3px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center;font-weight:700;background:#fff}
 .hon.on{border-color:var(--orange);background:var(--orange-soft)}
 input.note{width:100%;padding:12px;border:2px solid var(--line);border-radius:12px;font:inherit}
-/* แถบปุ่มหลัก: ติดล่างกล่องเลือกตลอด · ขั้นท็อปปิ้งมีตัวนับ (แนวนอน: ตัวนับซ้าย ปุ่มขวา · แนวตั้ง: ตัวนับบน ปุ่มล่างเต็มกว้าง) */
-.actbar{position:sticky;bottom:12px;z-index:4;display:flex;align-items:center;gap:12px}
-.actbar.with-tally{background:#fff;border:2px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:0 4px 14px rgba(0,0,0,.14)}
-.add{flex:1;width:100%;background:var(--orange);color:#fff;font-weight:700;font-size:20px;padding:16px;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-.actbar.with-tally .add{flex:0 1 auto;width:auto;min-width:300px;box-shadow:none}
-.add:disabled{background:#d8d8e4;box-shadow:none}
+/* แถบล่าง (Tee 2026-10-13 v3): หน้าตาและความสูงเดียวตั้งแต่เปิดหน้า · ซ้าย = ช่องสรุปแก้ว · ขวา = ปุ่มหลัก
+   position fixed (JS วางให้ตรงกับกล่องเลือก) · กล่องเลือกเว้นที่ท้าย = ความสูงแถบ + 16px ไม่ให้บังอะไร */
+:root{--abh:84px;--ab-bottom:12px}
+.actbar{position:fixed;left:16px;right:auto;bottom:var(--ab-bottom);z-index:6;height:var(--abh);display:flex;align-items:center;gap:12px;
+  background:#fff;border:2px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:0 4px 14px rgba(20,0,120,.14)}
+main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + 16px)}
 #tally{flex:1;min-width:0}
-#tally:empty{display:none}
-.tally{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-weight:700;font-size:16px}
-.tally .tq{white-space:nowrap;color:var(--blue)}
-.fdots{display:inline-flex;gap:4px;vertical-align:-1px;margin:0 2px}
-.fdots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--blue);background:transparent}
+.cupsum{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:15px;line-height:1.4;font-weight:700}
+.cupsum.none{color:var(--mute);font-weight:400}
+.cupsum .dot{color:var(--mute);font-weight:400}
+.cupsum .tq,.cupsum .cs-mid{white-space:nowrap;color:var(--blue)}
+.cupsum .cs-sep{white-space:nowrap;color:#a35400}
+.fdots{display:inline-flex;gap:4px;vertical-align:-2px;margin-left:2px}
+.fdots i{width:15px;height:15px;border-radius:50%;border:2px solid var(--blue);background:transparent}
 .fdots i.on{background:var(--blue)}
-.tally .xtra{white-space:nowrap;color:#a35400;background:var(--orange-soft);padding:3px 10px;border-radius:20px}
-.tally .xtra.flash{animation:xflash .9s ease-out 1}
+.cupsum .xtra{white-space:nowrap;color:#a35400;background:var(--orange-soft);padding:1px 10px;border-radius:20px}
+.cupsum .xtra.flash{animation:xflash .9s ease-out 1}
 @keyframes xflash{0%{background:var(--orange);color:#fff}100%{background:var(--orange-soft);color:#a35400}}
-@media(prefers-reduced-motion:reduce){.tally .xtra.flash{animation:none}}
+@media(prefers-reduced-motion:reduce){.cupsum .xtra.flash{animation:none}}
+.add{flex:none;width:320px;height:64px;background:var(--orange);color:#fff;font-weight:700;font-size:19px;line-height:1.4;padding:0 14px;border-radius:14px;white-space:nowrap}
+.add.off{background:#d8d8e4;color:#6b6b80}
 .linkbtn.notelink{justify-content:flex-start;width:auto;margin-top:6px;padding:0 4px;color:var(--blue);font-size:15px}
 .cart h2{margin:0 0 10px;font-size:19px}
 .empty{color:var(--mute);text-align:center;padding:24px 0}
@@ -185,7 +188,7 @@ tr.void td{color:#aaa;text-decoration:line-through}
 .rbtn{color:var(--ok);font-size:14px;padding:4px 8px;font-weight:700}
 tr.void td:last-child{text-decoration:none;color:inherit}
 textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid var(--line);border-radius:10px;padding:8px}
-#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:12px;display:none;z-index:30}
+#toast{position:fixed;left:50%;bottom:calc(var(--abh) + var(--ab-bottom) + 14px);transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:12px;display:none;z-index:30}
 #printArea{display:none}
 #printArea .slip{font-family:"Noto Sans Thai","Sarabun",sans-serif;color:#000}
 #printArea .c{text-align:center}
@@ -199,10 +202,14 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 #printArea .kt{font-size:17px;font-weight:800;margin-top:6px}
 #printArea .kl{font-size:14px;padding-left:8px}
 @media(max-width:900px){
-  main{grid-template-columns:1fr;padding:12px 12px 100px}
-  .actbar{bottom:86px}
-  .actbar.with-tally{flex-direction:column;align-items:stretch;gap:8px;padding:10px}
-  .actbar.with-tally .add{width:100%;min-width:0}
+  main{grid-template-columns:1fr;padding:12px 12px calc(var(--abh) + var(--ab-bottom) + 16px)}   /* ท้ายหน้าเว้นให้แถบล่าง + แถบชำระเงิน */
+  :root{--abh:136px;--ab-bottom:86px}   /* แนวตั้ง: ช่องสรุปบรรทัดบน ปุ่มบรรทัดล่าง · อยู่เหนือแถบชำระเงิน */
+  /* แนวตั้ง: ตะกร้าอยู่ใต้กล่องเลือก ที่ว่างจึงไปอยู่ท้ายหน้า (แถบล่าง + แถบชำระเงิน + 16px) ไม่ให้บังปุ่มในตะกร้า · กล่องเลือกไม่ต้องเว้นกลางหน้า */
+  main > .card:first-child{padding-bottom:16px}
+  .actbar{flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px 10px}
+  #tally{flex:1;display:flex;align-items:center}
+  .add{width:100%;height:60px}
+  #toast{bottom:calc(var(--abh) + var(--ab-bottom) + 14px)}
   .bar{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;gap:10px;align-items:center;z-index:6}
   .bar .sum{flex:1;font-weight:800;font-size:20px}
   .bar .sum small{display:block;font-weight:400;color:var(--mute);font-size:13px}

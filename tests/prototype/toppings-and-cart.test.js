@@ -11,22 +11,20 @@ const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (name, got, exp) => { const ok = JSON.stringify(got) === JSON.stringify(exp); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, ok ? '' : `got ${JSON.stringify(got)} expected ${JSON.stringify(exp)}`); };
 /* เพิ่มลงออเดอร์: น้ำผึ้งไม่มีค่าเริ่มต้น จึงเลือก 'ราดปกติ' ให้ก่อนถ้ายังไม่เลือก (เทสต์เรื่องน้ำผึ้งเองอยู่ส่วน 0) */
 const F = require('../flow-helper');
-const menu = id => F.menu(w, id), size = id => F.size(w, id), honey = id => F.honey(w, id), tops = () => F.tops(w);
-/* เพิ่มลงออเดอร์: กด "ถัดไป" → น้ำผึ้ง 'ราดปกติ' (ถ้ายังไม่เลือก) → เพิ่ม · หยุดเมื่อมีหน้าต่างถาม (ตอบแล้วเรียก add() อีกครั้ง) */
+const menu = id => F.menu(w, id), size = id => F.size(w, id), honey = id => F.honey(w, id), off = () => F.off(w);
+/* เพิ่มลงออเดอร์: น้ำผึ้ง 'ราดปกติ' (ถ้ายังไม่เลือก) → เพิ่ม · หยุดเมื่อมีหน้าต่างถาม (ตอบแล้วแก้วลงตะกร้าเลย) */
 const add = () => F.finish(w);
-/* ตัวนับในแถบปุ่มหลัก (ขั้นท็อปปิ้ง) */
-const tq = () => $('.tally .tq').getAttribute('aria-label'), xtra = () => $('.tally .xtra');   // "ฟรี ●●○" อ่านจำนวนจาก aria-label
-const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(',','');
+/* ช่องสรุปแก้วในแถบล่าง */
+const tq = () => $('.cupsum .tq').getAttribute('aria-label'), xtra = () => $('.cupsum .xtra');   // "ฟรี ●●○" อ่านจำนวนจาก aria-label
+/* ราคาบนปุ่ม: ปุ่มบอกราคาเมื่อครบแล้ว จึงเลือกน้ำผึ้ง 'ราดปกติ' ให้ก่อนถ้ายังไม่เลือก (น้ำผึ้งไม่มีผลกับราคา) */
+const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-honey="normal"]'); return $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(',',''); };
 
 (async () => {
   // ---- 0) น้ำผึ้งต้องเลือกเองทุกแก้ว + แยกท็อปปิ้ง +5 ต่อแก้ว (Tee 2026-10-12) ----
   menu('acai');
-  eq('acai opens at toppings step: primary = ถัดไป: น้ำผึ้ง, honey not shown yet', [ev('sel.open'), $('#btnAdd').textContent, $('#btnAdd').disabled, !!$('[data-honey]')], ['tops', 'ถัดไป: น้ำผึ้ง · ฿189', false, false]);
-  click('#btnAdd');
-  eq('honey: nothing preselected, add blocked', [$$('.hon.on').length, $('#btnAdd').disabled, $('#btnAdd').textContent], [0, true, 'เลือกน้ำผึ้งก่อน']);
-  click('#btnAdd'); eq('blocked add does nothing', ev('cart.length'), 0);
-  click('[data-honey="side"]'); eq('honey chosen: add enabled, side honey free', [$('#btnAdd').disabled, $('#btnAdd').textContent, addPrice()], [false, 'เพิ่มลงออเดอร์ · ฿189', '189']);
-  tops();   // แยกท็อปปิ้งอยู่ท้ายขั้นท็อปปิ้ง
+  eq('acai: toppings + honey open together, primary grey "เลือกน้ำผึ้งก่อน"', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, off(), $$('.hon.on').length], [['menu', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน', true, 0]);
+  click('#btnAdd'); eq('grey add does nothing', ev('cart.length'), 0);
+  click('[data-honey="side"]'); eq('honey chosen: add enabled, side honey free', [off(), $('#btnAdd').textContent, addPrice()], [false, 'เพิ่มลงออเดอร์ · ฿189', '189']);
   eq('sep button shown, off', [!!$('.sep'), $('.sep').classList.contains('on'), $('.sep b').textContent], [true, false, '+฿5']);
   eq('sep is a switch row (no dashed frame), label + price', [$('.sep').getAttribute('role'), $('.sep').getAttribute('aria-checked'), !!$('.sep .sw:not(.on)'), $('.sep .nm').textContent, /dashed/.test(w.getComputedStyle($('.sep')).borderTopStyle)], ['switch', 'false', true, 'แยกท็อปปิ้ง · ใส่ถ้วยแยก +฿5', false]);
   eq('sep row tap target >= 48px (CSS min-height)', parseInt(w.getComputedStyle($('.sep')).minHeight) >= 48, true);
@@ -34,12 +32,12 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('sep on: switch on + aria-checked', [$('.sep').getAttribute('aria-checked'), !!$('.sep .sw.on')], ['true', true]);
   add(); eq('item stores sep 5 + honey side', [ev('cart[0].unit'), ev('cart[0].sep'), ev('cart[0].honey')], [194, 5, 'side']);
   eq('builder reset: honey cleared, sep off', [ev('sel.honey'), ev('sel.sep')], [null, false]);
-  menu('acai'); honey('side'); tops(); click('.sep'); add();
+  menu('acai'); honey('side'); click('.sep'); add();
   eq('same cup twice merges, +5 per cup', [ev('cart.length'), ev('cart[0].qty'), ev('cartTotal()')], [1, 2, 388]);
   eq('cart shows sep line', $('#cart .d').textContent.includes('แยกท็อปปิ้ง (+5)'), true);
   menu('acai'); honey('side'); add();
   eq('without sep = separate line at 189', [ev('cart.length'), ev('cart[1].unit'), ev('"sep" in cart[1]')], [2, 189, false]);
-  menu('banana'); eq('banana: no honey needed', $('#btnAdd').disabled, false);
+  menu('banana'); eq('banana: no honey needed', off(), false);
   click('.sep'); eq('banana + sep = 154', addPrice(), '154'); click('#btnAdd');
   menu('greek'); size('g1n');
   eq('greek without toppings: no sep button', !!$('.sep'), false);
@@ -52,12 +50,12 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   // ---- 1a) Greek ไม่เลือกขนาดไว้ก่อน (Tee 2026-10-13): ไม่แสดงท็อปปิ้ง ปุ่มเพิ่มกดไม่ได้ ----
   const cart0 = ev('cart.length');
   menu('greek');
-  eq('greek: no size preselected → no toppings, add says เลือกขนาดก่อน', [ev('sel.size'), $$('.size.on').length, $$('[data-pick]').length, $$('.st').some(x => x.textContent.includes('ท็อปปิ้ง')), $('#btnAdd').disabled, $('#btnAdd').textContent, !!$('[data-size]')],
+  eq('greek: no size preselected → no toppings, add says เลือกขนาดก่อน', [ev('sel.size'), $$('.size.on').length, $$('[data-pick]').length, $$('.stitle').some(x => x.textContent.includes('ท็อปปิ้ง')), off(), $('#btnAdd').textContent, !!$('[data-size]')],
     [null, 0, 0, false, true, 'เลือกขนาดก่อน', true]);
-  eq('honey step not reachable before size', [!!$('[data-honey]'), !!$('[data-open="honey"]')], [false, false]);
+  eq('honey step not shown before size', !!$('[data-honey]'), false);
   click('#btnAdd'); ev('addSel()'); eq('blocked add does nothing (button + direct call)', ev('cart.length'), cart0);
   eq('priceSel / priceItem with size null do not crash', [ev('priceSel().unit'), ev('priceSel().needSize'), ev('priceSel().tops.length'), ev('priceItem(MENU.greek, {size:null, picks:["Banana"], sep:true}).unit')], [0, true, 0, 0]);
-  size('g1'); eq('size chosen: toppings appear, primary enabled at 89', [$$('[data-pick]').length > 0, $('#btnAdd').disabled, addPrice()], [true, false, '89']);
+  size('g1'); eq('size chosen: toppings + honey appear together, then 89', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, addPrice()], [['menu', 'size', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน', '89']);
   menu('acai'); menu('greek'); eq('switching menu back: size not remembered', ev('sel.size'), null);
   // ---- 1) ท็อปปิ้งซ้ำได้ ----
   menu('greek'); size('g1');
@@ -70,21 +68,21 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('Banana x3 all free', addPrice(), '89');
   eq('chip shows ×3, same height as unselected', [$('[data-pick="Banana"] small').textContent, $('[data-pick="Banana"]').closest('.topw').querySelector('[data-more]')], ['×3', null]);
   eq('selected list in tap order', $$('.trow .nm').map(e => e.textContent), ['กล้วย']);
-  eq('free counter ●●● (3 of 3), no numbers shown, no over badge', [tq(), $('.tally .tq').textContent.trim(), $$('.fdots i.on').length, xtra()], ['ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', 'ฟรี', 3, null]);
+  eq('free counter ●●● (3 of 3), no numbers shown, no over badge', [tq(), $('.cupsum .tq').textContent.trim(), $$('.fdots i.on').length, xtra()], ['ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', 'ฟรี', 3, null]);
   eq('unselected free chip shows +15 at quota', $('[data-pick="Kiwi"] small').textContent, '+15');
   click('[data-more="Banana"]'); eq('4th Banana +15', addPrice(), '104');
-  eq('charge badge', xtra().textContent, 'คิดเพิ่ม 1 ชิ้น +฿15');
+  eq('charge badge', xtra().textContent, 'คิดเพิ่ม +฿15');
   eq('over chip styled orange', $('[data-pick="Banana"]').closest('.topw').classList.contains('over'), true);
   click('[data-less="Banana"]'); eq('minus back to x3', addPrice(), '89');
   click('[data-pick="Kiwi"]'); click('[data-more="Kiwi"]'); click('[data-pick="Kiwi"]'); eq('tap removes all of a ×2 item', ev('sel.picks'), ['Banana','Banana','Banana']);
   eq('no charge badge within quota', xtra(), null);
   click('[data-pick="Granola"]'); click('[data-more="Granola"]'); eq('Granola x2 = +20', addPrice(), '109');
-  eq('Extra group counted in charge badge', xtra().textContent, 'คิดเพิ่ม 2 ชิ้น +฿20');
+  eq('Extra group counted in charge badge', xtra().textContent, 'คิดเพิ่ม +฿20');
   click('[data-less="Granola"]'); click('[data-less="Granola"]');
   eq('minus to 0 deselects', [$('[data-less="Granola"]'), $('[data-pick="Granola"]').closest('.topw').classList.contains('on')], [null, false]);
   click('[data-pick="Mango"]'); click('[data-pick="Kiwi"]'); // Banana3 free + Mango(4th) + Kiwi(5th)
-  eq('charge badge 2 over-quota', xtra().textContent, 'คิดเพิ่ม 2 ชิ้น +฿30');
-  click('[data-pick="Granola"]'); eq('charge badge mixes over-quota + Extra', [xtra().textContent, addPrice()], ['คิดเพิ่ม 3 ชิ้น +฿40', '129']);
+  eq('charge badge 2 over-quota', xtra().textContent, 'คิดเพิ่ม +฿30');
+  click('[data-pick="Granola"]'); eq('charge badge mixes over-quota + Extra', [xtra().textContent, addPrice()], ['คิดเพิ่ม +฿40', '129']);
   click('[data-pick="Granola"]');
   eq('mixed over limit', addPrice(), String(89 + 15 + 15));
   add();

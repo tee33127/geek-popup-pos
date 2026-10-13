@@ -32,7 +32,6 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('[data-menu="greek"]'); click('[data-size="g1"]');
   const mango = $$('.topw.out').find(x => x.textContent.includes('มะม่วง'));
   eq('greek: sold-out tile grey + disabled', [!!mango, mango && mango.querySelector('button').disabled, mango && mango.textContent.includes('หมด'), !!$('[data-pick="Mango"]')], [true, true, true, false]);
-  click('[data-open="menu"]');
   eq('banana choco menu grey + disabled', [$('.base.out') && $('.base.out').textContent.includes('Banana Choco'), !!$('[data-menu="banana"]')], [true, false]);
   click('[data-menu="acai"]');
   eq('acai: sold-out default flagged', $$('.comp.out').map(c => c.textContent.includes('สตรอว์เบอร์รี่')), [true]);

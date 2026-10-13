@@ -53,7 +53,7 @@ const CONFIG = {
     {name:'Granola',th:'กราโนล่า',cat:'dried',price:10}, {name:'Blueberries',th:'บลูเบอร์รี่',cat:'fruit',price:15}, {name:'Strawberries',th:'สตรอว์เบอร์รี่',cat:'fruit',price:15},
   ],
   menus: [
-    {id:'greek', name:'Greek Yogurt', img:'img/greek-yogurt.jpg',
+    {id:'greek', name:'Greek Yogurt', short:'Greek', img:'img/greek-yogurt.jpg',
       sizes:[
         {id:'g1n', name:'1 สกู๊ป', sub:'ท็อปปิ้งชิ้นละ 15',   price:69,  perTop:15},   // ทุกท็อปปิ้ง (รวม Extra) ชิ้นละ 15 ไม่มีโควตาฟรี
         {id:'g1',  name:'1 สกู๊ป', sub:'ท็อปปิ้งฟรี 3 อย่าง', price:89},

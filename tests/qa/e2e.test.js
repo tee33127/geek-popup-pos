@@ -55,22 +55,9 @@ const server = http.createServer((q, r) => {
     L.home = await check('home'); await page.screenshot({path:path.join(SHOTS, `${label}-02-home.png`)});
     await page.click('[data-menu="acai"]'); await page.click('[data-swap="0"]'); await page.click('[data-addopen]');
     L.acai = await check('acai'); await page.screenshot({path:path.join(SHOTS, `${label}-03-acai.png`), fullPage:true});
-    await page.click('#btnAdd'); await page.click('[data-honey="normal"]'); await page.click('#btnAdd');   // ถัดไป → น้ำผึ้ง → เพิ่ม
+    await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
     await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]'); for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
     L.greek = await check('greek'); await page.screenshot({path:path.join(SHOTS, `${label}-04-greek.png`), fullPage:true});
-    /* UI11 ตัวนับ + ปุ่มหลักติดจอตลอดขั้นท็อปปิ้ง: เลื่อนกลางตาราง / ลงสุด · แถวสุดท้ายไม่ถูกแถบบัง */
-    L.bar = await page.evaluate(async () => {
-      const H = innerHeight, hdr = document.querySelector('header').getBoundingClientRect().bottom, nap = () => new Promise(r => setTimeout(r, 80));
-      const fixed = document.querySelector('.bar'), fb = fixed && getComputedStyle(fixed).display !== 'none' ? fixed.getBoundingClientRect().top : H;
-      const bar = document.getElementById('actBar'), tl = document.getElementById('tally'), sec = document.querySelector('[data-step="tops"]');
-      const inView = () => { const b = bar.getBoundingClientRect(), t = tl.getBoundingClientRect(); return b.top >= hdr - 1 && b.bottom <= fb + 1 && t.height > 0 && t.top >= hdr - 1 && t.bottom <= fb + 1; };
-      scrollTo(0, sec.getBoundingClientRect().top + scrollY + sec.offsetHeight / 2 - H / 2); await nap(); const mid = inView();
-      const card = bar.closest('.card'); scrollTo(0, card.getBoundingClientRect().bottom + scrollY - fb + 8); await nap();
-      const last = sec.lastElementChild.getBoundingClientRect();
-      return [mid, inView(), last.bottom <= bar.getBoundingClientRect().top + 1];
-    });
-    await page.screenshot({path:path.join(SHOTS, `${label}-04b-greek-scrolled-end.png`)});
-    await page.click('#btnAdd');   // ถัดไป: น้ำผึ้ง (ฟรีครบ 3 ไม่ถาม)
     await page.click('[data-honey="lots"]'); await page.click('[data-noteopen]');
     await page.fill('#note', 'ลูกค้าแพ้ถั่วลิสงขอไม่ใส่เนยถั่วและช็อกโกแลตชิพ '.repeat(10) + '😀👍🏽 ฮ่าาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาา่');   // X02 หมายเหตุยาว
     await page.click('#btnAdd');
@@ -94,7 +81,6 @@ const server = http.createServer((q, r) => {
       ['home', 'acai', 'greek', 'cart', 'pay', 'summary', 'owner'].map(k => [L[k].hscroll, L[k].offscreen]), Array(7).fill([false, []]));
     eq(`U01 ${label}: รหัสเจ้าของ = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS ได้ focus · ไม่มีช่อง password`, L.ownerPad, ['text', 'numeric', 'disc', true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงินเห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
-    eq(`UI11 ${label}: ขั้นท็อปปิ้ง เลื่อนกลางตาราง / ลงสุด ตัวนับและปุ่มหลักยังอยู่ในจอ · แถวสุดท้ายไม่ถูกแถบบัง`, L.bar, [true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
   }
   const smallList = [...small.values()].sort((a, b) => a.h - b.h);
@@ -108,8 +94,8 @@ const server = http.createServer((q, r) => {
     const page = await ctx.newPage(); watch(page, 'ui10-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
     const at = () => page.evaluate(() => ({y: Math.round(scrollY), can: document.documentElement.scrollHeight > innerHeight + 1, menu: sel.menu, top: Math.round(document.querySelector('[data-step="menu"]').getBoundingClientRect().top)}));
-    for(const h of ['none', 'little', 'lots', 'side']){ await page.tap('[data-menu="acai"]'); await page.tap('#btnAdd'); await page.tap(`[data-honey="${h}"]`); await page.tap('#btnAdd'); }   // ตะกร้ายาว (แนวตั้งอยู่ใต้หน้าขาย)
-    await page.tap('[data-menu="acai"]'); await page.tap('#btnAdd'); await page.tap('[data-honey="normal"]');
+    for(const h of ['none', 'little', 'lots', 'side']){ await page.tap('[data-menu="acai"]'); await page.tap(`[data-honey="${h}"]`); await page.tap('#btnAdd'); }   // ตะกร้ายาว (แนวตั้งอยู่ใต้หน้าขาย)
+    await page.tap('[data-menu="acai"]'); await page.tap('[data-honey="normal"]');
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));   // พนักงานเลื่อนลงไปดูตะกร้า/หมายเหตุ ก่อนกดเพิ่ม
     const down = await at();
     await page.tap('#btnAdd'); const afterAdd = await at();
@@ -122,32 +108,77 @@ const server = http.createServer((q, r) => {
     await ctx.close();
   }
 
-  // ---------- UI13 ขั้นต่างๆ ตรงแนวเดียวกันทุกสถานะ (กาง / เสร็จ / ยังไม่เสร็จแต่ยุบ) (Tee 2026-10-13) ----------
+  // ---------- UI11 / UI13 / UI14 หน้าเลือกออเดอร์ v3 (Tee 2026-10-13): แถบล่าง · แนว · ข้อความไม่ถูกตัด ----------
   for(const [label, vp, br] of SCREENS){
     const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true, reducedMotion:'reduce'});
     await ctx.addInitScript(() => { window.print = () => {}; });
-    const page = await ctx.newPage(); watch(page, 'ui13-' + label);
+    const page = await ctx.newPage(); watch(page, 'v3-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]');
-    for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
-    await page.click('#btnAdd');   // ถัดไป → น้ำผึ้ง (ยังไม่เลือก)
-    const measure = () => page.evaluate(() => {
-      const r = el => el.getBoundingClientRect(), secs = [...document.querySelectorAll('#builder .sec')];
-      const rows = secs.map(s => { const sn = r(s.querySelector('.sn')), st = s.querySelector('.st'), stR = r(st), first = r(st.firstElementChild || st);
-        return {step:s.dataset.step, state:s.classList.contains('open') ? 'open' : s.classList.contains('done') ? 'done' : 'pending',
-          snL:sn.left, snW:Math.round(sn.width), snH:Math.round(sn.height), stL:stR.left, fs:getComputedStyle(st).fontSize, mid:Math.abs((sn.top + sn.bottom) / 2 - (first.top + first.bottom) / 2),
-          sbL: s.querySelector('.sb') ? Math.min(...[...s.querySelector('.sb').children].map(c => r(c).left)) : null, chgR: s.querySelector('.chg') ? r(s.querySelector('.chg')).right : null}; });
-      const spread = k => { const v = rows.map(x => x[k]).filter(x => x !== null); return v.length ? Math.max(...v) - Math.min(...v) : 0; };
-      return {states:rows.map(x => x.step + ':' + x.state), snL:spread('snL'), stL:spread('stL'), sbVsSt:Math.max(...rows.filter(x => x.sbL !== null).map(x => Math.abs(x.sbL - x.stL))), chgR:spread('chgR'),
-        size:[...new Set(rows.map(x => x.snW + 'x' + x.snH))], fs:[...new Set(rows.map(x => x.fs))], mid:Math.max(...rows.map(x => x.mid))};
+    const nap = ms => page.waitForTimeout(ms || 120);
+    const barH = () => page.evaluate(() => Math.round(document.getElementById('actBar').getBoundingClientRect().height));
+    /* UI14 ทุกปุ่มที่เห็น: ข้อความไม่ล้น (scrollWidth/Height) และไม่มี … (text-overflow: ellipsis ที่ตัดจริง) */
+    const clipped = () => page.evaluate(() => {
+      const vis = el => { const st = getComputedStyle(el), b = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+      const bad = [];
+      document.querySelectorAll('#builder button, #actBar button, #actBar .cupsum').forEach(b => {
+        if(!vis(b)) return;
+        const name = (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+        if(b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) bad.push('overflow:' + name);
+        [b, ...b.querySelectorAll('*')].forEach(e => { if(getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1) bad.push('ellipsis:' + name); });
+      });
+      return bad;
     });
-    await page.click('[data-open="size"]'); const A = await measure();
-    await page.screenshot({path:path.join(SHOTS, `${label}-10-steps-aligned.png`)});
-    await page.click('[data-open="tops"]'); const B = await measure();
-    console.log(`INFO UI13 ${label}: ${JSON.stringify(A)} · ${JSON.stringify(B)}`);
-    const ok = m => [m.snL <= 1, m.stL <= 1, m.sbVsSt <= 1, m.chgR <= 1, m.size.length, m.fs.length, m.mid <= 2];
-    eq(`UI13 ${label}: วงกลม/หัวขั้น/เนื้อหาตรงแนว ≤1px · "เปลี่ยน" ชิดขวาเท่ากัน · วงกลมขนาดเดียว · ตัวหัวขั้นขนาดเดียว · กึ่งกลางแนวตั้ง (แก้ขนาด / แก้ท็อปปิ้ง)`,
-      [A.states, ok(A), B.states, ok(B)], [['menu:done', 'size:open', 'tops:done', 'honey:pending'], [true, true, true, true, 1, 1, true], ['menu:done', 'size:done', 'tops:open', 'honey:pending'], [true, true, true, true, 1, 1, true]]);
+    /* UI11 เลื่อนให้แถวสุดท้ายของกล่องเลือก (รวมสวิตช์แยก) ไปอยู่ชิดเหนือแถบล่าง แล้วต้องเห็นครบ ไม่ถูกบัง */
+    const lastRowClear = () => page.evaluate(async () => {
+      const bar = document.getElementById('actBar').getBoundingClientRect(), hdr = document.querySelector('header').getBoundingClientRect().bottom;
+      const secs = [...document.querySelectorAll('#builder .sec')], last = secs[secs.length - 1];
+      const rows = [...last.querySelectorAll('.sb > *')].filter(e => e.getBoundingClientRect().height > 0), row = rows[rows.length - 1];
+      const sep = document.querySelector('.sep');
+      const targets = [row, sep].filter(Boolean), out = [];
+      for(const t of targets){
+        scrollTo(0, scrollY + t.getBoundingClientRect().bottom - (bar.top - 6)); await new Promise(r => setTimeout(r, 60));
+        const b = t.getBoundingClientRect(), bt = document.getElementById('actBar').getBoundingClientRect().top;
+        out.push(b.bottom <= bt + 0.5 && b.top >= hdr - 0.5);
+      }
+      return out.every(Boolean) && out.length > 0;
+    });
+    const H = [await barH()], C = {}, clear = {};
+    C.home = await clipped();
+    await page.click('[data-menu="greek"]'); await nap(); H.push(await barH()); C.size = await clipped();
+    await page.click('[data-size="g1"]'); await nap(); H.push(await barH());
+    for(const t of ['Cashew', 'Chocolate crumble', 'Biscoff Crumble']) await page.click(`[data-pick="${t}"]`);
+    await page.click('.sep'); await nap(); H.push(await barH()); C.greek = await clipped(); clear.greek = await lastRowClear();
+    await page.screenshot({path:path.join(SHOTS, `${label}-11-greek-v3.png`)});
+    /* กดปุ่มสีเทา (ยังไม่เลือกน้ำผึ้ง) → เลื่อนไปขั้นน้ำผึ้ง + กรอบกะพริบ ไม่เพิ่มลงออเดอร์ */
+    await page.evaluate(() => scrollTo(0, 0)); await nap();
+    const n0 = await page.evaluate(() => cart.length);
+    await page.click('#btnAdd'); await nap(400);
+    const grey = await page.evaluate(() => { const h = document.querySelector('[data-step="honey"]'), r = h.getBoundingClientRect(), bar = document.getElementById('actBar').getBoundingClientRect();
+      return [r.top >= document.querySelector('header').getBoundingClientRect().bottom - 1 && r.top < bar.top, h.classList.contains('flash'), cart.length]; });
+    grey[2] -= n0;
+    await page.click('[data-honey="normal"]'); await nap(); H.push(await barH()); C.honey = await clipped();
+    /* UI13 แนว: วงกลม หัวขั้น ทุกขั้นตรงกัน · เนื้อหาเต็มความกว้าง (เริ่มที่ขอบเดียวกับวงกลม) */
+    const align = await page.evaluate(() => {
+      const r = el => el.getBoundingClientRect(), secs = [...document.querySelectorAll('#builder .sec')];
+      const rows = secs.map(s => { const sn = r(s.querySelector('.sn')), st = r(s.querySelector('.stitle')), sb = s.querySelector('.sb');
+        return {snL:sn.left, stL:st.left, sbL:r(sb).left, sbW:r(sb).width, inner:r(s).width - 2 * parseFloat(getComputedStyle(s).borderLeftWidth) - 2 * parseFloat(getComputedStyle(s).paddingLeft), sz:Math.round(sn.width) + 'x' + Math.round(sn.height), fs:getComputedStyle(s.querySelector('.stitle')).fontSize, mid:Math.abs((sn.top + sn.bottom) / 2 - (st.top + st.bottom) / 2)}; });
+      const spread = k => Math.max(...rows.map(x => x[k])) - Math.min(...rows.map(x => x[k]));
+      return [secs.length, spread('snL') <= 1, spread('stL') <= 1, rows.every(x => Math.abs(x.sbL - x.snL) <= 1 && Math.abs(x.sbW - x.inner) <= 1), new Set(rows.map(x => x.sz)).size, new Set(rows.map(x => x.fs)).size, Math.max(...rows.map(x => x.mid)) <= 2];
+    });
+    await page.click('#btnAdd'); await nap();
+    await page.click('[data-menu="acai"]'); await nap(); H.push(await barH());
+    await page.click('[data-swap="0"]'); await page.click('[data-addopen]'); await page.click('.sep'); await nap(); C.acai = await clipped(); clear.acai = await lastRowClear();
+    await page.screenshot({path:path.join(SHOTS, `${label}-12-acai-v3.png`)});
+    await page.click('[data-swap="0"]'); await page.click('[data-honey="normal"]'); await page.click('#btnAdd'); await nap();
+    await page.click('[data-menu="banana"]'); await nap(); H.push(await barH());
+    await page.click('.sep'); await nap(); C.banana = await clipped(); clear.banana = await lastRowClear();
+    await page.screenshot({path:path.join(SHOTS, `${label}-13-banana-v3.png`)});
+    console.log(`INFO v3 ${label}: แถบล่างสูง ${JSON.stringify(H)} · ตัด ${JSON.stringify(C)} · แถวสุดท้าย ${JSON.stringify(clear)} · ปุ่มเทา ${JSON.stringify(grey)} · แนว ${JSON.stringify(align)}`);
+    eq(`UI11 ${label}: แถวสุดท้ายของทุกเมนู (รวมสวิตช์แยกท็อปปิ้ง) เลื่อนมาเห็นครบ ไม่ถูกแถบบัง`, clear, {greek:true, acai:true, banana:true});
+    eq(`UI11 ${label}: แถบล่างสูงเท่ากันทุกขั้น (เปิดหน้า / เมนู / ขนาด / ท็อปปิ้ง / น้ำผึ้ง / Acai / Banana)`, new Set(H).size, 1);
+    eq(`UI11 ${label}: กดปุ่มสีเทา → เลื่อนไปขั้นน้ำผึ้งที่ขาด กรอบกะพริบ ไม่เพิ่มลงออเดอร์`, grey, [true, true, 0]);
+    eq(`UI14 ${label}: ไม่มีข้อความในปุ่มไหนถูกตัด/มี … (หน้าแรก ขนาด ท็อปปิ้งชื่อยาว น้ำผึ้ง Acai Banana + แถบล่าง)`, Object.values(C).flat(), []);
+    eq(`UI13 ${label}: วงกลม/หัวขั้นตรงแนว ≤1px · เนื้อหาเต็มความกว้างกล่อง · วงกลม/ตัวหัวขั้นขนาดเดียว · กึ่งกลางแนวตั้ง`, align, [4, true, true, true, 1, 1, true]);
     await ctx.close();
   }
 
@@ -223,7 +254,7 @@ const server = http.createServer((q, r) => {
     await A.fill('#lgName', 'เจ้าของ'); await A.fill('#lgCode', '1234'); await A.fill('#lgCode2', '1234'); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
     const B = await ctx.newPage(); watch(B, 'tabB');
     await B.goto(`${BASE}/app/index.html`); await B.waitForSelector('#builder'); await B.waitForTimeout(300); await skipFloat(B);
-    const sell = async (pg, menu) => { await pg.click(`[data-menu="${menu}"]`); await pg.click('#btnAdd'); if(await pg.$('[data-honey]')){ await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd'); }
+    const sell = async (pg, menu) => { await pg.click(`[data-menu="${menu}"]`); if(await pg.$('[data-honey]')) await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd');
       await pg.click('#btnPay'); await pg.click('[data-dine="dinein"]'); await pg.click('[data-method="tcp"]'); await pg.click('#payOk'); const s = await pg.evaluate(() => ({id:lastSale.id, no:lastSale.no})); await pg.click('#nextOrder'); return s; };
     const mode = await A.evaluate(() => STORE_MODE);
     const a1 = await sell(A, 'acai'), b1 = await sell(B, 'banana'), a2 = await sell(A, 'acai');

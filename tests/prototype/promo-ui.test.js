@@ -26,7 +26,7 @@ const total = () => $('#total').textContent;
   click('[data-r="1"]'); eq('remove it again: grey again', $('#promoOpen').disabled, true);
   click('[data-r="0"]');
   // ---- เพิ่มท็อปปิ้ง Acai ----
-  F.menu(w, 'acai');
+  F.menu(w, 'acai'); F.honey(w, 'normal');   // ปุ่มบอกราคาเมื่อเลือกครบ
   eq('add-on section present, grid closed', [$('[data-addopen]').textContent, !!$('[data-add]')], ['+ เพิ่มท็อปปิ้ง', false]);
   click('[data-addopen]'); eq('grid opens with every topping at +15', [$$('[data-add]').length, $('[data-add="Granola"] small').textContent], [20, '+15']);
   click('[data-add="Mango"]'); click('[data-amore="Mango"]');

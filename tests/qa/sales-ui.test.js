@@ -32,17 +32,17 @@ const {eq, done, open, wait, T} = require('./qa-helper');
 
   // P05 ตัวนับ · P12 สลับขนาด
   menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
-  eq('P05 ตัวนับ "ฟรี ●●●" (ไม่มีตัวเลข) ใช้ฟรีแล้ว 3 จาก 3 ราคา 89', [$('.tally .tq').textContent.trim(), $$('.fdots i.on').length, $('.tally .tq').getAttribute('aria-label'), addBtn().includes('฿89')], ['ฟรี', 3, 'ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', true]);
+  eq('P05 ตัวนับ "ฟรี ●●●" (ไม่มีตัวเลข) ใช้ฟรีแล้ว 3 จาก 3 ราคา 89', [$('.cupsum .tq').textContent.trim(), $$('.fdots i.on').length, $('.cupsum .tq').getAttribute('aria-label'), (p.honey('normal'), addBtn().includes('฿89'))], ['ฟรี', 3, 'ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', true]);
   click('[data-pick="Granola"]');
-  const sz = s => { size(s); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };
+  const sz = s => { size(s); p.honey('normal'); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };
   eq('P12 สลับ 89 → 69 → 129 → 89 ท็อปปิ้งไม่หาย ราคาใหม่ถูก', [sz('g1n'), sz('g2'), sz('g1')], [[4, '129'], [4, '139'], [4, '99']]);
   menu('acai');
 
   // P13 / P20 น้ำผึ้ง
-  click('#btnAdd');   // ถัดไป: น้ำผึ้ง
-  eq('P13 Acai ต้องเลือกน้ำผึ้งก่อน กดเพิ่มไม่ได้', [$('#btnAdd').disabled, addBtn().startsWith('เลือกน้ำผึ้งก่อน')], [true, true]);
+  eq('P13 Acai ต้องเลือกน้ำผึ้งก่อน กดเพิ่มไม่ได้', [p.off(), addBtn().startsWith('เลือกน้ำผึ้งก่อน')], [true, true]);
+  click('#btnAdd'); eq('P13 กดปุ่มเทาแล้วไม่เพิ่ม', ev('cart.length'), 0);
   menu('banana');
-  eq('P20 Banana Choco ไม่มีขั้นน้ำผึ้ง กดเพิ่มได้', [!!$('[data-honey]'), $('#btnAdd').disabled], [false, false]);
+  eq('P20 Banana Choco ไม่มีขั้นน้ำผึ้ง กดเพิ่มได้', [!!$('[data-honey]'), p.off()], [false, false]);
   click('#btnAdd'); eq('P20 บิล Banana ไม่มีฟิลด์ honey', ev('"honey" in cart[0]'), false); clearCart();
 
   // P22 เปลี่ยนข้ามหมวดไม่มีให้เลือก

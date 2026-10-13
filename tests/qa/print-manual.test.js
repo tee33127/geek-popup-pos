@@ -38,7 +38,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
   eq('H01 200 บิลสุ่ม (seed 101): ใบเสร็จ/ตั๋วครัว HTML กับ USB ข้อความตรงกันทุกบรรทัด', bad, null);
 
   // ---------- UI03 ปุ่ม "เปลี่ยน" เด่นกว่า "ไม่รับ" ----------
-  if($('[data-open="menu"]')) click('[data-open="menu"]'); click('[data-menu="acai"]');
+  click('[data-menu="acai"]');
   const css = fs.readFileSync(path.join(ROOT, 'app/css/pos.css'), 'utf8');
   const rule = sel => (css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}')) || [])[1] || '';
   eq('UI03 ปุ่ม "ไม่รับ" เป็นคลาส skip (รอง) · "เปลี่ยน" เป็นปุ่มปกติ', [$('[data-skip="0"]').className, $('[data-swap="0"]').className], ['skip', '']);

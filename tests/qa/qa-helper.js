@@ -59,9 +59,9 @@ function open(o = {}){
   P.enter = code => { P.keys(code); click('#lgGo'); };
   /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer} · answer = id ปุ่มในหน้าต่างถาม */
   /* หน้าเลือกออเดอร์แบบทีละขั้น: ปุ่มมีเฉพาะขั้นที่กางอยู่ ตัวช่วยกางให้ก่อน (../flow-helper.js) */
-  P.menu = id => F.menu(w, id); P.size = id => F.size(w, id); P.honey = id => F.honey(w, id); P.tops = () => F.tops(w); P.finish = h => F.finish(w, h);
+  P.menu = id => F.menu(w, id); P.size = id => F.size(w, id); P.honey = id => F.honey(w, id); P.off = () => F.off(w); P.finish = h => F.finish(w, h);
   /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer}
-     answer = id ปุ่มในหน้าต่างถาม (ถามตอนกด "ถัดไป: น้ำผึ้ง") ตอบตามลำดับ · หมายเหตุอยู่ขั้นสุดท้าย */
+     answer = id ปุ่มในหน้าต่างถาม (ถามตอนกดเพิ่มลงออเดอร์) ตอบตามลำดับ · หมายเหตุอยู่ขั้นสุดท้าย */
   P.add = (c) => {
     P.menu(c.menu);
     if(c.size) P.size(c.size);
@@ -76,7 +76,7 @@ function open(o = {}){
       if($('[data-honey]') && !$('.hon.on')) click(`[data-honey="${c.honey || 'normal'}"]`);
       if(c.note && $('[data-noteopen]')) click('[data-noteopen]');
       if(c.note && $('#note') && $('#note').value !== c.note){ const n = $('#note'); n.value = c.note; n.dispatchEvent(new w.Event('input', {bubbles:true})); }
-      if($('#btnAdd').disabled) return;
+      if(P.off()) return;
       click('#btnAdd');
     }
   };
