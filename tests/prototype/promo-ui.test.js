@@ -17,6 +17,13 @@ const total = () => $('#total').textContent;
 (async () => {
   await wait(50);
   eq('no promo button with empty cart', $('#promoBox').innerHTML, '');
+  // ---- ยังไม่เข้าเงื่อนไขโปรไหน: ปุ่มเทา กดไม่ได้ (Tee 2026-10-13) ----
+  order('greek', () => { click('[data-size="g1"]'); ['Banana', 'Mango', 'Kiwi'].forEach(t => click(`[data-pick="${t}"]`)); });
+  eq('Greek 89 + 3 free toppings: no promo applies → grey, disabled, hint', [$('#promoOpen').disabled, $('#promoOpen').textContent.includes('ยังไม่มีโปรที่ใช้ได้'), w.getComputedStyle($("#promoOpen")).cursor], [true, true, 'not-allowed']);
+  click('#promoOpen'); eq('disabled promo button opens nothing', $('#modal').classList.contains('show'), false);
+  order('acai'); eq('add a qualifying cup: button back to normal by itself', [$('#promoOpen').disabled, $('#promoOpen').textContent.includes('1 บิลใช้ได้ 1 โปร')], [false, true]);
+  click('[data-r="1"]'); eq('remove it again: grey again', $('#promoOpen').disabled, true);
+  click('[data-r="0"]');
   // ---- เพิ่มท็อปปิ้ง Acai ----
   click('[data-menu="acai"]');
   eq('add-on section present, grid closed', [$('[data-addopen]').textContent, !!$('[data-add]')], ['+ เพิ่มท็อปปิ้ง', false]);

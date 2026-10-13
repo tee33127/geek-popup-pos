@@ -8,9 +8,11 @@ function renderPromoBox(){
     toast(`ยกเลิกโปร ${name} · ${r ? r.why : 'ไม่มีโปรนี้แล้ว'}`, 'alert'); promo = null; r = null;
   }
   if(promo && r){ promo.key = r.target.key; promo.top = r.target.top || null; }   // เป้าหมายเดิมหายไป → ใช้รายการแรก
+  /* ยังไม่เข้าเงื่อนไขโปรไหนเลย → ปุ่มเทา กดไม่ได้ (Tee 2026-10-13) · เข้าเงื่อนไขเมื่อไรกลับมาปกติเอง เพราะวาดใหม่ทุกครั้งที่ตะกร้าเปลี่ยน */
+  const any = !!promo || CONFIG.promos.some(p => promoEval(p, cart, null).ok);
   box.innerHTML = promo
     ? `<button class="promo on" id="promoOpen">${icon('tag', 20)}<span><b>${esc(PROMO[promo.id].name)}</b><small>${esc(r.detail)}</small></span><b class="px">-${baht(r.discount)}</b></button>`
-    : `<button class="promo" id="promoOpen">${icon('tag', 20)}<span>ใช้โปรโมชัน<small>1 บิลใช้ได้ 1 โปร</small></span></button>`;
+    : `<button class="promo" id="promoOpen" ${any ? '' : 'disabled'}>${icon('tag', 20)}<span>ใช้โปรโมชัน<small>${any ? '1 บิลใช้ได้ 1 โปร' : 'ยังไม่มีโปรที่ใช้ได้'}</small></span></button>`;
 }
 let promoDraft = null;
 function openPromo(){ promoDraft = promo ? {...promo} : null; renderPromo(); }
