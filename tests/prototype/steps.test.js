@@ -36,11 +36,14 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
     eq(`greek ${sz}: grey tap → scroll to size + flash`, [scrolls.map(s => s[0]), $('[data-step="size"]').classList.contains('flash'), ev('cart.length') - nCart], [['size', 'size'], true, 0]);
     size(sz);
     const name = 'Greek ' + ev(`MENU.greek.sizes.find(s => s.id === '${sz}').name`);
-    eq(`greek ${sz}: toppings + honey slide in together (honey after toppings), scroll to toppings, grey "เลือกน้ำผึ้งก่อน"`, [steps(), entered(), doneSteps(), scrolls.map(s => s[0]).slice(2), btn(), summary()],
-      [['menu', 'size', 'tops', 'honey'], ['tops', 'honey'], ['menu', 'size'], ['tops'], 'เลือกน้ำผึ้งก่อน', `${name} · ${mid}`]);
+    eq(`greek ${sz}: toppings + honey slide in together (honey after toppings), scroll to toppings, grey "เลือกน้ำผึ้งก่อน · ฿${base}" (price once size chosen)`, [steps(), entered(), doneSteps(), scrolls.map(s => s[0]).slice(2), btn(), summary()],
+      [['menu', 'size', 'tops', 'honey'], ['tops', 'honey'], ['menu', 'size'], ['tops'], `เลือกน้ำผึ้งก่อน · ฿${base}`, `${name} · ${mid}`]);
     const n0 = scrolls.length;
-    if(sz === 'g1n') click('[data-pick="Banana"]');   // 69: 1 ชิ้น (84 < 89 ไม่ถามเปลี่ยน)
-    else ['Kiwi', 'Mango', 'Mango', 'Banana'].forEach(t => click(ev('sel.picks').includes(t) ? `[data-more="${t}"]` : `[data-pick="${t}"]`));   // ฟรีครบ 3 + เกิน 1
+    const greyPrice = [];   // ราคาบนปุ่มเทา = priceSel() ทุกครั้งที่กดท็อปปิ้ง
+    const pick = t => { click(ev('sel.picks').includes(t) ? `[data-more="${t}"]` : `[data-pick="${t}"]`); greyPrice.push(btn() === `เลือกน้ำผึ้งก่อน · ฿${ev('priceSel().unit')}`); };
+    if(sz === 'g1n') pick('Banana');   // 69: 1 ชิ้น (84 < 89 ไม่ถามเปลี่ยน)
+    else ['Kiwi', 'Mango', 'Mango', 'Banana'].forEach(pick);   // ฟรีครบ 3 + เกิน 1
+    eq(`greek ${sz}: grey button price follows priceSel() on every topping tap`, greyPrice.every(Boolean) && greyPrice.length > 0, true);
     eq(`greek ${sz}: picking toppings never scrolls, no new step animation, toppings ✓`, [scrolls.length, entered(), doneSteps()], [n0, [], ['menu', 'size', 'tops']]);
     click('#btnAdd');
     eq(`greek ${sz}: grey tap → scroll to honey + flash`, [scrolls.slice(n0).map(s => s[0]), $('[data-step="honey"]').classList.contains('flash')], [['honey'], true]);
@@ -75,7 +78,7 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
   // ---------- Acai ----------
   scrolls.length = 0;
   menu('acai');
-  eq('acai: recipe toppings + honey together, toppings ✓ already (recipe), summary "Acai · ตามสูตร"', [steps(), doneSteps(), btn(), summary(), scrolls.map(s => s[0])], [['menu', 'tops', 'honey'], ['menu', 'tops'], 'เลือกน้ำผึ้งก่อน', 'Acai · ตามสูตร', ['tops']]);
+  eq('acai: recipe toppings + honey together, toppings ✓ already (recipe), summary "Acai · ตามสูตร", grey button already priced', [steps(), doneSteps(), btn(), summary(), scrolls.map(s => s[0])], [['menu', 'tops', 'honey'], ['menu', 'tops'], 'เลือกน้ำผึ้งก่อน · ฿189', 'Acai · ตามสูตร', ['tops']]);
   click('[data-addopen]'); click('[data-add="Mango"]');
   eq('acai add-on: summary "Acai · เปลี่ยน/เพิ่ม +฿15", no scroll', [summary(), scrolls.length], ['Acai · เปลี่ยน/เพิ่ม +฿15', 1]);
   eq('note link only in the last step (honey)', [!!$('[data-step="honey"] [data-noteopen]'), !!$('[data-step="tops"] [data-noteopen]')], [true, false]);
@@ -136,16 +139,17 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
     Object.entries(c.comps || {}).forEach(([i, n]) => { if(n === null) click(`[data-skip="${i}"]`); else { click(`[data-swap="${i}"]`); click(`[data-choose="${n}"][data-slot="${i}"]`); } });
     if(c.adds){ click('[data-addopen]'); c.adds.forEach(n => click(ev('sel.adds').includes(n) ? `[data-amore="${n}"]` : `[data-add="${n}"]`)); }
     if(c.sep) click('.sep');
-    if($('[data-honey]')) click('[data-honey="normal"]');   // ปุ่มบอกราคาเมื่อเลือกครบ
+    const greyOk = !$('[data-honey]') || btn() === `เลือกน้ำผึ้งก่อน · ฿${ev('priceSel().unit')}`;   // ปุ่มเทา (ยังไม่เลือกน้ำผึ้ง) บอกราคาเดียวกับ priceSel()
+    if($('[data-honey]')) click('[data-honey="normal"]');
     const t = $('#tally .cupsum'), extra = Number(t.dataset.extra), sep = Number(t.dataset.sep);
     const base = c.size ? ev(`MENU.greek.sizes.find(s => s.id === '${c.size}').price`) : ev(`MENU['${c.menu}'].price`);
     const text = summary(), shown = [...text.matchAll(/\+฿(\d+)/g)].map(m => Number(m[1]));
-    const ok = price() === want && base + extra + sep === price() && (extra ? shown.includes(extra) : !shown.filter(x => x !== sep).length) && (sep ? text.endsWith(`แยก +฿${sep}`) : !text.includes('แยก'))
+    const ok = greyOk && price() === want && base + extra + sep === price() && (extra ? shown.includes(extra) : !shown.filter(x => x !== sep).length) && (sep ? text.endsWith(`แยก +฿${sep}`) : !text.includes('แยก'))
       && (c.menu !== 'greek' || text.includes(c.size === 'g1n' ? 'ชิ้นละ 15' : 'ฟรี')) && (c.menu === 'greek' || extra || text.includes('ตามสูตร'));
     if(!ok) bad.push({code, button:price(), want, base, extra, sep, text});
     ev('backToMenu()');
   }
-  eq(`summary matches button price for ${C.length} cases (P01–P23): base + extra + แยก = button = checklist value`, bad, []);
+  eq(`summary matches button price for ${C.length} cases (P01–P23): base + extra + แยก = button = checklist value · grey button price = priceSel()`, bad, []);
 
   // ---------- "คิดเพิ่ม" กะพริบครั้งเดียวตอนเปลี่ยนจากไม่มีเป็นมี ----------
   menu('greek'); size('g1'); ['Banana', 'Mango', 'Kiwi'].forEach(t => click(`[data-pick="${t}"]`));

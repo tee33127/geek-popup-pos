@@ -22,7 +22,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
 (async () => {
   // ---- 0) น้ำผึ้งต้องเลือกเองทุกแก้ว + แยกท็อปปิ้ง +5 ต่อแก้ว (Tee 2026-10-12) ----
   menu('acai');
-  eq('acai: toppings + honey open together, primary grey "เลือกน้ำผึ้งก่อน"', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, off(), $$('.hon.on').length], [['menu', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน', true, 0]);
+  eq('acai: toppings + honey open together, primary grey "เลือกน้ำผึ้งก่อน · ฿189"', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, off(), $$('.hon.on').length], [['menu', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน · ฿189', true, 0]);
   click('#btnAdd'); eq('grey add does nothing', ev('cart.length'), 0);
   click('[data-honey="side"]'); eq('honey chosen: add enabled, side honey free', [off(), $('#btnAdd').textContent, addPrice()], [false, 'เพิ่มลงออเดอร์ · ฿189', '189']);
   eq('sep button shown, off', [!!$('.sep'), $('.sep').classList.contains('on'), $('.sep b').textContent], [true, false, '+฿5']);
@@ -55,7 +55,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   eq('honey step not shown before size', !!$('[data-honey]'), false);
   click('#btnAdd'); ev('addSel()'); eq('blocked add does nothing (button + direct call)', ev('cart.length'), cart0);
   eq('priceSel / priceItem with size null do not crash', [ev('priceSel().unit'), ev('priceSel().needSize'), ev('priceSel().tops.length'), ev('priceItem(MENU.greek, {size:null, picks:["Banana"], sep:true}).unit')], [0, true, 0, 0]);
-  size('g1'); eq('size chosen: toppings + honey appear together, then 89', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, addPrice()], [['menu', 'size', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน', '89']);
+  size('g1'); eq('size chosen: toppings + honey appear together, then 89', [$$('.sec').map(s => s.dataset.step), $('#btnAdd').textContent, addPrice()], [['menu', 'size', 'tops', 'honey'], 'เลือกน้ำผึ้งก่อน · ฿89', '89']);
   menu('acai'); menu('greek'); eq('switching menu back: size not remembered', ev('sel.size'), null);
   // ---- 1) ท็อปปิ้งซ้ำได้ ----
   menu('greek'); size('g1');

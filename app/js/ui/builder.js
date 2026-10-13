@@ -177,7 +177,10 @@ function renderBuilder(){
 
   /* ปุ่มหลัก: หน้าที่เดียว · ยังไม่ครบ = สีเทา (ยังกดได้ เพื่อพาไปขั้นที่ขาด) */
   const add = $('btnAdd'), miss = missingStep();
-  add.textContent = miss ? MISSING_TEXT[miss] : `เพิ่มลงออเดอร์ · ${baht(P.unit)}`;
+  /* เลือกเมนู (และขนาดสำหรับ Greek) แล้ว ปุ่มเทาก็บอกราคาด้วย ให้พนักงานบอกลูกค้าได้ระหว่างเลือกท็อปปิ้ง (Tee 2026-10-13)
+     ยังไม่เลือกเมนู/ขนาด = ยังไม่มีราคา · ราคาจาก P = priceSel() ตัวเดียวกับช่องสรุป */
+  const priced = !!m && !needSize();
+  add.textContent = miss ? MISSING_TEXT[miss] + (priced ? ` · ${baht(P.unit)}` : '') : `เพิ่มลงออเดอร์ · ${baht(P.unit)}`;
   add.classList.toggle('off', !!miss); add.disabled = false;   // ไม่ใช้ aria-disabled: ปุ่มเทายังทำงาน (พาไปขั้นที่ขาด) ข้อความบนปุ่มบอกสิ่งที่ขาดอยู่แล้ว
   $('tally').innerHTML = cupSummaryHtml(m, P);
   placeActBar();
