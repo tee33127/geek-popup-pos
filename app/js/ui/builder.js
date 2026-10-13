@@ -3,6 +3,12 @@ let sel;
 function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:''}; }
 resetSel();
 const curMenu = () => sel.menu ? MENU[sel.menu] : null;
+/* กลับขั้นเลือกเมนู + เลื่อนหน้าขายขึ้นบนสุด · ใช้หลัง "เพิ่มลงออเดอร์" และ "ออเดอร์ถัดไป" (Tee 2026-10-13)
+   เดิมไม่เลื่อนเลย ที่ดูเหมือนขึ้นบนเพราะหน้าสั้นลง · แนวตั้งตะกร้ายาว หน้าค้างกลางจอ และจ่ายเงินแล้วเมนูที่เลือกค้างไว้ยังอยู่ */
+function backToMenu(){
+  resetSel(); renderBuilder();
+  (document.scrollingElement || document.documentElement).scrollTop = 0;
+}
 /* น้ำผึ้งไม่มีค่าเริ่มต้น ต้องเลือกก่อนเพิ่มลงออเดอร์ (ยกเว้นเมนูที่ไม่มีน้ำผึ้ง)
    ขนาดก็ไม่มีค่าเริ่มต้น (Tee 2026-10-13 กันพนักงานลืมถามขนาด) · ยังไม่เลือกขนาด = ไม่แสดงท็อปปิ้ง */
 const needHoney = () => { const m = curMenu(); return !!m && !m.noHoney && !sel.honey; };
@@ -158,7 +164,7 @@ function addSel(fewTops){
   item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from, t.add ? 1 : 0]), item.honey, item.sep, item.note]);
   const found = cart.find(i => i.key === item.key);
   if(found) found.qty++; else cart.push(item);
-  resetSel(); renderBuilder(); renderCart(); toast('เพิ่มแล้ว', 'check');
+  backToMenu(); renderCart(); toast('เพิ่มแล้ว', 'check');
 }
 /* Greek: ท็อปปิ้งฟรีไม่ครบโควตา → ต้องยืนยันก่อน (กึ่งบังคับ ไม่บล็อก เพื่อให้บันทึกตรงกับที่ลูกค้าได้จริง)
    ปุ่มหลัก = กลับไปเลือกเพิ่ม · ไม่มีท็อปปิ้งเลยและมีขนาดราคาเริ่มต้น (69) → เสนอเปลี่ยนขนาดแทน (ลูกค้าไม่ต้องจ่ายเกิน) */

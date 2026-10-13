@@ -169,6 +169,7 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('clear empties cart + resets builder', [ev('cart.length'), ev('sel.menu'), $('#btnClear').disabled, $('#btnPay').disabled], [0, null, true, true]);
   // ---- 5) PIN modal + pay + void ----
   click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); add(); click('#fewOk');
+  click('[data-menu="acai"]');   // เลือกแก้วถัดไปค้างไว้ก่อนจ่าย (Tee เจอบน iPad 2026-10-13)
   click('#btnPay');
   eq('pay: nothing preselected, methods locked', [$$('#modal .opt.on').length, $$('[data-method]').every(b => b.disabled), !!$('[data-q]'), $('#payOk').disabled, $('#payOk').textContent], [0, true, false, true, 'เลือกกินเลย / กลับบ้านก่อน']);
   eq('pay: no emoji', /\p{Extended_Pictographic}/u.test($('#modal').textContent), false);
@@ -187,7 +188,8 @@ const addPrice = () => $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(
   eq('auto-printed both slips once', [printed, $$('#printArea .slip').length], [1, 2]);
   eq('success screen: no print choices, one next button', [!!$('#prRec'), !!$('#prKit'), $$('#modal button.pay').length, $('#modal button.pay').id], [false, false, 1, 'nextOrder']);
   click('#prBoth'); await wait(150); eq('reprint link prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
-  click('#nextOrder');
+  eq('before next order: menu picked earlier still selected', ev('sel.menu'), 'acai');
+  click('#nextOrder'); eq('next order: back to menu step (nothing selected)', [ev('sel.menu'), $$('.base.on').length, $$('.sec').length, $('#btnAdd').textContent], [null, 0, 1, 'เลือกเมนูก่อน']);
   click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('[data-pad]'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
   click('[data-tab="bills"]'); click('[data-v]'); eq('void confirm modal', $('#modal').textContent.includes('ยกเลิกบิล #001?'), true);
   click('#cfYes'); eq('voided & back to summary', [JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0].void, $('#modal').textContent.includes('สรุปยอดขาย')], [true, true]);

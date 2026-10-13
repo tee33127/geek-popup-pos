@@ -87,6 +87,27 @@ const server = http.createServer((q, r) => {
   console.log(`INFO UI02 ปุ่มที่เล็กกว่า 48 px (${smallList.length}):`);
   smallList.forEach(s => console.log(`INFO UI02   ${s.w}×${s.h}  "${s.l}"  .${s.cls || '-'}  @${s.where}`));
   fs.writeFileSync(path.join(SHOTS, 'ui02-small-buttons.json'), JSON.stringify(smallList, null, 1));
+  // ---------- UI10 หลัง "เพิ่มลงออเดอร์" / "ออเดอร์ถัดไป" กลับขั้นเลือกเมนู + เลื่อนขึ้นบนสุด (Tee เจอบน iPad 2026-10-13) ----------
+  for(const [label, vp, br] of SCREENS){
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true});
+    await ctx.addInitScript(() => { window.print = () => {}; });
+    const page = await ctx.newPage(); watch(page, 'ui10-' + label);
+    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
+    const at = () => page.evaluate(() => ({y: Math.round(scrollY), menu: sel.menu, top: Math.round(document.querySelector('.bases').getBoundingClientRect().top)}));
+    for(const h of ['none', 'little', 'lots', 'side']){ await page.tap('[data-menu="acai"]'); await page.tap(`[data-honey="${h}"]`); await page.tap('#btnAdd'); }   // ตะกร้ายาว (แนวตั้งอยู่ใต้หน้าขาย)
+    await page.tap('[data-menu="acai"]'); await page.tap('[data-honey="normal"]');
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));   // พนักงานเลื่อนลงไปดูตะกร้า/หมายเหตุ ก่อนกดเพิ่ม
+    const down = await at();
+    await page.tap('#btnAdd'); const afterAdd = await at();
+    await page.tap('[data-menu="acai"]');   // เลือกแก้วค้างไว้ แล้วจ่ายบิล
+    await page.tap(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2'); await page.tap('[data-dine="dinein"]'); await page.tap('[data-method="cash"]'); await page.tap('[data-q]'); await page.tap('#payOk');
+    await page.tap('#nextOrder'); const afterNext = await at();
+    await page.screenshot({path:path.join(SHOTS, `${label}-09-after-next-order.png`)});
+    console.log(`INFO UI10 ${label}: ก่อนกดเพิ่มเลื่อนลง ${down.y}px · หลังเพิ่ม ${JSON.stringify(afterAdd)} · หลังออเดอร์ถัดไป ${JSON.stringify(afterNext)}`);
+    eq(`UI10 ${label}: หลังเพิ่มลงออเดอร์ และหลังออเดอร์ถัดไป อยู่ขั้นเลือกเมนู บนสุดของหน้า`, [down.y > 0, afterAdd.y, afterAdd.menu, afterAdd.top > 0, afterNext.y, afterNext.menu, afterNext.top > 0], [true, 0, null, true, 0, null, true]);
+    await ctx.close();
+  }
+
   // ---------- iPad เครื่องใหม่: ตั้งเจ้าของครั้งแรกด้วยแป้นของแอป ----------
   {
     const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2});

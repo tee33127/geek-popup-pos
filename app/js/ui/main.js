@@ -34,7 +34,8 @@ $('modal').onclick = e => {
   if(el = g('tab')){ REP.tab = el.dataset.tab; renderSummary(); return; }
   if(el = g('range')){ setRange(el.dataset.range); renderSummary(); return; }
   const b = e.target.closest('button'); const id = b && b.id;
-  if(id === 'payCancel' || id === 'closeX' || id === 'nextOrder') closeModal();
+  if(id === 'payCancel' || id === 'closeX') closeModal();
+  else if(id === 'nextOrder'){ closeModal(); backToMenu(); }
   else if(id === 'pinNo'){ pinCb = null; renderSummary(); }   // ใช้จากแท็บบิลเท่านั้น
   else if(id === 'cfYes'){ const cb = confirmCb; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
   else if(id === 'cfNo'){ const cb = confirmNo; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }

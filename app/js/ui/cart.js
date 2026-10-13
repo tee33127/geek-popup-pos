@@ -33,5 +33,5 @@ $('cart').onclick = e => {
 };
 $('btnClear').onclick = () => {
   if(!cart.length) return;
-  askConfirm({msg:'ล้างออเดอร์ทั้งหมด?', yes:'ล้างออเดอร์', onYes:() => { cart = []; promo = null; resetSel(); renderBuilder(); renderCart(); toast('ล้างออเดอร์แล้ว'); }});
+  askConfirm({msg:'ล้างออเดอร์ทั้งหมด?', yes:'ล้างออเดอร์', onYes:() => { cart = []; promo = null; backToMenu(); renderCart(); toast('ล้างออเดอร์แล้ว'); }});
 };
