@@ -1,6 +1,8 @@
-/* ---------- แป้นใส่รหัสของแอปเอง: ใช้ทุกที่ที่ใส่รหัส (เข้าใช้งาน, ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, รหัสเจ้าของ, ฟอร์มพนักงาน, รหัสกู้คืน)
-   ไม่ใช้ <input type=password> เพราะ iPad (Safari) ไม่สนใจ inputmode บนช่อง password จึงขึ้นแป้นพิมพ์เต็ม (Tee 2026-10-13)
-   1 แป้นมีได้หลายช่อง (รหัส + ใส่อีกครั้ง) ใส่ครบช่องแรกแล้วไปช่องถัดไปเอง · แตะช่องเพื่อแก้ · ⌫ ที่ช่องว่างกลับไปช่องก่อน
+/* ---------- ใส่รหัส 2 แบบ (Tee 2026-10-13) ----------
+   1) แป้นตัวเลขของแอป (padNew/padHtml): เฉพาะหน้าเข้าใช้งาน (รหัส 4 หลัก + รหัสกู้คืน 8 หลัก)
+   2) ช่องกรอกรหัส codeField(): ตั้งค่าครั้งแรก, ตั้งรหัสเจ้าของใหม่, ฟอร์มพนักงาน, askOwner · แป้นพิมพ์ระบบหน้าตัวเลข
+   ห้ามใช้ <input type=password> เพราะ iPad (Safari) ไม่สนใจ inputmode บนช่อง password จึงขึ้นแป้นตัวอักษร
+   แป้นของแอป: 1 แป้นมีได้หลายช่อง (รหัส + ใส่อีกครั้ง) ใส่ครบช่องแรกแล้วไปช่องถัดไปเอง · แตะช่องเพื่อแก้ · ⌫ ที่ช่องว่างกลับไปช่องก่อน
    padNew(id, {len, labels, msg, onEnter, onChange}) → padHtml(id) ใส่ในหน้า · padVal(id, i) อ่านค่า · padError(id, msg) ล้างทุกช่องแล้วแสดงข้อความ
    กดปุ่มวาดใหม่เฉพาะแป้น ช่องอื่นในหน้า (เช่น ชื่อ) ไม่หาย */
 const PADS = {};
@@ -50,7 +52,22 @@ document.addEventListener('keydown', e => {
   else if(e.key === 'Enter' && p.onEnter){ e.preventDefault(); p.onEnter(); }
 });
 
-/* ช่องตัวเลขที่ยังเป็น <input> (เงิน, เลข PromptPay): data-digits = เหลือแต่ตัวเลข ก่อนตัวจัดการของช่องนั้นจะเห็นค่า
+/* ช่องกรอกรหัส: type=text + inputmode numeric (ไม่ใช่ password) ซ่อนตัวเลขด้วย CSS -webkit-text-security
+   enter = id ปุ่มหลักที่กด Enter แล้วทำงาน · ปุ่มรูปตา กดค้างเพื่อดูรหัส ปล่อยแล้วซ่อน */
+function codeField(id, enter, len = CODE_LEN, value = ''){
+  return `<span class="codein"><input class="secret" id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" data-digits data-enter="${enter}" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="${len}" value="${esc(value)}">` +
+    `<button type="button" class="eye" data-eye="${id}" aria-label="กดค้างเพื่อดูรหัส" title="กดค้างเพื่อดูรหัส">${icon('eye', 22)}</button></span>`;
+}
+const eyeShow = (b, on) => { const i = document.getElementById(b.dataset.eye); if(i) i.classList.toggle('secret', !on); b.classList.toggle('on', on); };
+document.addEventListener('pointerdown', e => { const b = e.target.closest && e.target.closest('[data-eye]'); if(!b) return; e.preventDefault(); eyeShow(b, true); });   // preventDefault: ช่องรหัสไม่หลุด focus แป้นพิมพ์ไม่ปิด
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, e => { const b = e.target.closest && e.target.closest('[data-eye]'); if(b) eyeShow(b, false); }, true));
+document.addEventListener('contextmenu', e => { if(e.target.closest && e.target.closest('[data-eye]')) e.preventDefault(); });   // กดค้างบนมือถือไม่ขึ้นเมนู
+document.addEventListener('keydown', e => {
+  const i = e.target; if(e.key !== 'Enter' || !i.dataset || !i.dataset.enter) return;
+  const b = document.getElementById(i.dataset.enter); if(b && !b.disabled){ e.preventDefault(); b.click(); }
+});
+
+/* ช่องตัวเลขที่เป็น <input> (รหัส, เงิน, เลข PromptPay): data-digits = เหลือแต่ตัวเลข ก่อนตัวจัดการของช่องนั้นจะเห็นค่า
    pattern="[0-9]*" ทำให้ iPad ขึ้นแป้นตัวเลข */
 document.addEventListener('input', e => {
   const i = e.target; if(!i.hasAttribute || !i.hasAttribute('data-digits')) return;

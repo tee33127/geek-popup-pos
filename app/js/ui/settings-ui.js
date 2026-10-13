@@ -54,18 +54,20 @@ function openUserForm(id){
   if(!can('users')) return;
   const u = id ? users().find(x => x.id === id) : null;
   userForm = {id: u ? u.id : null, role: u ? u.role : 'staff', msg:''};
-  padNew('usr', {labels:[u ? 'รหัสใหม่' : `รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], onEnter:userFormSave});   // เปลี่ยนตำแหน่งแล้ววาดใหม่ รหัสที่กดไว้ยังอยู่
   renderUserForm(u ? u.name : '');
+  $('usrName').focus();
 }
 function renderUserForm(name){
-  const f = userForm;
+  const f = userForm, keep = ['usrCode', 'usrCode2'].map(id => $(id) ? $(id).value : '');   // เปลี่ยนตำแหน่ง/แจ้งปัญหา แล้ววาดใหม่ รหัสที่พิมพ์ไว้ยังอยู่
   openModal(`<h3>${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}</h3>
-    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" value="${esc(name)}">
+    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
-    <div class="q2">${f.id ? 'เปลี่ยนรหัส <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `ตั้งรหัส ${CODE_LEN} หลัก`}</div>
-    ${padHtml('usr')}
+    <div class="q2">${f.id ? `รหัสใหม่ ${CODE_LEN} หลัก <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>` : `รหัส ${CODE_LEN} หลัก`}</div>
+    ${codeField('usrCode', 'usrSave', CODE_LEN, keep[0])}
+    <div class="q2">ใส่รหัสอีกครั้ง</div>
+    ${codeField('usrCode2', 'usrSave', CODE_LEN, keep[1])}
     <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
     <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
 }
@@ -75,9 +77,8 @@ $('modal').addEventListener('click', e => {
 });
 function userFormSave(){
   const f = userForm; if(!f || !can('users')) return;
-  const name = $('usrName').value, code = padVal('usr', 0), code2 = padVal('usr', 1);
-  if(code !== code2) return padError('usr', 'รหัสสองช่องไม่ตรงกัน');
-  f.msg = saveUser({id:f.id, name, role:f.role}, code);
+  const name = $('usrName').value, code = $('usrCode').value, code2 = $('usrCode2').value;
+  f.msg = code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : saveUser({id:f.id, name, role:f.role}, code);
   if(f.msg) return renderUserForm(name);
   if(USER && f.id === USER.id) USER = users().find(x => x.id === USER.id);   // แก้ชื่อตัวเอง → แถบหัวเปลี่ยนตาม
   userForm = null; renderUser(); toast('บันทึกแล้ว', 'check'); openSettings();

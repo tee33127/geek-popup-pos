@@ -13,17 +13,17 @@ function askConfirm(o){
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
     <div class="row"><button class="ghost" id="cfNo">กลับ</button><button class="pay" id="cfYes" style="background:${o.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
-/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ใช้แป้นของแอป (codepad.js) */
-function askOwner(onOk, msg){
+/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ช่องกรอก codeField (codepad.js) */
+function askOwner(onOk, msg, err){
   pinCb = onOk; pinMsg = msg || '';
-  padNew('owner', {len:CODE_LEN, onEnter:checkPin, onChange: () => { const b = $('pinOk'); if(b) b.disabled = !padFull('owner'); }});
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
-    ${padHtml('owner')}
-    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk" disabled>ตกลง</button></div>`);
+    ${codeField('pinIn', 'pinOk')}
+    ${err ? `<p class="pinerr" role="alert">${esc(err)}</p>` : ''}
+    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
+  $('pinIn').focus();
 }
 function checkPin(){
-  if(!padFull('owner')) return;
-  const u = userByCode(padVal('owner')), cb = pinCb;
+  const u = userByCode($('pinIn').value), cb = pinCb;
   if(u && u.role === 'owner'){ pinCb = null; if(cb) cb(u); }
-  else padError('owner', u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
+  else askOwner(cb, pinMsg, u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
 }

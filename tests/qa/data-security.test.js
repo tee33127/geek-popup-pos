@@ -20,7 +20,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
     const s = pay('tcp'); o.sale = !!s && s.staff;
     click('#btnSummary'); o.summary = ['[data-range]', '#repFrom', '#csvTab', '#closeDay'].map(x => !!$(x));
     click('[data-tab="bills"]'); o.csvAll = !!$('#csvAll'); o.reprint = !!$(`[data-prr="${s.id}"]`);
-    click(`[data-v="${s.id}"]`); o.voidAsk = $('[data-pad="owner"]') ? 'ขอรหัสเจ้าของ' : $('#cfYes') ? 'ยืนยัน' : '-';
+    click(`[data-v="${s.id}"]`); o.voidAsk = $('#pinIn') ? 'ขอรหัสเจ้าของ' : $('#cfYes') ? 'ยืนยัน' : '-';
     click($('#pinNo') ? '#pinNo' : '#cfNo'); click('#closeX');
     o.openPP = (ev('openPromptPay()'), !!$('#ppIn')); ev('closeModal()');
     o.openUser = (ev('openUserForm(null)'), !!$('#usrName')); ev('closeModal()');
@@ -96,7 +96,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
 
   // X01 ชื่อเจ้าของตอนตั้งครั้งแรก
   p = open({now: NOW, seed:false}); await wait(30); ({$, click, ev, type} = p);
-  $('#lgName').value = '<b class=inj>บอส</b>'; p.keys('98769876'); click('#lgSave'); click('#lgDone');
+  $('#lgName').value = '<b class=inj>บอส</b>'; $('#lgCode').value = '9876'; $('#lgCode2').value = '9876'; click('#lgSave'); click('#lgDone');
   eq('X01 ชื่อเจ้าของตอนตั้งครั้งแรกที่เป็น HTML: แสดงเป็นข้อความ', [injected(p), $('#btnUser').textContent.includes('<b class=inj>')], [0, true]);
 
   // ---------- U06 รหัสกู้คืน ----------
@@ -106,7 +106,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   '00000000'.split('').forEach(c => click(`[data-kp="${c}"]`)); click('#lgGo');
   const wrong = $('.lgmsg').textContent;
   rc2.split('').forEach(c => click(`[data-kp="${c}"]`)); click('#lgGo');
-  p.keys('55555555'); click('#lgSave');
+  $('#lgCode').value = '5555'; $('#lgCode2').value = '5555'; click('#lgSave');
   eq('U06 รหัสกู้คืนผิดใช้ไม่ได้ · ถูก → ตั้งรหัสใหม่ เข้าระบบได้ · รหัสเก่าใช้ไม่ได้', [wrong, ev('USER && USER.role'), ev("!!userByCode('5555')"), ev("!!userByCode('9876')")], ['รหัสกู้คืนไม่ถูกต้อง', 'owner', true, false]);
   p.close();
 
@@ -191,7 +191,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
     eq('D02 เริ่มตั้งค่าใหม่: รหัสกู้คืนผิดใช้ไม่ได้', [q.$('.lgmsg').textContent, !!q.$('#lgName')], ['รหัสกู้คืนไม่ถูกต้อง', false]);
     RC.split('').forEach(c => q.click(`[data-kp="${c}"]`)); q.click('#lgGo');
     eq('D02 เริ่มตั้งค่าใหม่: รหัสกู้คืนถูก → หน้าสร้างเจ้าของ', !!q.$('#lgName'), true);
-    q.$('#lgName').value = 'เจ้าของใหม่'; q.keys('43214321'); q.click('#lgSave'); q.click('#lgDone');
+    q.$('#lgName').value = 'เจ้าของใหม่'; q.$('#lgCode').value = '4321'; q.$('#lgCode2').value = '4321'; q.click('#lgSave'); q.click('#lgDone');
     eq('D02 ตั้งเจ้าของใหม่แล้วเข้าใช้งานได้ · ข้อมูลเสียยังเก็บอยู่ · ยอดขายไม่ถูกแตะ', [q.ev('USER && USER.name'), q.ev('SETTINGS_BROKEN'), q.w.localStorage.getItem(ck[0]), q.w.localStorage.getItem(KEY) === salesLs, q.ev('loadSales().length')],
       ['เจ้าของใหม่', false, broken, true, 1]);
     q.close();
@@ -199,7 +199,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   {
     // settings พัง · ไม่มีรหัสกู้คืน
     const q = open({now: NOW, seed:false, ls:{[SKEY]:'[1,2'}}); await wait(40);
-    q.ev("LG = {mode:'setup', msg:''}; renderLogin()"); q.$('#lgName').value = 'x'; q.keys('11111111'); q.click('#lgSave');
+    q.ev("LG = {mode:'setup', msg:''}; renderLogin()"); q.$('#lgName').value = 'x'; q.$('#lgCode').value = '1111'; q.$('#lgCode2').value = '1111'; q.click('#lgSave');
     eq('D02 ไม่มีรหัสกู้คืน: ปุ่มเริ่มตั้งค่าใหม่กดไม่ได้ บอกให้ติดต่อผู้ดูแล · บังคับเข้าหน้าตั้งค่าครั้งแรกเองก็สร้างเจ้าของไม่ได้', [q.ev('owners().length'), q.$('#login').textContent.includes('ข้อมูลตั้งค่าเสีย'), !!q.$('#lgRebuild') && q.$('#lgRebuild').disabled, q.$('#login').textContent.includes('เครื่องนี้ไม่มีรหัสกู้คืน')],
       [0, true, true, true]);
     q.close();

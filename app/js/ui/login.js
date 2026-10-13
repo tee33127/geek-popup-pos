@@ -1,7 +1,7 @@
 /* ---------- หน้าเข้าใช้งาน (เต็มจอ ทับทุกอย่าง) ----------
    ครั้งแรก (ยังไม่มีเจ้าของ) → ตั้งชื่อ + รหัสเจ้าของ → แสดงรหัสกู้คืนให้จด
    ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่
-   ทุกช่องรหัสใช้แป้นของแอป (codepad.js) · pad 'login' = รหัส/รหัสกู้คืน · pad 'lgset' = ตั้งรหัส + ใส่อีกครั้ง */
+   รหัส/รหัสกู้คืนใช้แป้นของแอป (pad 'login') · ตั้งรหัส (ครั้งแรก/ตั้งใหม่) ใช้ช่องกรอก codeField (codepad.js) */
 let LG = {mode:'code', msg:''};
 let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
@@ -9,7 +9,7 @@ function showLogin(){
   closeModal();
   /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
   LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', msg:''};
-  renderLogin(); $('login').classList.add('show'); renderUser();
+  $('login').classList.add('show'); renderLogin(); renderUser();   // แสดงก่อนวาด ไม่งั้น focus ช่องแรกไม่ติด (ซ่อนอยู่)
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
 
@@ -41,7 +41,9 @@ function renderLogin(){
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
       ${LG.mode === 'setup' ? `<label>ชื่อ<input id="lgName" maxlength="20" autocomplete="off" placeholder="เช่น ตี๋"></label>` : ''}
-      ${(padNew('lgset', {labels:[`รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], msg:LG.msg, onEnter:loginSave}), padHtml('lgset'))}
+      <label for="lgCode">รหัส ${CODE_LEN} หลัก</label>${codeField('lgCode', 'lgSave')}
+      <label for="lgCode2">ใส่รหัสอีกครั้ง</label>${codeField('lgCode2', 'lgSave')}
+      <div class="lgmsg" role="alert">${esc(LG.msg)}</div>
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
       ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
@@ -52,7 +54,7 @@ function renderLogin(){
       <button class="pay" id="lgDone">จดแล้ว เข้าใช้งาน</button>
     </div>`;
   $('login').innerHTML = `<div class="lgbox">${h}</div>`;
-  if($('lgName')) $('lgName').focus();
+  const f = $('lgName') || $('lgCode'); if(f) f.focus();
 }
 
 /* กด เข้าสู่ระบบ (หรือ Enter) */
@@ -68,19 +70,24 @@ function keySubmit(){
     padError('login', 'รหัสกู้คืนไม่ถูกต้อง');
   }
 }
+/* ตั้งรหัสไม่ผ่าน: แสดงข้อความ ล้างช่องรหัส (ชื่อที่พิมพ์ไว้ไม่หาย) แล้วไปช่องรหัสแรก */
+function loginErr(msg){
+  $('login').querySelector('.lgmsg').textContent = msg;
+  $('lgCode').value = $('lgCode2').value = ''; $('lgCode').focus();
+}
 function loginSave(){
-  const code = padVal('lgset', 0), code2 = padVal('lgset', 1);
+  const code = $('lgCode').value, code2 = $('lgCode2').value;
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
-  if(err) return padError('lgset', err);
+  if(err) return loginErr(err);
   if(LG.mode === 'setup'){
     if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
-    const e2 = saveUser({name, role:'owner'}, code); if(e2) return padError('lgset', e2);
+    const e2 = saveUser({name, role:'owner'}, code); if(e2) return loginErr(e2);
     const rc = newRecovery();
     signIn(owners()[0]);
     LG = {mode:'setupDone', msg:'', recovery: rc || ''}; renderLogin();
   } else {
-    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return padError('lgset', e2);
+    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return loginErr(e2);
     signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }

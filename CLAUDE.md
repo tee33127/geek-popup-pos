@@ -55,7 +55,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/store.js             ← loadSales/saveSales (sync, ถือข้อมูลในหน่วยความจำ) เขียนลง IndexedDB เบื้องหลัง + สำรอง localStorage · storeReady ต้องรอก่อนใช้ · saveSales ไม่ลบบิล · clearSales ใช้เฉพาะ DEMO
   js/reports.js           ← buildReport, รอบขาย/ช่วงวันที่ (REP)
   js/ui/modal.js          ← $, toast, openModal, askConfirm, askOwner (รหัสเจ้าของ)
-  js/ui/codepad.js        ← แป้นรหัสของแอป ใช้ทุกที่ที่ใส่รหัส (padNew/padHtml/padVal/padError) · **ห้ามใช้ `<input type=password>`** iPad ขึ้นแป้นพิมพ์เต็ม · ช่องตัวเลขอื่นใส่ `data-digits pattern="[0-9]*"`
+  js/ui/codepad.js        ← ใส่รหัส 2 แบบ: แป้นของแอป (padNew/padHtml/padVal/padError) เฉพาะหน้าเข้าใช้งาน + รหัสกู้คืน · ฟอร์มอื่น (ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, พนักงาน, askOwner) ใช้ codeField(id, ปุ่มที่ Enter กด) = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS + ปุ่มตากดค้าง (Tee 2026-10-13 แป้นของแอปในฟอร์มทำให้งง) · **ห้ามใช้ `<input type=password>`** iPad ขึ้นแป้นตัวอักษร · ช่องตัวเลขอื่นใส่ `data-digits pattern="[0-9]*"` · `data-enter="id"` = Enter กดปุ่มนั้น
   js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
   js/ui/builder.js, cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)

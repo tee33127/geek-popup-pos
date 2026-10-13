@@ -68,7 +68,7 @@ const server = http.createServer((q, r) => {
     await page.click('#payCancel');
     await page.click('#btnSummary'); L.summary = await check('summary'); await page.screenshot({path:path.join(SHOTS, `${label}-07-summary.png`)});
     await page.click('[data-tab="bills"]'); await page.click('[data-v]');   // พนักงานกดยกเลิกบิล → แป้นรหัสเจ้าของ
-    L.owner = await check('owner'); L.ownerPad = await page.evaluate(() => [!!document.querySelector('[data-pad="owner"] [data-kp="5"]'), document.querySelectorAll('input[type=password]').length]);
+    L.owner = await check('owner'); L.ownerPad = await page.evaluate(() => { const i = document.getElementById('pinIn'); return [i.type, i.inputMode, getComputedStyle(i).webkitTextSecurity, document.activeElement === i, document.querySelectorAll('input[type=password]').length]; });
     await page.screenshot({path:path.join(SHOTS, `${label}-08-owner-code.png`)});
     await page.click('#pinNo'); await page.click('#closeX');
     L.cartOverflow = await page.evaluate(() => [...document.querySelectorAll('#cart .line')].some(l => l.scrollWidth > l.clientWidth + 1));
@@ -79,7 +79,7 @@ const server = http.createServer((q, r) => {
     const L = layouts[label];
     eq(`UI01 ${label}: ไม่เลื่อนแนวนอน ไม่มีปุ่มหลุดจอ (หน้าแรก Acai Greek ตะกร้า ชำระเงิน สรุป)`,
       ['home', 'acai', 'greek', 'cart', 'pay', 'summary', 'owner'].map(k => [L[k].hscroll, L[k].offscreen]), Array(7).fill([false, []]));
-    eq(`U01 ${label}: รหัสเจ้าของใช้แป้นของแอป ไม่มีช่อง password (iPad ไม่ขึ้นแป้นพิมพ์เต็ม)`, L.ownerPad, [true, 0]);
+    eq(`U01 ${label}: รหัสเจ้าของ = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS ได้ focus · ไม่มีช่อง password`, L.ownerPad, ['text', 'numeric', 'disc', true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงินเห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
   }
@@ -113,11 +113,18 @@ const server = http.createServer((q, r) => {
     const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2});
     const page = await ctx.newPage(); watch(page, 'ipad-setup');
     await page.goto(`${BASE}/prototype/pos.html`); await page.waitForSelector('#lgName');
-    await page.fill('#lgName', 'เจ้าของ'); for(const c of '12341234') await page.tap(`[data-kp="${c}"]`);
+    const focus0 = await page.evaluate(() => document.activeElement.id);
+    await page.fill('#lgName', 'เจ้าของ'); await page.fill('#lgCode', '12x3'); const filtered = await page.inputValue('#lgCode');
+    await page.fill('#lgCode', '1234'); await page.fill('#lgCode2', '1234');
+    const eye = await page.locator('[data-eye="lgCode"]').boundingBox();
+    await page.mouse.move(eye.x + 24, eye.y + 24); await page.mouse.down();
+    const held = await page.evaluate(() => [getComputedStyle(lgCode).webkitTextSecurity, document.activeElement.id]);
+    await page.screenshot({path:path.join(SHOTS, 'ipad-portrait-00-setup-eye.png')});
+    await page.mouse.up(); const released = await page.evaluate(() => getComputedStyle(lgCode).webkitTextSecurity);
     await page.screenshot({path:path.join(SHOTS, 'ipad-portrait-00-setup.png')});
-    const r = await page.evaluate(() => [document.querySelectorAll('input[type=password]').length, document.querySelectorAll('[data-pad="lgset"] .dots i.on').length]);
-    await page.tap('#lgSave'); const done = await page.isVisible('#lgDone');
-    eq('U01 iPad ตั้งค่าครั้งแรก: ไม่มีช่อง password · กดแป้นของแอปครบ 2 ช่อง · สร้างเจ้าของได้', [...r, done], [0, 8, true]);
+    const r = await page.evaluate(() => [document.querySelectorAll('input[type=password]').length, lgCode.value, lgCode.inputMode, getComputedStyle(lgCode).webkitTextSecurity]);
+    await page.press('#lgCode2', 'Enter'); const done = await page.isVisible('#lgDone');
+    eq('U01 iPad ตั้งค่าครั้งแรก: ชื่อได้ focus · ช่องรหัสแป้นตัวเลข ซ่อน · กรองตัวเลข · ตากดค้างแล้วเห็น ปล่อยแล้วซ่อน focus ไม่หลุด · Enter สร้างเจ้าของ', [focus0, filtered, ...r, held, released, done], ['lgName', '123', 0, '1234', 'numeric', 'disc', ['none', 'lgCode2'], 'disc', true]);
     await ctx.close();
   }
 
@@ -170,7 +177,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const A = await ctx.newPage(); watch(A, 'tabA');
     await A.goto(`${BASE}/app/index.html`); await A.waitForSelector('#lgName');
-    await A.fill('#lgName', 'เจ้าของ'); for(const c of '12341234') await A.click(`[data-kp="${c}"]`); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
+    await A.fill('#lgName', 'เจ้าของ'); await A.fill('#lgCode', '1234'); await A.fill('#lgCode2', '1234'); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
     const B = await ctx.newPage(); watch(B, 'tabB');
     await B.goto(`${BASE}/app/index.html`); await B.waitForSelector('#builder'); await B.waitForTimeout(300); await skipFloat(B);
     const sell = async (pg, menu) => { await pg.click(`[data-menu="${menu}"]`); if(await pg.$('[data-honey]')) await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd');

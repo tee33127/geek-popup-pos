@@ -18,8 +18,10 @@ const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));
 const enter = code => { keys(code); click('#lgGo'); };
-/* ช่องตั้งรหัส 2 ช่องบนแป้นของแอป: ช่องแรก → แตะช่องสอง → ช่องสอง (ใส่ไม่ครบก็ได้) */
-const codes = (a, b) => { click('[data-kp="clear"]'); keys(a); click('[data-cpf="1"]'); keys(b); };
+/* ช่องตั้งรหัส 2 ช่อง (codeField) · p = 'lg' หน้าตั้งค่าครั้งแรก/ตั้งใหม่ · 'usr' ฟอร์มพนักงาน */
+const codes = (a, b, p = 'lg') => { type(`#${p}Code`, a); type(`#${p}Code2`, b); };
+/* ช่องกรอกรหัสต้องเป็น text + แป้นตัวเลข + ซ่อนด้วย CSS + ปุ่มตา (ไม่ใช่ password ที่ iPad ขึ้นแป้นตัวอักษร) */
+const secretOk = sel => { const i = $(sel); return !!i && [i.type, i.getAttribute('inputmode'), i.getAttribute('pattern'), i.getAttribute('autocomplete'), i.classList.contains('secret'), w.getComputedStyle(i).webkitTextSecurity || 'disc', !!d.querySelector(`[data-eye="${i.id}"]`)].join() === 'text,numeric,[0-9]*,off,true,disc,true'; };
 const shown = () => $('#login').classList.contains('show');
 const save = () => { store = {}; for(let i = 0; i < w.localStorage.length; i++){ const k = w.localStorage.key(i); store[k] = w.localStorage.getItem(k); } };
 const reopen = async () => { save(); w.close(); w = open(); d = w.document; await wait(60); };
@@ -30,17 +32,20 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
 (async () => {
   await wait(60);
   // ---- ครั้งแรก: ตั้งเจ้าของ ----
-  eq('first run shows setup (code on app keypad, no password input)', [shown(), !!$('#lgName'), !!$('[data-pad="lgset"]'), $$('input[type=password]').length, $('#btnUser').style.display], [true, true, true, 0, 'none']);
+  eq('first run shows setup (code fields: numeric text, hidden by CSS, eye button · no password input · no app keypad)', [shown(), !!$('#lgName'), secretOk('#lgCode'), secretOk('#lgCode2'), $$('input[type=password]').length, !!$('[data-kp]'), $('#btnUser').style.display], [true, true, true, true, 0, false, 'none']);
+  eq('first field focused', d.activeElement && d.activeElement.id, 'lgName');
+  const c1 = $('#lgCode'); c1.value = '1a2-3 4'; c1.dispatchEvent(new w.Event('input', {bubbles:true})); eq('code field keeps digits only', c1.value, '1234'); c1.value = '';
+  const eye = $('[data-eye="lgCode"]');
+  eye.dispatchEvent(new w.Event('pointerdown', {bubbles:true, cancelable:true})); const shownWhileHeld = !c1.classList.contains('secret');
+  eye.dispatchEvent(new w.Event('pointerup', {bubbles:true})); eq('eye: hold shows code, release hides again', [shownWhileHeld, c1.classList.contains('secret')], [true, true]);
   type('#lgName', 'ตี๋'); codes('12', '12'); click('#lgSave');
   eq('code must be 4 digits', $('.lgmsg').textContent, 'รหัสต้องเป็นตัวเลข 4 หลัก');
   type('#lgName', 'ตี๋'); codes('4321', '4322'); click('#lgSave');
-  eq('codes must match · name kept · codes cleared', [$('.lgmsg').textContent, $('#lgName').value, $$('.dots i.on').length], ['รหัสสองช่องไม่ตรงกัน', 'ตี๋', 0]);
-  keys('4321'); eq('full first field moves to second', [$('[data-cpf="1"]').classList.contains('cur'), $$('[data-cpf="0"] .dots i.on').length], [true, 4]);
-  click('[data-kp="back"]'); eq('backspace on empty second field goes back to first', $('[data-cpf="0"]').classList.contains('cur'), true);
-  click('[data-kp="back"]'); eq('…and deletes there', $$('[data-cpf="0"] .dots i.on').length, 3);
+  eq('codes must match · name kept · codes cleared · focus back on code', [$('.lgmsg').textContent, $('#lgName').value, $('#lgCode').value + $('#lgCode2').value, d.activeElement.id], ['รหัสสองช่องไม่ตรงกัน', 'ตี๋', '', 'lgCode']);
   type('#lgName', ''); codes('4321', '4321'); click('#lgSave');
   eq('name required', $('.lgmsg').textContent, 'ใส่ชื่อก่อน');
-  type('#lgName', 'ตี๋'); codes('4321', '4321'); click('#lgSave');
+  type('#lgName', 'ตี๋'); codes('4321', '4321');
+  $('#lgCode2').dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true}));   // Enter = ปุ่มหลัก (สร้างบัญชีเจ้าของ)
   const rc = $('.recov').textContent.replace(/\s/g, '');
   eq('recovery code shown once (8 digits)', /^\d{8}$/.test(rc), true);
   const st = settings();
@@ -54,12 +59,12 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   eq('owner sees PromptPay, staff list, recovery', [!!$('#ppOpen'), !!$('#usrAdd'), !!$('#rcNew'), $$('[data-uedit]').length], [true, true, true, 1]);
   eq('cannot delete self', !!$('[data-udel]'), false);
   click('#usrAdd'); eq('new user defaults to staff', $('[data-urole].on').dataset.urole, 'staff');
-  eq('staff form: code on app keypad', [!!$('[data-pad="usr"]'), $$('input[type=password]').length], [true, 0]);
-  type('#usrName', 'แพร'); codes('4321', '4321'); click('#usrSave');
+  eq('staff form: code fields numeric text + eye, name focused', [secretOk('#usrCode'), secretOk('#usrCode2'), $$('input[type=password]').length, d.activeElement.id], [true, true, 0, 'usrName']);
+  type('#usrName', 'แพร'); codes('4321', '4321', 'usr'); click('#usrSave');
   eq('duplicate code rejected', $('#modal .ppmsg').textContent.includes('รหัสนี้มีคนใช้แล้ว'), true);
   click('[data-urole="owner"]'); click('[data-urole="staff"]');   // เปลี่ยนตำแหน่ง = วาดใหม่ รหัสที่กดไว้ยังอยู่
-  type('#usrName', 'แพร'); codes('1111', '1111'); click('[data-urole="owner"]'); click('[data-urole="staff"]');
-  eq('role toggle keeps typed code', $$('#modal .dots i.on').length, 8); click('#usrSave');
+  type('#usrName', 'แพร'); codes('1111', '1111', 'usr'); click('[data-urole="owner"]'); click('[data-urole="staff"]');
+  eq('role toggle keeps typed code', [$('#usrCode').value, $('#usrCode2').value], ['1111', '1111']); click('#usrSave');
   eq('staff added', [settings().users.map(u => [u.name, u.role]), !!$('[data-udel]')], [[['ตี๋', 'owner'], ['แพร', 'staff']], true]);
   click($$('[data-uedit]')[0]); click('[data-urole="staff"]'); type('#usrName', 'ตี๋'); click('#usrSave');
   eq('last owner cannot become staff', $('#modal .ppmsg').textContent.includes('ต้องมีเจ้าของอย่างน้อย 1 คน'), true);
@@ -92,11 +97,11 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
   click('[data-tab="bills"]');
   eq('bills tab shows who', $('#modal').textContent.includes('แพร') && $('#modal').textContent.includes('ตี๋'), true);
   click($$('[data-v]')[0]);
-  eq('staff void asks owner code on app keypad', [!!$('[data-pad="owner"]'), $$('input[type=password]').length, $('#modal').textContent.includes('ต้องใช้รหัสเจ้าของ'), $('#pinOk').disabled], [true, 0, true, true]);
-  keys('1111'); click('#pinOk'); eq('staff code rejected', $('#modal').textContent.includes('รหัสนี้ไม่ใช่รหัสเจ้าของ'), true);
-  keys('0000'); click('#pinOk'); eq('wrong code rejected', $('#modal').textContent.includes('รหัสไม่ถูกต้อง'), true);
+  eq('staff void asks owner code (numeric text field + eye, focused)', [secretOk('#pinIn'), $$('input[type=password]').length, $('#modal').textContent.includes('ต้องใช้รหัสเจ้าของ'), d.activeElement.id], [true, 0, true, 'pinIn']);
+  type('#pinIn', '1111'); click('#pinOk'); eq('staff code rejected', $('#modal').textContent.includes('รหัสนี้ไม่ใช่รหัสเจ้าของ'), true);
+  type('#pinIn', '0000'); $('#pinIn').dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true})); eq('wrong code rejected', $('#modal').textContent.includes('รหัสไม่ถูกต้อง'), true);
   click('#pinNo'); eq('cancel returns to summary', $('#modal').textContent.includes('สรุปยอดขาย'), true);
-  click('[data-tab="bills"]'); click($$('[data-v]')[0]); keys('4321'); click('#pinOk');
+  click('[data-tab="bills"]'); click($$('[data-v]')[0]); type('#pinIn', '4321'); click('#pinOk');
   eq('owner code → confirm', $('#modal').textContent.includes('ยกเลิกบิล #002?'), true);
   click('#cfYes');
   const v = ev('loadSales()').find(x => x.void);
@@ -120,7 +125,8 @@ const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]'
 
   // ---- ลืมรหัสเจ้าของ: รหัสกู้คืน ----
   click('#lgForgot'); enter('00000000'); eq('wrong recovery', $('.lgmsg').textContent, 'รหัสกู้คืนไม่ถูกต้อง');
-  enter(rc); eq('recovery → set new owner code', [!!$('[data-pad="lgset"]'), $('.lgsub').textContent.includes('ตี๋')], [true, true]);
+  eq('recovery code uses the app keypad (8 dots)', [!!$('[data-pad="login"]'), $$('.dots i').length], [true, 8]);
+  enter(rc); eq('recovery → set new owner code (code fields, first focused)', [secretOk('#lgCode'), $('.lgsub').textContent.includes('ตี๋'), d.activeElement.id], [true, true, 'lgCode']);
   codes('1111', '1111'); click('#lgSave'); eq('new code must be unique', $('.lgmsg').textContent, 'รหัสนี้มีคนใช้แล้ว');
   codes('5678', '5678'); click('#lgSave');
   eq('owner signed in with new code', [shown(), $('#btnUser').textContent.includes('ตี๋')], [false, true]);

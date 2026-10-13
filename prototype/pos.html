@@ -314,6 +314,14 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 .cpl{font-size:14px;font-weight:700;color:var(--mute)}
 .cpf .dots{margin:0}
 .appver{text-align:center;color:var(--mute);font-size:12px;margin:10px 0 0;font-variant-numeric:tabular-nums}
+/* ช่องกรอกรหัส (codeField): ตัวหนังสือธรรมดา ซ่อนเป็นจุดด้วย CSS (ไม่ใช่ type=password ที่ iPad ขึ้นแป้นตัวอักษร) + ปุ่มตากดค้างเพื่อดู */
+.codein{position:relative;display:block}
+.codein input{width:100%;font:inherit;font-size:24px;letter-spacing:6px;padding:12px 60px 12px 14px;border:2px solid var(--line);border-radius:12px;color:var(--ink);background:#fff}
+.codein input:focus{outline:none;border-color:var(--blue)}
+.codein input.secret{-webkit-text-security:disc;text-security:disc}
+.codein .eye{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:48px;height:48px;display:grid;place-items:center;border-radius:10px;color:var(--mute);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.codein .eye.on{color:var(--blue);background:var(--blue-soft)}
+.pinerr{color:var(--bad);margin:8px 0 0;font-weight:700}
 </style>
 </head>
 <body>
@@ -357,7 +365,7 @@ textarea.csvbox{width:100%;height:180px;font:13px/1.4 monospace;border:2px solid
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'c8a03fadf320', built:'2026-10-13T07:29:30.317Z'};
+const APP_VERSION = {v:'f072d843f039', built:'2026-10-13T07:47:19.121Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -675,6 +683,7 @@ function signOut(){
 const ICONS = {
   cash:     '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
   check:    '<path d="M20 6 9 17l-5-5"/>',
+  eye:      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>',
   alert:    '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   chart:    '<path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-9"/>',
@@ -3588,26 +3597,28 @@ function askConfirm(o){
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
     <div class="row"><button class="ghost" id="cfNo">กลับ</button><button class="pay" id="cfYes" style="background:${o.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
-/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ใช้แป้นของแอป (codepad.js) */
-function askOwner(onOk, msg){
+/* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ช่องกรอก codeField (codepad.js) */
+function askOwner(onOk, msg, err){
   pinCb = onOk; pinMsg = msg || '';
-  padNew('owner', {len:CODE_LEN, onEnter:checkPin, onChange: () => { const b = $('pinOk'); if(b) b.disabled = !padFull('owner'); }});
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
-    ${padHtml('owner')}
-    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk" disabled>ตกลง</button></div>`);
+    ${codeField('pinIn', 'pinOk')}
+    ${err ? `<p class="pinerr" role="alert">${esc(err)}</p>` : ''}
+    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
+  $('pinIn').focus();
 }
 function checkPin(){
-  if(!padFull('owner')) return;
-  const u = userByCode(padVal('owner')), cb = pinCb;
+  const u = userByCode($('pinIn').value), cb = pinCb;
   if(u && u.role === 'owner'){ pinCb = null; if(cb) cb(u); }
-  else padError('owner', u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
+  else askOwner(cb, pinMsg, u ? 'รหัสนี้ไม่ใช่รหัสเจ้าของ' : 'รหัสไม่ถูกต้อง');
 }
 </script>
 <script>
 /* ===== js/ui/codepad.js ===== */
-/* ---------- แป้นใส่รหัสของแอปเอง: ใช้ทุกที่ที่ใส่รหัส (เข้าใช้งาน, ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, รหัสเจ้าของ, ฟอร์มพนักงาน, รหัสกู้คืน)
-   ไม่ใช้ <input type=password> เพราะ iPad (Safari) ไม่สนใจ inputmode บนช่อง password จึงขึ้นแป้นพิมพ์เต็ม (Tee 2026-10-13)
-   1 แป้นมีได้หลายช่อง (รหัส + ใส่อีกครั้ง) ใส่ครบช่องแรกแล้วไปช่องถัดไปเอง · แตะช่องเพื่อแก้ · ⌫ ที่ช่องว่างกลับไปช่องก่อน
+/* ---------- ใส่รหัส 2 แบบ (Tee 2026-10-13) ----------
+   1) แป้นตัวเลขของแอป (padNew/padHtml): เฉพาะหน้าเข้าใช้งาน (รหัส 4 หลัก + รหัสกู้คืน 8 หลัก)
+   2) ช่องกรอกรหัส codeField(): ตั้งค่าครั้งแรก, ตั้งรหัสเจ้าของใหม่, ฟอร์มพนักงาน, askOwner · แป้นพิมพ์ระบบหน้าตัวเลข
+   ห้ามใช้ <input type=password> เพราะ iPad (Safari) ไม่สนใจ inputmode บนช่อง password จึงขึ้นแป้นตัวอักษร
+   แป้นของแอป: 1 แป้นมีได้หลายช่อง (รหัส + ใส่อีกครั้ง) ใส่ครบช่องแรกแล้วไปช่องถัดไปเอง · แตะช่องเพื่อแก้ · ⌫ ที่ช่องว่างกลับไปช่องก่อน
    padNew(id, {len, labels, msg, onEnter, onChange}) → padHtml(id) ใส่ในหน้า · padVal(id, i) อ่านค่า · padError(id, msg) ล้างทุกช่องแล้วแสดงข้อความ
    กดปุ่มวาดใหม่เฉพาะแป้น ช่องอื่นในหน้า (เช่น ชื่อ) ไม่หาย */
 const PADS = {};
@@ -3657,7 +3668,22 @@ document.addEventListener('keydown', e => {
   else if(e.key === 'Enter' && p.onEnter){ e.preventDefault(); p.onEnter(); }
 });
 
-/* ช่องตัวเลขที่ยังเป็น <input> (เงิน, เลข PromptPay): data-digits = เหลือแต่ตัวเลข ก่อนตัวจัดการของช่องนั้นจะเห็นค่า
+/* ช่องกรอกรหัส: type=text + inputmode numeric (ไม่ใช่ password) ซ่อนตัวเลขด้วย CSS -webkit-text-security
+   enter = id ปุ่มหลักที่กด Enter แล้วทำงาน · ปุ่มรูปตา กดค้างเพื่อดูรหัส ปล่อยแล้วซ่อน */
+function codeField(id, enter, len = CODE_LEN, value = ''){
+  return `<span class="codein"><input class="secret" id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" data-digits data-enter="${enter}" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="${len}" value="${esc(value)}">` +
+    `<button type="button" class="eye" data-eye="${id}" aria-label="กดค้างเพื่อดูรหัส" title="กดค้างเพื่อดูรหัส">${icon('eye', 22)}</button></span>`;
+}
+const eyeShow = (b, on) => { const i = document.getElementById(b.dataset.eye); if(i) i.classList.toggle('secret', !on); b.classList.toggle('on', on); };
+document.addEventListener('pointerdown', e => { const b = e.target.closest && e.target.closest('[data-eye]'); if(!b) return; e.preventDefault(); eyeShow(b, true); });   // preventDefault: ช่องรหัสไม่หลุด focus แป้นพิมพ์ไม่ปิด
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, e => { const b = e.target.closest && e.target.closest('[data-eye]'); if(b) eyeShow(b, false); }, true));
+document.addEventListener('contextmenu', e => { if(e.target.closest && e.target.closest('[data-eye]')) e.preventDefault(); });   // กดค้างบนมือถือไม่ขึ้นเมนู
+document.addEventListener('keydown', e => {
+  const i = e.target; if(e.key !== 'Enter' || !i.dataset || !i.dataset.enter) return;
+  const b = document.getElementById(i.dataset.enter); if(b && !b.disabled){ e.preventDefault(); b.click(); }
+});
+
+/* ช่องตัวเลขที่เป็น <input> (รหัส, เงิน, เลข PromptPay): data-digits = เหลือแต่ตัวเลข ก่อนตัวจัดการของช่องนั้นจะเห็นค่า
    pattern="[0-9]*" ทำให้ iPad ขึ้นแป้นตัวเลข */
 document.addEventListener('input', e => {
   const i = e.target; if(!i.hasAttribute || !i.hasAttribute('data-digits')) return;
@@ -4482,18 +4508,20 @@ function openUserForm(id){
   if(!can('users')) return;
   const u = id ? users().find(x => x.id === id) : null;
   userForm = {id: u ? u.id : null, role: u ? u.role : 'staff', msg:''};
-  padNew('usr', {labels:[u ? 'รหัสใหม่' : `รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], onEnter:userFormSave});   // เปลี่ยนตำแหน่งแล้ววาดใหม่ รหัสที่กดไว้ยังอยู่
   renderUserForm(u ? u.name : '');
+  $('usrName').focus();
 }
 function renderUserForm(name){
-  const f = userForm;
+  const f = userForm, keep = ['usrCode', 'usrCode2'].map(id => $(id) ? $(id).value : '');   // เปลี่ยนตำแหน่ง/แจ้งปัญหา แล้ววาดใหม่ รหัสที่พิมพ์ไว้ยังอยู่
   openModal(`<h3>${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}</h3>
-    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" value="${esc(name)}">
+    <div class="q2">ชื่อ <small>(พิมพ์ในใบเสร็จ)</small></div><input class="num" id="usrName" style="text-align:left" maxlength="20" autocomplete="off" data-enter="usrSave" value="${esc(name)}">
     <div class="q2">ตำแหน่ง</div>
     <div class="row">${['staff', 'owner'].map(r => `<button class="opt ${f.role === r ? 'on' : ''}" data-urole="${r}">${ROLE_NAME[r]}</button>`).join('')}</div>
     <p class="note2">${f.role === 'owner' ? 'เจ้าของ: ยกเลิกบิล ดูยอดย้อนหลัง ตั้งเลข PromptPay และจัดการพนักงานได้' : 'พนักงาน: ขาย ดูยอดวันนี้ และกดของหมดได้ · ยกเลิกบิลต้องให้เจ้าของใส่รหัส'}</p>
-    <div class="q2">${f.id ? 'เปลี่ยนรหัส <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>' : `ตั้งรหัส ${CODE_LEN} หลัก`}</div>
-    ${padHtml('usr')}
+    <div class="q2">${f.id ? `รหัสใหม่ ${CODE_LEN} หลัก <small>(เว้นว่างถ้าไม่เปลี่ยน)</small>` : `รหัส ${CODE_LEN} หลัก`}</div>
+    ${codeField('usrCode', 'usrSave', CODE_LEN, keep[0])}
+    <div class="q2">ใส่รหัสอีกครั้ง</div>
+    ${codeField('usrCode2', 'usrSave', CODE_LEN, keep[1])}
     <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>
     <div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`);
 }
@@ -4503,9 +4531,8 @@ $('modal').addEventListener('click', e => {
 });
 function userFormSave(){
   const f = userForm; if(!f || !can('users')) return;
-  const name = $('usrName').value, code = padVal('usr', 0), code2 = padVal('usr', 1);
-  if(code !== code2) return padError('usr', 'รหัสสองช่องไม่ตรงกัน');
-  f.msg = saveUser({id:f.id, name, role:f.role}, code);
+  const name = $('usrName').value, code = $('usrCode').value, code2 = $('usrCode2').value;
+  f.msg = code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : saveUser({id:f.id, name, role:f.role}, code);
   if(f.msg) return renderUserForm(name);
   if(USER && f.id === USER.id) USER = users().find(x => x.id === USER.id);   // แก้ชื่อตัวเอง → แถบหัวเปลี่ยนตาม
   userForm = null; renderUser(); toast('บันทึกแล้ว', 'check'); openSettings();
@@ -4554,7 +4581,7 @@ function settingsSave(){
 /* ---------- หน้าเข้าใช้งาน (เต็มจอ ทับทุกอย่าง) ----------
    ครั้งแรก (ยังไม่มีเจ้าของ) → ตั้งชื่อ + รหัสเจ้าของ → แสดงรหัสกู้คืนให้จด
    ปกติ → แป้นตัวเลข ใส่รหัสแล้วกด เข้าสู่ระบบ (ไม่เข้าเองเมื่อครบ 4 หลัก Tee 2026-10-12) · ลืมรหัสเจ้าของ → ใส่รหัสกู้คืน → ตั้งรหัสใหม่
-   ทุกช่องรหัสใช้แป้นของแอป (codepad.js) · pad 'login' = รหัส/รหัสกู้คืน · pad 'lgset' = ตั้งรหัส + ใส่อีกครั้ง */
+   รหัส/รหัสกู้คืนใช้แป้นของแอป (pad 'login') · ตั้งรหัส (ครั้งแรก/ตั้งใหม่) ใช้ช่องกรอก codeField (codepad.js) */
 let LG = {mode:'code', msg:''};
 let LOGIN_HINT = '';   // DEMO ใส่คำใบ้รหัส
 
@@ -4562,7 +4589,7 @@ function showLogin(){
   closeModal();
   /* settings เสีย: ห้ามขึ้น "ตั้งค่าครั้งแรก" (ใครก็สร้างเจ้าของได้) → หน้า "ข้อมูลตั้งค่าเสีย" (Tee 2026-10-12) */
   LG = {mode: SETTINGS_BROKEN ? 'broken' : owners().length ? 'code' : 'setup', msg:''};
-  renderLogin(); $('login').classList.add('show'); renderUser();
+  $('login').classList.add('show'); renderLogin(); renderUser();   // แสดงก่อนวาด ไม่งั้น focus ช่องแรกไม่ติด (ซ่อนอยู่)
 }
 function hideLogin(){ $('login').classList.remove('show'); $('login').innerHTML = ''; renderUser(); updateNext(); }
 
@@ -4594,7 +4621,9 @@ function renderLogin(){
     <p class="lgsub">${LG.mode === 'setup' ? 'ตั้งค่าครั้งแรก · สร้างบัญชีเจ้าของร้าน' : `ตั้งรหัสใหม่ให้ ${esc(owners()[0].name)}`}</p>
     <div class="lgform">
       ${LG.mode === 'setup' ? `<label>ชื่อ<input id="lgName" maxlength="20" autocomplete="off" placeholder="เช่น ตี๋"></label>` : ''}
-      ${(padNew('lgset', {labels:[`รหัส ${CODE_LEN} หลัก`, 'ใส่รหัสอีกครั้ง'], msg:LG.msg, onEnter:loginSave}), padHtml('lgset'))}
+      <label for="lgCode">รหัส ${CODE_LEN} หลัก</label>${codeField('lgCode', 'lgSave')}
+      <label for="lgCode2">ใส่รหัสอีกครั้ง</label>${codeField('lgCode2', 'lgSave')}
+      <div class="lgmsg" role="alert">${esc(LG.msg)}</div>
       <button class="pay" id="lgSave">${LG.mode === 'setup' ? 'สร้างบัญชีเจ้าของ' : 'ตั้งรหัสใหม่'}</button>
       ${LG.mode === 'reset' ? '<button class="linkbtn" id="lgBack">ยกเลิก</button>' : `<button class="linkbtn" id="lgRestore">${icon('upload', 16)} เครื่องใหม่? นำข้อมูลกลับจากไฟล์สำรอง</button>`}
     </div>`;
@@ -4605,7 +4634,7 @@ function renderLogin(){
       <button class="pay" id="lgDone">จดแล้ว เข้าใช้งาน</button>
     </div>`;
   $('login').innerHTML = `<div class="lgbox">${h}</div>`;
-  if($('lgName')) $('lgName').focus();
+  const f = $('lgName') || $('lgCode'); if(f) f.focus();
 }
 
 /* กด เข้าสู่ระบบ (หรือ Enter) */
@@ -4621,19 +4650,24 @@ function keySubmit(){
     padError('login', 'รหัสกู้คืนไม่ถูกต้อง');
   }
 }
+/* ตั้งรหัสไม่ผ่าน: แสดงข้อความ ล้างช่องรหัส (ชื่อที่พิมพ์ไว้ไม่หาย) แล้วไปช่องรหัสแรก */
+function loginErr(msg){
+  $('login').querySelector('.lgmsg').textContent = msg;
+  $('lgCode').value = $('lgCode2').value = ''; $('lgCode').focus();
+}
 function loginSave(){
-  const code = padVal('lgset', 0), code2 = padVal('lgset', 1);
+  const code = $('lgCode').value, code2 = $('lgCode2').value;
   const err = !codeOk(code) ? `รหัสต้องเป็นตัวเลข ${CODE_LEN} หลัก` : code !== code2 ? 'รหัสสองช่องไม่ตรงกัน' : '';
-  if(err) return padError('lgset', err);
+  if(err) return loginErr(err);
   if(LG.mode === 'setup'){
     if(SETTINGS_BROKEN && !LG.recovered) return showLogin();   // settings เสีย: ตั้งใหม่ได้หลังผ่านรหัสกู้คืนเท่านั้น
     const name = $('lgName').value;
-    const e2 = saveUser({name, role:'owner'}, code); if(e2) return padError('lgset', e2);
+    const e2 = saveUser({name, role:'owner'}, code); if(e2) return loginErr(e2);
     const rc = newRecovery();
     signIn(owners()[0]);
     LG = {mode:'setupDone', msg:'', recovery: rc || ''}; renderLogin();
   } else {
-    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return padError('lgset', e2);
+    const o = owners()[0], e2 = saveUser({...o}, code); if(e2) return loginErr(e2);
     signIn(users().find(x => x.id === o.id)); hideLogin(); toast('ตั้งรหัสเจ้าของใหม่แล้ว', 'check'); askFloat();
   }
 }
