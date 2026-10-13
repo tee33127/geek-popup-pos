@@ -1,5 +1,6 @@
 // ตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง · หน้าขายกดของหมดไม่ได้ · เก็บค่าไว้ตอนเปิดแอปใหม่
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [];
@@ -31,6 +32,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('[data-menu="greek"]'); click('[data-size="g1"]');
   const mango = $$('.topw.out').find(x => x.textContent.includes('มะม่วง'));
   eq('greek: sold-out tile grey + disabled', [!!mango, mango && mango.querySelector('button').disabled, mango && mango.textContent.includes('หมด'), !!$('[data-pick="Mango"]')], [true, true, true, false]);
+  click('[data-open="menu"]');
   eq('banana choco menu grey + disabled', [$('.base.out') && $('.base.out').textContent.includes('Banana Choco'), !!$('[data-menu="banana"]')], [true, false]);
   click('[data-menu="acai"]');
   eq('acai: sold-out default flagged', $$('.comp.out').map(c => c.textContent.includes('สตรอว์เบอร์รี่')), [true]);

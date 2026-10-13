@@ -1,4 +1,5 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 let errors = [], navigated = [];
 const dom = new JSDOM(fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8'), {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
@@ -11,7 +12,7 @@ let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.s
 const stat = () => $$('.stat b').map(e => e.textContent);
 (async () => {
   // สร้าง 2 บิล
-  for(const m of ['acai','banana']){ click(`[data-menu="${m}"]`); if($('[data-honey]')) click('[data-honey="normal"]'); click('#btnAdd'); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await wait(150); click('#nextOrder'); }
+  for(const m of ['acai','banana']){ F.menu(w, m); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await wait(150); click('#nextOrder'); }
   click('#btnSummary');
   eq('start KPI', stat().slice(0,2), ['฿338','2']);
   click('[data-tab="bills"]');

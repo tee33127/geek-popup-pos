@@ -57,7 +57,8 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/modal.js          ← $, toast, openModal, askConfirm, askOwner (รหัสเจ้าของ)
   js/ui/codepad.js        ← ใส่รหัส 2 แบบ: แป้นของแอป (padNew/padHtml/padVal/padError) เฉพาะหน้าเข้าใช้งาน + รหัสกู้คืน · ฟอร์มอื่น (ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, พนักงาน, askOwner) ใช้ codeField(id, ปุ่มที่ Enter กด) = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS + ปุ่มตากดค้าง (Tee 2026-10-13 แป้นของแอปในฟอร์มทำให้งง) · **ห้ามใช้ `<input type=password>`** iPad ขึ้นแป้นตัวอักษร · ช่องตัวเลขอื่นใส่ `data-digits pattern="[0-9]*"` · `data-enter="id"` = Enter กดปุ่มนั้น
   js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
-  js/ui/builder.js, cart.js, pay.js, summary.js
+  js/ui/builder.js        ← หน้าเลือกออเดอร์ทีละขั้น: sel.at = ขั้นที่ทำค้าง · sel.open = ขั้นที่กาง (ทีละขั้น) · advance()/picked() · ตัวนับในแถบปุ่มหลัก (tallyHtml ใช้ P จาก priceSel() ตัวเดียวกับปุ่ม) · ถามท็อปปิ้งฟรีไม่ครบ/69 แพงกว่าตอน "ถัดไป" (checkTops) · เทสต์เดินขั้นใช้ tests/flow-helper.js
+  js/ui/cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
   js/promptpay.js         ← PP.payload(id, amount) EMVCo + CRC16 (ฟังก์ชันล้วน), เช็กเลข 13 หลัก, qrSvg วาด QR
   js/vendor/qrcode.js     ← qrcode-generator 1.4.4 (MIT) คัดลอกมาไว้ใช้ออฟไลน์ ห้ามแก้

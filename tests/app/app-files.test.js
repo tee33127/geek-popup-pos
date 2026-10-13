@@ -1,6 +1,7 @@
 // เปิด app/index.html แบบแยกไฟล์จริง (โหลด css/js/img จากดิสก์) แล้วขาย 1 บิล → ต้องไม่มี error
 // เสิร์ฟไฟล์ใน app/ ที่ http://localhost/ (jsdom ไม่มี localStorage ถ้าเปิดเป็น file://)
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
@@ -15,7 +16,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('menu photo uses file path', $('[data-menu="acai"] img').getAttribute('src'), 'img/acai.jpg');
     $('[data-menu="greek"]').click(); $('[data-size="g1"]').click(); $('[data-pick="Banana"]').click(); $('[data-pick="Granola"]').click();
     eq('price via pricing.js', $('#btnAdd').textContent.includes('฿99'), true);
-    $('[data-honey="normal"]').click(); $('#btnAdd').click(); eq('few toppings asks first', $('#fewOk').textContent, 'ลูกค้าขอแค่ 1 อย่าง'); $('#fewOk').click();
+    $('#btnAdd').click(); eq('few toppings asks first (at ถัดไป)', $('#fewOk').textContent, 'ลูกค้าขอแค่ 1 อย่าง'); $('#fewOk').click(); F.finish(w);
     $('#btnPay').click(); $('[data-dine="takeaway"]').click(); $('[data-method="cash"]').click(); $('[data-q="100"]').click(); $('#payOk').click();
     setTimeout(() => {
       const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];

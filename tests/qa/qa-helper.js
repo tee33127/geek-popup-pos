@@ -2,6 +2,7 @@
 // ผลแต่ละข้อ: PASS / FAIL / KNOWN-BUG (บั๊กที่รายงานแล้ว ไม่ทำให้ npm test แดง แต่ต้องอยู่ในรายงาน)
 const {JSDOM} = require('jsdom'); const fs = require('fs'), path = require('path'), vm = require('vm');
 const A = require('../auth-helper');
+const F = require('../flow-helper');
 const ROOT = path.join(__dirname, '../..');
 const HTML = {pos: fs.readFileSync(path.join(ROOT, 'prototype/pos.html'), 'utf8')};
 
@@ -57,17 +58,27 @@ function open(o = {}){
   P.keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));   // กดแป้นรหัสของแอป (codepad.js)
   P.enter = code => { P.keys(code); click('#lgGo'); };
   /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer} · answer = id ปุ่มในหน้าต่างถาม */
+  /* หน้าเลือกออเดอร์แบบทีละขั้น: ปุ่มมีเฉพาะขั้นที่กางอยู่ ตัวช่วยกางให้ก่อน (../flow-helper.js) */
+  P.menu = id => F.menu(w, id); P.size = id => F.size(w, id); P.honey = id => F.honey(w, id); P.tops = () => F.tops(w); P.finish = h => F.finish(w, h);
+  /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer}
+     answer = id ปุ่มในหน้าต่างถาม (ถามตอนกด "ถัดไป: น้ำผึ้ง") ตอบตามลำดับ · หมายเหตุอยู่ขั้นสุดท้าย */
   P.add = (c) => {
-    click(`[data-menu="${c.menu}"]`);
-    if(c.size) click(`[data-size="${c.size}"]`);
+    P.menu(c.menu);
+    if(c.size) P.size(c.size);
     (c.picks || []).forEach(n => { const on = ev('sel.picks').includes(n); click(on ? `[data-more="${n}"]` : `[data-pick="${n}"]`); });
     Object.entries(c.comps || {}).forEach(([i, n]) => { if(n === null) click(`[data-skip="${i}"]`); else { click(`[data-swap="${i}"]`); click(`[data-choose="${n}"][data-slot="${i}"]`); } });
     if(c.adds && c.adds.length){ click('[data-addopen]'); c.adds.forEach(n => { const on = ev('sel.adds').includes(n); click(on ? `[data-amore="${n}"]` : `[data-add="${n}"]`); }); }
     if(c.sep) click('.sep');
-    if($('[data-honey]')) click(`[data-honey="${c.honey || 'normal'}"]`);
-    if(c.note){ const n = $('#note'); n.value = c.note; n.dispatchEvent(new w.Event('input', {bubbles:true})); }
-    click('#btnAdd');
-    (Array.isArray(c.answer) ? c.answer : c.answer ? [c.answer] : []).forEach(id => click('#' + id));
+    const answers = Array.isArray(c.answer) ? [...c.answer] : c.answer ? [c.answer] : [];
+    for(let i = 0; i < 8; i++){
+      if($('#fewBack') || $('#cheapSwitch')){ const id = answers.shift(); if(!id) return; click('#' + id); continue; }
+      if(!ev('sel.menu')) return;
+      if($('[data-honey]') && !$('.hon.on')) click(`[data-honey="${c.honey || 'normal'}"]`);
+      if(c.note && $('[data-noteopen]')) click('[data-noteopen]');
+      if(c.note && $('#note') && $('#note').value !== c.note){ const n = $('#note'); n.value = c.note; n.dispatchEvent(new w.Event('input', {bubbles:true})); }
+      if($('#btnAdd').disabled) return;
+      click('#btnAdd');
+    }
   };
   P.pay = (method = 'cash', recv, dine = 'dinein') => {
     click('#btnPay'); click(`[data-dine="${dine}"]`); click(`[data-method="${method}"]`);

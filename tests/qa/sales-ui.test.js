@@ -3,7 +3,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
 
 (async () => {
   let p = open({now: T(2026, 10, 12, 12, 0)}); await wait(30); p.signIn();
-  let {$, $$, click, ev, add, pay} = p;
+  let {$, $$, click, ev, add, pay, menu, size} = p;
   const addBtn = () => $('#btnAdd').textContent;
   const kitchen = s => ev(`(() => { const d = document.createElement('div'); d.innerHTML = kitchenHtml(${JSON.stringify(s)}); return d.textContent; })()`);
   const clearCart = () => { while($$('#cart .rm').length) click($$('#cart .rm')[0]); };
@@ -13,39 +13,40 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   eq('P03 69 + 2 ชิ้น = 99 → เสนอเปลี่ยนเป็น 89 (ปุ่มหลัก = เปลี่ยน)', [!!$('#cheapSwitch'), $('#cheapSwitch').className, $('#cheapKeep').className, $('#cheapSwitch').textContent.includes('89')], [true, 'pay', 'ghost wide', true]);
   click('#cheapSwitch');
   eq('P03 กดเปลี่ยน → ถามต่อว่าท็อปปิ้งฟรีไม่ครบ 3 (เลือก 2)', [!!$('#fewBack'), $('#modal h3').textContent.includes('2 จาก 3')], [true, true]);
-  click('#fewOk'); eq('P03 ยืนยันแค่ 2 อย่าง → 89 fewTops 2', [ev('cart[0].unit'), ev('cart[0].sizeName'), ev('cart[0].fewTops')], [89, '1 สกู๊ป', 2]);
+  click('#fewOk'); p.finish(); eq('P03 ยืนยันแค่ 2 อย่าง → 89 fewTops 2', [ev('cart[0].unit'), ev('cart[0].sizeName'), ev('cart[0].fewTops')], [89, '1 สกู๊ป', 2]);
   clearCart();
   add({menu:'greek', size:'g1n', picks:['Banana', 'Mango'], answer:'cheapKeep'});
   eq('P03 กดคงไว้ → 99 ไซส์ 69', [ev('cart[0].unit'), ev('cart[0].sizeName')], [99, '1 สกู๊ป · ท็อปปิ้งชิ้นละ 15']); clearCart();
 
   add({menu:'greek', size:'g1'});
   eq('P04 89 ไม่เลือกท็อปปิ้ง → ถามและเสนอ 69 ไม่ใส่ท็อปปิ้ง', [!!$('#fewBack'), !!$('#fewPlain'), $('#fewPlain') && $('#fewPlain').textContent.includes('69')], [true, true, true]);
-  click('#fewPlain'); eq('P04 เลือกเปลี่ยน → 69', [ev('cart[0].unit'), ev('cart[0].tops.length')], [69, 0]); clearCart();
+  click('#fewPlain'); p.finish(); eq('P04 เลือกเปลี่ยน → 69', [ev('cart[0].unit'), ev('cart[0].tops.length')], [69, 0]); clearCart();
 
   add({menu:'greek', size:'g1', picks:['Granola', 'Blueberries', 'Strawberries']});
   eq('P08 ฟรี 0/3 → ถาม "ลูกค้าไม่เอาท็อปปิ้งฟรี"', [!!$('#fewOk'), $('#fewOk') && $('#fewOk').textContent], [true, 'ลูกค้าไม่เอาท็อปปิ้งฟรี']);
-  click('#fewOk'); eq('P08 ยอด 129 fewTops 0', [ev('cart[0].unit'), ev('cart[0].fewTops')], [129, 0]); clearCart();
+  click('#fewOk'); p.finish(); eq('P08 ยอด 129 fewTops 0', [ev('cart[0].unit'), ev('cart[0].fewTops')], [129, 0]); clearCart();
 
   add({menu:'greek', size:'g1', picks:['Banana', 'Banana'], answer:'fewOk'});
   const s9 = pay('promptpay');
   eq('P09 89 + กล้วย ×2 ยืนยัน 2 อย่าง → บิล fewTops 2 · ตั๋วครัวพิมพ์ "ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ"', [s9.total, s9.items[0].fewTops, kitchen(s9).includes('ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ')], [89, 2, true]);
 
   // P05 ตัวนับ · P12 สลับขนาด
-  click('[data-menu="greek"]'); click('[data-size="g1"]'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
-  eq('P05 ตัวนับ ฟรี 3/3 ราคา 89', [$('.cnt').textContent, addBtn().includes('฿89')], ['ฟรี 3/3', true]);
+  menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
+  eq('P05 ตัวนับ "ฟรี ●●●" (ไม่มีตัวเลข) ใช้ฟรีแล้ว 3 จาก 3 ราคา 89', [$('.tally .tq').textContent.trim(), $$('.fdots i.on').length, $('.tally .tq').getAttribute('aria-label'), addBtn().includes('฿89')], ['ฟรี', 3, 'ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', true]);
   click('[data-pick="Granola"]');
-  const sz = s => { click(`[data-size="${s}"]`); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };
+  const sz = s => { size(s); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };
   eq('P12 สลับ 89 → 69 → 129 → 89 ท็อปปิ้งไม่หาย ราคาใหม่ถูก', [sz('g1n'), sz('g2'), sz('g1')], [[4, '129'], [4, '139'], [4, '99']]);
-  click('[data-menu="acai"]');
+  menu('acai');
 
   // P13 / P20 น้ำผึ้ง
+  click('#btnAdd');   // ถัดไป: น้ำผึ้ง
   eq('P13 Acai ต้องเลือกน้ำผึ้งก่อน กดเพิ่มไม่ได้', [$('#btnAdd').disabled, addBtn().startsWith('เลือกน้ำผึ้งก่อน')], [true, true]);
-  click('[data-menu="banana"]');
+  menu('banana');
   eq('P20 Banana Choco ไม่มีขั้นน้ำผึ้ง กดเพิ่มได้', [!!$('[data-honey]'), $('#btnAdd').disabled], [false, false]);
   click('#btnAdd'); eq('P20 บิล Banana ไม่มีฟิลด์ honey', ev('"honey" in cart[0]'), false); clearCart();
 
   // P22 เปลี่ยนข้ามหมวดไม่มีให้เลือก
-  click('[data-menu="acai"]'); click('[data-swap="0"]');
+  menu('acai'); click('[data-swap="0"]');
   const opts0 = $$('[data-choose][data-slot="0"]').map(b => b.dataset.choose);
   click('[data-swap="3"]'); const opts3 = $$('[data-choose][data-slot="3"]').map(b => b.dataset.choose);
   eq('P22 ช่องกล้วย (ผลไม้) เลือกได้เฉพาะผลไม้ · ช่องกราโนล่า (ของแห้ง) เฉพาะของแห้ง', [opts0.sort(), opts3.includes('Almonds'), opts3.includes('Banana'), opts3.includes('Caramel')],
@@ -56,7 +57,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   eq('P23 Acai ไม่รับทุกช่อง: ไม่มีปุ่มแยก', !!$('.sep'), false);
   click('[data-addopen]'); click('[data-add="Mango"]');
   eq('P23 ไม่รับทุกช่องแต่เพิ่มมะม่วง: มีปุ่มแยก (มีท็อปปิ้งในแก้ว)', !!$('.sep'), true);
-  click('[data-menu="greek"]'); click('[data-size="g1"]');
+  menu('greek'); size('g1');
   eq('P23 Greek ไม่ใส่ท็อปปิ้ง: ไม่มีปุ่มแยก', !!$('.sep'), false);
 
   // P25 รวมบรรทัด · P26 + / − / ถังขยะ

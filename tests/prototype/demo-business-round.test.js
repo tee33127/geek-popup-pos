@@ -2,6 +2,7 @@
 const [Y,Mo,Dd,H,Mi] = process.argv[2].split(',').map(Number); const block = process.argv[3] === 'block';
 const RD = Date; const FIX = new RD(Y, Mo-1, Dd, H, Mi).getTime();
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 let errors = [];
 const dom = new JSDOM(fs.readFileSync(require('path').join(__dirname,'../../prototype/pos-demo.html'),'utf8'), {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
@@ -21,7 +22,7 @@ for(const t of ['pay','opts','ingr','bills']){ $(`[data-tab="${t}"]`).click(); p
 $('[data-range="7d"]').click(); console.log('   7 วัน KPI:', kpi());
 if(block) console.log('   banner:', !!d.body.firstElementChild.textContent.includes('ไม่ให้บันทึกข้อมูลถาวร'));
 // ขายใหม่ 1 บิลแล้วเปิดสรุปอีกครั้ง → ต้องเห็นบิลนี้
-$('#closeX').click(); $('[data-menu="acai"]').click(); $('[data-honey="normal"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); $('#payOk').click();
+$('#closeX').click(); F.menu(w, 'acai'); F.finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); $('#payOk').click();
 setTimeout(() => {
   $('#nextOrder').click(); $('#btnSummary').click();
   console.log('   after new sale:', d.querySelector('.note2 b').textContent, '·', kpi());

@@ -2,6 +2,7 @@
 // ตั้งเจ้าของครั้งแรก + รหัสกู้คืน · แป้นรหัส · ชื่อในบิล/ใบเสร็จ · พนักงาน: ยอดวันนี้เท่านั้น ยกเลิกบิลต้องใช้รหัสเจ้าของ
 // ตั้งค่าแยกตามตำแหน่ง · จัดการพนักงาน · ออกจากระบบ · รีเฟรชไม่หลุด · ขึ้นรอบใหม่ต้องเข้าใหม่ · ลืมรหัสเจ้าของ
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [], store = {}, offsetH = 0;
 /* เปิดหน้าใหม่โดยใช้ localStorage ชุดเดิม (จำลองรีเฟรช) · offsetH = เลื่อนเวลาไปข้างหน้า */
@@ -27,7 +28,7 @@ const save = () => { store = {}; for(let i = 0; i < w.localStorage.length; i++){
 const reopen = async () => { save(); w.close(); w = open(); d = w.document; await wait(60); };
 const settings = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}');
 const type = (sel, v) => { $(sel).value = v; };
-const sell = async menu => { click(`[data-menu="${menu}"]`); if($('[data-honey]')) click('[data-honey="normal"]'); click('#btnAdd'); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
+const sell = async menu => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
 
 (async () => {
   await wait(60);

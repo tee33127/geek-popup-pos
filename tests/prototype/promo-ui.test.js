@@ -1,6 +1,7 @@
 // โปรโมชันบนหน้าจอ: ปุ่มในกล่องออเดอร์ เลือกโปร เลือกแก้ว ยกเลิกอัตโนมัติ ชำระเงิน บันทึกในบิล ใบเสร็จ รายงาน CSV
 // + เพิ่มท็อปปิ้ง Acai / Banana Choco
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [];
@@ -11,7 +12,7 @@ A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
 const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
-const order = (menu, more) => { click(`[data-menu="${menu}"]`); if(more) more(); if($('[data-honey]') && !$('.hon.on')) click('[data-honey="normal"]'); click('#btnAdd'); };
+const order = (menu, more) => { F.menu(w, menu); if(more) more(); F.finish(w); };
 const total = () => $('#total').textContent;
 
 (async () => {
@@ -25,13 +26,13 @@ const total = () => $('#total').textContent;
   click('[data-r="1"]'); eq('remove it again: grey again', $('#promoOpen').disabled, true);
   click('[data-r="0"]');
   // ---- เพิ่มท็อปปิ้ง Acai ----
-  click('[data-menu="acai"]');
+  F.menu(w, 'acai');
   eq('add-on section present, grid closed', [$('[data-addopen]').textContent, !!$('[data-add]')], ['+ เพิ่มท็อปปิ้ง', false]);
   click('[data-addopen]'); eq('grid opens with every topping at +15', [$$('[data-add]').length, $('[data-add="Granola"] small').textContent], [20, '+15']);
   click('[data-add="Mango"]'); click('[data-amore="Mango"]');
   eq('Mango ×2 = 219', [$('#btnAdd').textContent.includes('฿219'), $('.trow .nm').textContent], [true, 'เพิ่ม มะม่วง']);
   click('[data-aless="Mango"]'); eq('minus back to 204', $('#btnAdd').textContent.includes('฿204'), true);
-  click('[data-honey="normal"]'); click('#btnAdd');
+  F.finish(w);
   eq('cart line shows add-on', $('#cart .d').textContent.includes('เพิ่ม มะม่วง (+15)'), true);
   eq('kitchen ticket shows add-on', w.eval(`kitchenBlocks({no:1, dining:'dinein', ts:new Date().toISOString(), items:cart})`).some(b => b.text === '  + เพิ่ม มะม่วง'), true);
   // ---- ปุ่มโปร + เลือกโปร ----

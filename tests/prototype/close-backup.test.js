@@ -1,5 +1,6 @@
 // เปิดร้าน (เงินทอนตั้งต้น) · ปิดร้าน (นับเงิน) · สำรองข้อมูล · นำข้อมูลกลับ (เครื่องเดิม / เครื่องใหม่)
 const {JSDOM} = require('jsdom'); const fs = require('fs');
+const F = require('../flow-helper');
 const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname, '../../prototype/pos.html'), 'utf8');
 let errors = [];
@@ -16,7 +17,7 @@ const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const enter = code => { code.split('').forEach(c => click(`[data-kp="${c}"]`)); click('#lgGo'); };
 const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input')); };
-const sell = async (menu, method) => { click(`[data-menu="${menu}"]`); if($('[data-honey]')) click('[data-honey="normal"]'); click('#btnAdd'); click('#btnPay'); click('[data-dine="dinein"]'); click(`[data-method="${method}"]`); if(method === 'cash') click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
+const sell = async (menu, method) => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click(`[data-method="${method}"]`); if(method === 'cash') click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
 const today = () => ev('bizDate(new Date())');
 
 (async () => {

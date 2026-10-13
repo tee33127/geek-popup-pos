@@ -1,5 +1,6 @@
 // หน้าตั้งค่า PromptPay (ผ่าน PIN) + QR บนหน้าชำระเงิน · เปิด app/ แบบแยกไฟล์ใน jsdom
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
+const {finish} = require('../flow-helper');
 const A = require('../auth-helper');
 const generatePayload = require('promptpay-qr');
 const APP = path.join(__dirname, '../../app');
@@ -10,7 +11,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input')); };
-  const toPay = () => { $('[data-menu="acai"]').click(); $('[data-honey="normal"]').click(); $('#btnAdd').click(); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); };
+  const toPay = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); };
   w.addEventListener('load', async () => {
     A.signIn(w);
     await wait(50);
