@@ -10,7 +10,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
   // ---------- H01 HTML กับ USB ต้องมีข้อความเดียวกัน (200 บิลสุ่ม seed 101) ----------
   ev(`window.__lines = html => { const d = document.createElement('div'); d.innerHTML = html; const out = [];
       d.firstElementChild.childNodes.forEach(n => { if(n.nodeName === 'HR') out.push('---'); else { const t = n.textContent.replace(/\\s+/g, ' ').trim(); if(t) out.push(t); } }); return out; };
-    window.__blines = b => b.filter(x => !x.gap).map(x => x.rule ? '---' : ('left' in x ? x.left + x.right : x.text).replace(/\\s+/g, ' ').trim());`);
+    window.__blines = slipLines;`);
   const r = rng(101), tops = ev('CONFIG.items.map(i => i.name)'), cat = ev('Object.fromEntries(CONFIG.items.map(i => [i.name, i.cat]))');
   const ACAI = ['Banana', 'Strawberries', 'Blueberries', 'Granola', 'Flaxseeds'], BAN = ['Banana', 'Cacao peanut butter', 'Cashew', 'Chocolate Chips'];
   let bad = null;

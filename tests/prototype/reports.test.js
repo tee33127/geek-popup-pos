@@ -72,11 +72,11 @@ eq('honey servings (none excluded)', [ing('น้ำผึ้ง · ราดป
 const bchSale = {no:9, dining:'dinein', ts:new Date().toISOString(), method:'cash', total:149, received:149, change:0, items:[bch]};
 eq('kitchen ticket (print + USB): Banana no honey line', [ev(`kitchenHtml(${JSON.stringify(bchSale)})`).includes('น้ำผึ้ง'), ev(`kitchenBlocks(${JSON.stringify(bchSale)})`).some(b => String(b.text).includes('น้ำผึ้ง'))], [false, false]);
 const acaiSale = {...bchSale, total:378, items:[acai]};
-const kTxt = sale => ev(`kitchenBlocks(${JSON.stringify(sale)})`).map(b => b.text || '').join('\n');
-const rTxt = sale => ev(`receiptBlocks(${JSON.stringify(sale)})`).map(b => b.text || '').join('\n');
+const kTxt = sale => ev(`slipLines(kitchenBlocks(${JSON.stringify(sale)}))`).join('\n');
+const rTxt = sale => ev(`slipLines(receiptBlocks(${JSON.stringify(sale)}))`).join('\n');
 eq('print Acai: only changed slots (kitchen USB)', [kTxt(acaiSale).includes('มะม่วง (เปลี่ยนจาก กล้วย)'), kTxt(acaiSale).includes('ไม่รับ สตรอว์เบอร์รี่'), kTxt(acaiSale).includes('บลูเบอร์รี่'), kTxt(acaiSale).includes('กราโนล่า')], [true, true, false, false]);
 eq('print Acai: only changed slots (kitchen HTML)', [ev(`kitchenHtml(${JSON.stringify(acaiSale)})`).includes('เปลี่ยนจาก'), ev(`kitchenHtml(${JSON.stringify(acaiSale)})`).includes('บลูเบอร์รี่')], [true, false]);
-eq('print Acai: receipt only changed slots', [rTxt(acaiSale).includes('มะม่วง (แทน กล้วย), ไม่รับ สตรอว์เบอร์รี่'), rTxt(acaiSale).includes('เมล็ดแฟลกซ์')], [true, false]);
+eq('print Acai: receipt only changed slots, grouped (B1)', [rTxt(acaiSale).includes('เปลี่ยน: มะม่วง แทน กล้วย\nไม่รับ: สตรอว์เบอร์รี่'), rTxt(acaiSale).includes('เมล็ดแฟลกซ์')], [true, false]);
 eq('print Banana unchanged: no ingredient lines', [kTxt(bchSale).includes('กล้วย'), rTxt(bchSale).includes('กล้วย'), ev(`receiptHtml(${JSON.stringify(bchSale)})`).includes('เนยถั่วคาเคา')], [false, false, false]);
 eq('print Greek: all toppings', kTxt({...bchSale, items:[greek]}).includes('กล้วย ×3'), true);
 eq('screen/CSV lines still full', ev(`itemLines(${JSON.stringify(acai)})`)[0].includes('บลูเบอร์รี่'), true);
@@ -106,7 +106,7 @@ ev(`saveSales(loadSales().concat([${JSON.stringify(mk(90, 1, '2030-01-01', 'dine
 eq('report: separate-topping group', ev(`JSON.stringify(buildReport('2030-01-01', '2030-01-01').groups['แยกท็อปปิ้ง'])`), JSON.stringify({unit:'แก้ว', rows:{'Acai':{qty:2, rev:10}}}));
 const sepSale = {...bchSale, items:[sepAcai]};
 eq('kitchen ticket shows separate line (HTML + USB)', [ev(`kitchenHtml(${JSON.stringify(sepSale)})`).includes('แยกท็อปปิ้ง ใส่ถ้วยแยก'), kTxt(sepSale).includes('แยกท็อปปิ้ง ใส่ถ้วยแยก')], [true, true]);
-eq('receipt shows separate charge', rTxt(sepSale).includes('แยกท็อปปิ้ง (+5)'), true);
+eq('receipt shows separate charge', rTxt(sepSale).includes('แยก: แยกท็อปปิ้ง ใส่ถ้วยแยก (+5)'), true);
 eq('no separate line when not chosen', kTxt(bchSale).includes('แยกท็อปปิ้ง'), false);
 eq('no runtime errors', errors, []);
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);

@@ -35,6 +35,22 @@ eq('start page cached', FILES.includes('./') && FILES.includes('index.html'), tr
 /* ไม่มีอีโมจิในแอป (ใช้ไอคอน SVG จาก js/icons.js แทน) */
 const emoji = FILES.filter(f => /\.(js|html|css)$/.test(f)).flatMap(f => [...read(f).matchAll(/\p{Extended_Pictographic}/gu)].map(m => f + ' ' + m[0]));
 eq('no emoji in app source', emoji, []);
+
+/* ฟอนต์ไทย (IBM Plex Sans Thai Looped) อยู่ในแอป ใช้ได้ออฟไลน์ ไม่โหลดจากเน็ต */
+const fontCss = read('css/fonts.css'), fontFiles = [...fontCss.matchAll(/url\(\.\.\/(fonts\/[^)]+\.woff2)\)/g)].map(m => m[1]);
+eq('fonts: 3 weights (400/600/700) as local woff2', fontFiles, ['fonts/plex-thai-looped-400.woff2', 'fonts/plex-thai-looped-600.woff2', 'fonts/plex-thai-looped-700.woff2']);
+eq('fonts: every woff2 + fonts.css + license cached by service worker', [...fontFiles, 'css/fonts.css', 'fonts/OFL.txt'].filter(f => !FILES.includes(f)), []);
+eq('fonts: woff2 files are real and subset (< 40 KB each)', fontFiles.map(f => { const b = fs.readFileSync(path.join(APP, f)); return b.toString('latin1', 0, 4) === 'wOF2' && b.length < 40000; }), [true, true, true]);
+eq('fonts: block display (no fallback flash)', (fontCss.match(/font-display:block/g) || []).length, 3);
+eq('fonts: index preloads all 3 and loads fonts.css before pos.css', [(html.match(/rel="preload" href="fonts\/[^"]+\.woff2" as="font" type="font\/woff2" crossorigin/g) || []).length, html.indexOf('css/fonts.css') < html.indexOf('css/pos.css')], [3, true]);
+const ROOT = path.join(__dirname, '../..'), rootRead = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+const ext = ['app/index.html', 'app/css/pos.css', 'app/css/fonts.css', 'printer-test/index.html', 'manual/index.html'].filter(f => /https?:\/\/(?!www\.w3\.org)[^"')\s]*(fonts|cdn|googleapis|gstatic)/i.test(rootRead(f)));
+eq('fonts: no font/CDN URL in app, printer-test, manual', ext, []);
+const oldFont = ['app/css/pos.css', 'app/js/printer.js', 'printer-test/index.html', 'manual/index.html'].filter(f => /"Noto Sans Thai"(?! Looped)|system-ui/.test(rootRead(f)));
+eq('fonts: no old font left (Noto Sans Thai / system-ui)', oldFont, []);
+eq('fonts: printer-test + manual use app/css/fonts.css', ['printer-test/index.html', 'manual/index.html'].map(f => rootRead(f).includes('href="../app/css/fonts.css"')), [true, true]);
+const proto = rootRead('prototype/pos.html');
+eq('fonts: prototype embeds 3 fonts as base64 (file:// works), no preload links', [(proto.match(/url\(data:font\/woff2;base64,/g) || []).length, proto.includes('../fonts/'), /rel="preload"/.test(proto)], [3, false, false]);
 const ic = vm.createContext({}); vm.runInContext(read('js/icons.js').replace(/const /g, 'var '), ic);
 const usedIcons = [...new Set(FILES.filter(f => f.endsWith('.js')).concat('../prototype/demo-seed.js').flatMap(f => [...read(f).matchAll(/icon\('(\w+)'/g)].map(m => m[1])))];
 eq('every icon used exists', usedIcons.filter(n => !ic.ICONS[n]), []);

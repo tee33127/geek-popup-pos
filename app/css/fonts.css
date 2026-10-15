@@ -1,0 +1,8 @@
+/* ฟอนต์ไทยมีหัว IBM Plex Sans Thai Looped (OFL, app/fonts/OFL.txt) เก็บในแอป ห้ามโหลดจาก Google Fonts/CDN
+   subset เหลือ Thai + Latin พื้นฐาน + ฿ × · – … → ✓ (สัญลักษณ์เตือน ● ○ ⌫ ไม่มีในฟอนต์ ใช้ฟอนต์สำรองของเครื่อง)
+   3 น้ำหนัก: 400 (ช่วง 100-500) · 600 · 700 (ช่วง 700-900 ใช้กับ 800 ด้วย ไม่สร้างตัวหนาปลอม)
+   ใช้ทั้ง app/ printer-test/ manual/ · build ฝังเป็น base64 ใน prototype/*.html (เปิดแบบ file:// ได้) */
+@font-face{font-family:"IBM Plex Sans Thai Looped";src:url(../fonts/plex-thai-looped-400.woff2) format("woff2");font-weight:100 500;font-style:normal;font-display:block}
+@font-face{font-family:"IBM Plex Sans Thai Looped";src:url(../fonts/plex-thai-looped-600.woff2) format("woff2");font-weight:600;font-style:normal;font-display:block}
+@font-face{font-family:"IBM Plex Sans Thai Looped";src:url(../fonts/plex-thai-looped-700.woff2) format("woff2");font-weight:700 900;font-style:normal;font-display:block}
+:root{--font:"IBM Plex Sans Thai Looped","Noto Sans Thai Looped","Sarabun",sans-serif}

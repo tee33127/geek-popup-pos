@@ -9,6 +9,7 @@ const runs = [
   ['app/pwa.test.js'],
   ['app/printer.test.js'],
   ['app/printer-usb.test.js'],
+  ['app/slips.test.js'],
   ['app/promptpay.test.js'],
   ['app/promptpay-ui.test.js'],
   ['app/promo.test.js'],

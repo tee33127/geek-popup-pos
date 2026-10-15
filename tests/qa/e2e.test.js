@@ -52,19 +52,31 @@ const server = http.createServer((q, r) => {
       return r;
     };
     const L = {};
+    /* ข้อความล้นกล่อง: element ที่มีข้อความตรงๆ กว้างเกินกล่องตัวเอง (ไม่นับกล่องที่ตั้งใจให้เลื่อน) */
+    const overflow = () => page.evaluate(() => [...document.querySelectorAll('main *, #modal *, #actBar *, header *')].filter(el => {
+      const st = getComputedStyle(el), b = el.getBoundingClientRect();
+      if(st.display === 'none' || st.visibility === 'hidden' || !b.width || /auto|scroll/.test(st.overflowX) || /^(INPUT|TEXTAREA|SELECT|svg|path)$/i.test(el.tagName)) return false;
+      if(![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false;
+      return el.scrollWidth > el.clientWidth + 1;
+    }).map(el => `${el.tagName.toLowerCase()}.${el.className} "${el.textContent.trim().slice(0, 20)}" ${el.scrollWidth}>${el.clientWidth}`));
     L.home = await check('home'); await page.screenshot({path:path.join(SHOTS, `${label}-02-home.png`)});
-    await page.click('[data-menu="acai"]'); await page.click('[data-swap="0"]'); await page.click('#closeX'); await page.click('[data-addopen]'); await page.click('#addsDone');
-    L.acai = await check('acai'); await page.screenshot({path:path.join(SHOTS, `${label}-03-acai.png`), fullPage:true});
+    /* ฟอนต์ที่ใช้จริง = IBM Plex Sans Thai Looped (ฝังใน pos-demo.html) */
+    L.font = await page.evaluate(async () => { await document.fonts.ready;
+      return [getComputedStyle(document.body).fontFamily.split(',')[0].replace(/"/g, ''), ...[400, 700].map(w => document.fonts.check(`${w} 16px "IBM Plex Sans Thai Looped"`)),
+        [...document.fonts].filter(f => f.family.replace(/"/g, '') === 'IBM Plex Sans Thai Looped' && f.status === 'loaded').length >= 2]; });
+    await page.click('[data-menu="acai"]'); await page.click('[data-swap="0"]');
+    L.swapOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-03b-acai-swap.png`)}); await page.click('#closeX'); await page.click('[data-addopen]'); await page.click('#addsDone');
+    L.acai = await check('acai'); L.acaiOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-03-acai.png`), fullPage:true});
     await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
     await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]'); for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
-    L.greek = await check('greek'); await page.screenshot({path:path.join(SHOTS, `${label}-04-greek.png`), fullPage:true});
+    L.greek = await check('greek'); L.greekOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-04-greek.png`), fullPage:true});
     await page.click('[data-honey="lots"]'); await page.click('[data-noteopen]');
     await page.fill('#note', 'ลูกค้าแพ้ถั่วลิสงขอไม่ใส่เนยถั่วและช็อกโกแลตชิพ '.repeat(10) + '😀👍🏽 ฮ่าาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาา่');   // X02 หมายเหตุยาว
     await page.click('#btnAdd');
-    L.cart = await check('cart'); await page.screenshot({path:path.join(SHOTS, `${label}-05-cart.png`), fullPage:true});
+    L.cart = await check('cart'); L.cartOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-05-cart.png`), fullPage:true});
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2');
     await page.click('[data-dine="takeaway"]'); await page.click('[data-method="cash"]');
-    L.pay = await check('pay'); await page.screenshot({path:path.join(SHOTS, `${label}-06-pay.png`)});
+    L.pay = await check('pay'); L.payOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-06-pay.png`)});
     await page.click('#payCancel');
     /* ขาย 1 บิลจริงก่อนเปิดสรุปยอด: พนักงานเห็นเฉพาะรอบวันนี้ (หลัง 23:00 รอบใหม่ยังไม่มีบิล เทสต์ไม่ขึ้นกับเวลาที่รัน) */
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2'); await page.click('[data-dine="takeaway"]'); await page.click('[data-method="cash"]'); await page.click('[data-q]'); await page.click('#payOk'); await page.click('#nextOrder');
@@ -73,6 +85,7 @@ const server = http.createServer((q, r) => {
     L.owner = await check('owner'); L.ownerPad = await page.evaluate(() => { const i = document.getElementById('pinIn'); return [i.type, i.inputMode, getComputedStyle(i).webkitTextSecurity, document.activeElement === i, document.querySelectorAll('input[type=password]').length]; });
     await page.screenshot({path:path.join(SHOTS, `${label}-08-owner-code.png`)});
     await page.click('#pinNo'); await page.click('#closeX');
+    await page.click('#btnSettings'); L.settingsOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-07b-settings.png`)}); await page.click('#closeX');
     L.cartOverflow = await page.evaluate(() => [...document.querySelectorAll('#cart .line')].some(l => l.scrollWidth > l.clientWidth + 1));
     layouts[label] = Object.fromEntries(Object.entries(L).map(([k, v]) => [k, typeof v === 'boolean' || Array.isArray(v) ? v : {hscroll:v.hscroll, offscreen:v.offscreen, payVis:v.payVis}]));
     await ctx.close();
@@ -84,6 +97,8 @@ const server = http.createServer((q, r) => {
     eq(`U01 ${label}: รหัสเจ้าของ = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS ได้ focus · ไม่มีช่อง password`, L.ownerPad, ['text', 'numeric', 'disc', true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงิน (หรือแถบออเดอร์ที่ยุบ) เห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
+    eq(`F01 ${label}: ฟอนต์ที่ใช้จริง IBM Plex Sans Thai Looped (400 + 700 โหลดแล้ว)`, L.font, ['IBM Plex Sans Thai Looped', true, true, true]);
+    eq(`F02 ${label}: ไม่มีข้อความล้นกล่อง (Acai, หน้าต่างเปลี่ยน, Greek, ตะกร้า, ชำระเงิน+แป้น, ตั้งค่า)`, [L.acaiOver, L.swapOver, L.greekOver, L.cartOver, L.payOver, L.settingsOver], Array(6).fill([]));
   }
   const smallList = [...small.values()].sort((a, b) => a.h - b.h);
   console.log(`INFO UI02 ปุ่มที่เล็กกว่า 44 px (${smallList.length}):`);
@@ -619,6 +634,44 @@ const server = http.createServer((q, r) => {
     const tSale = await ms(() => sell(A, 'banana'));
     console.log(`INFO UI08 Chromium (เดสก์ท็อป) 5,000 บิล: สรุปทั้งหมด ${tAll} ms · แท็บบิล ${tBills} ms · ขาย 1 บิลทั้งขั้นตอน ${tSale} ms`);
     eq('UI08 Chromium: เปิดสรุปทั้งหมด / แท็บบิล / ขาย 1 บิล กับ 5,000 บิล < 1.5 วินาที', [tAll < 1500, tBills < 1500, tSale < 1500], [true, true, true]);
+    await ctx.close();
+  }
+
+  // ---------- S01 ตั๋วตัวอย่างในเบราว์เซอร์จริง (ฟอนต์จริง) → PNG ขาวดำแบบที่ส่งไปปริ้นเตอร์ ----------
+  {
+    const SL = path.join(SHOTS, 'slips'); fs.mkdirSync(SL, {recursive:true});
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}});
+    const page = await ctx.newPage(); watch(page, 'slips');
+    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]');
+    const res = await page.evaluate(async () => {
+      const t0 = performance.now(), ready = await slipFontsReady(), wait = Math.round(performance.now() - t0);
+      const g = document.createElement('canvas').getContext('2d'), w = f => { g.font = f; return g.measureText('กขฃคฅฆง ฿1,234').width; };
+      const usesPlex = w(`400 26px ${SLIP_FONT}`) !== w('400 26px sans-serif');
+      const ts = new Date(2026, 9, 15, 12, 30).toISOString();
+      const acai = [{name:'Mango', n:1, extra:0, from:'Banana'}, {name:'Strawberries', n:1, extra:0, from:null, removed:true}, {name:'Blueberries', n:1, extra:0, from:null},
+        {name:'Granola', n:1, extra:0, from:null, removed:true}, {name:'Flaxseeds', n:1, extra:0, from:null}];
+      const greek = {menu:'greek', name:'Greek Yogurt', sizeName:'2 สกู๊ป', tops:[{name:'Banana', n:3, extra:0}, {name:'Mango', n:1, extra:15}, {name:'Granola', n:1, extra:10}], honey:'normal', note:'แพ้ถั่ว', unit:154, qty:1};
+      const base = {no:42, ts, dining:'dinein', staff:'ทดสอบ', method:'cash', total:562, received:1000, change:438,
+        items:[greek, {menu:'acai', name:'Acai', sizeName:'', tops:[...acai, {name:'Chia', n:1, extra:15, from:null, add:true}], honey:'none', unit:204, qty:2}]};
+      const long = {no:108, ts, dining:'takeaway', staff:'ทดสอบ', method:'promptpay', total:1062, items:[
+        {...greek, note:'แพ้ถั่วลิสง ห้ามใส่เนยถั่ว ใช้ช้อนใหม่'},
+        {menu:'acai', name:'Acai', sizeName:'', tops:acai.map(t => t.name === 'Flaxseeds' || t.name === 'Blueberries' ? {...t, removed:true} : t), honey:'side', note:'', unit:189, qty:2, sep:5},
+        {menu:'banana', name:'Banana Choco', sizeName:'', tops:[{name:'Banana', n:1, extra:0, from:null}, {name:'Cacao peanut butter', n:1, extra:0, from:null, removed:true}, {name:'Cashew', n:1, extra:0, from:null, removed:true}, {name:'Chocolate Chips', n:1, extra:0, from:null, removed:true}, {name:'Kiwi', n:2, extra:30, from:null, add:true}], unit:179, qty:1, note:'ไม่เอาช็อกโกแลต'},
+        {menu:'greek', name:'Greek Yogurt', sizeName:'1 สกู๊ป', tops:[{name:'Chia', n:1, extra:0}, {name:'Cherry Jelly', n:2, extra:0}, {name:'Biscoff Crumble', n:1, extra:0}, {name:'Hazelnut spread', n:1, extra:15}], honey:'little', unit:104, qty:3, fewTops:undefined, note:'แก้วที่ 3 ใส่ถ้วยใหญ่'}]};
+      const shots = {'1-receipt': receiptBlocks(base), '2-kitchen-dinein': kitchenBlocks(base), '3-kitchen-takeaway': kitchenBlocks({...base, no:43, dining:'takeaway'}), '4-long-order-receipt': receiptBlocks(long), '4-long-order-kitchen': kitchenBlocks(long)};
+      return {ready, wait, usesPlex, out:Object.entries(shots).map(([k, b]) => {
+        const c = renderSlip(b), r = rasterize(c.getContext('2d').getImageData(0, 0, c.width, c.height)), v = document.createElement('canvas'); v.width = c.width; v.height = c.height;
+        const x = v.getContext('2d'), img = x.createImageData(c.width, c.height);
+        for(let y = 0; y < c.height; y++) for(let i = 0; i < c.width; i++){ const k2 = (y * c.width + i) * 4, on = r.bits[y * r.widthBytes + (i >> 3)] & (0x80 >> (i & 7)); img.data[k2] = img.data[k2 + 1] = img.data[k2 + 2] = on ? 0 : 255; img.data[k2 + 3] = 255; }
+        x.putImageData(img, 0, 0);
+        return {k, w:c.width, h:c.height, bytes:canvasCmds(c).length, png:v.toDataURL('image/png')};
+      })};
+    });
+    res.out.forEach(o => { fs.writeFileSync(path.join(SL, o.k + '.png'), Buffer.from(o.png.split(',')[1], 'base64')); console.log(`INFO S01 ${o.k}: ${o.w}×${o.h} จุด · ${o.bytes.toLocaleString()} byte`); });
+    const pair = res.out.filter(o => /^[12]-/.test(o.k)).reduce((a, o) => a + o.bytes, 0);
+    console.log(`INFO S01 ใบเสร็จ + ตั๋วครัว (บิลตัวอย่าง 2 แก้ว) รวม ${pair.toLocaleString()} byte · เดิมที่ทดสอบจริง 109,434 byte ≈ 2.1 วิ → ประมาณ ${(pair / 109434 * 2.1).toFixed(1)} วิ · รอฟอนต์ ${res.wait} ms`);
+    eq('S01 ตั๋ววาดหลังฟอนต์พร้อม และใช้ Plex จริง (ความกว้างข้อความต่างจาก sans-serif)', [res.ready, res.usesPlex], [true, true]);
+    eq('S01 ตั๋วทุกใบกว้าง 576 จุด', res.out.map(o => o.w), res.out.map(() => 576));
     await ctx.close();
   }
 

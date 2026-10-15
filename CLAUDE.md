@@ -14,13 +14,15 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - ซอร์สอยู่ใน `app/` แยกเป็นโมดูลแล้ว (ขั้น 0 ข้อ 1 เสร็จ) และ build เป็น `prototype/pos.html` ไฟล์เดียว ผ่านเทสต์ทั้งหมด: หน้าขาย, กติกาท็อปปิ้ง, ชำระเงิน, เลขออเดอร์, พิมพ์ผ่าน `window.print()`, สรุปยอด 5 แท็บ, ยกเลิก/นำกลับบิล, CSV
 - **ขั้น 2 เริ่มแล้ว**: เก็บยอดขายใน IndexedDB เสร็จ (ย้ายข้อมูลจาก localStorage อัตโนมัติ + สำรองใน localStorage)
 - PWA เสร็จ: ติดตั้งบนแท็บเล็ตได้ เปิดได้แม้ออฟไลน์ (`app/manifest.webmanifest`, `app/sw.js`) วิธีติดตั้งอยู่ใน README
-- พิมพ์ตรงผ่าน USB ในแอปแล้ว: ปุ่ม "เชื่อมปริ้นเตอร์" บนแถบหัว (แสดงเฉพาะเบราว์เซอร์ที่มี WebUSB) · เครื่องที่เคยอนุญาตจะเชื่อมเองตอนเปิดแอป/เสียบสายใหม่ · ไม่ได้เชื่อมหรือส่งไม่สำเร็จ → ใช้ `window.print()` แทน · ยังไม่ได้ทดสอบกับเครื่องจริง
+- พิมพ์ตรงผ่าน USB ในแอปแล้ว: ปุ่ม "เชื่อมปริ้นเตอร์" บนแถบหัว (แสดงเฉพาะเบราว์เซอร์ที่มี WebUSB) · เครื่องที่เคยอนุญาตจะเชื่อมเองตอนเปิดแอป/เสียบสายใหม่ · ไม่ได้เชื่อมหรือส่งไม่สำเร็จ → ใช้ `window.print()` แทน · **ทดสอบเครื่องจริงแล้ว 2026-10-15** (XP-Q807K + Redmi Pad 2 ผ่าน printer-test ครบ 9 ข้อ · vendor 0x0483 product 0x5743 · interface 0 class 7 · ep1 OUT bulk 64B · 109 KB ≈ 2.1 วิ)
 - QR PromptPay ใส่ยอดเสร็จแล้ว: เลข PromptPay ตั้งในแอป (ตั้งค่า → เลข PromptPay) เก็บใน localStorage ของเครื่อง (`geek_popup_settings`) **ห้ามใส่เลขจริงในโค้ดหรือเทสต์** · เทสต์เทียบ payload กับ `promptpay-qr` และสแกนกลับด้วย `jsqr`
 - โปรโมชัน 3 แบบ (1 แถม 1, ลด 30, ฟรี 1 ท็อปปิ้ง) 1 บิล 1 โปร: `js/promo.js` คำนวณ, `js/ui/promo-ui.js` ปุ่ม+หน้าต่าง, ตั้งค่าโปรใน `CONFIG.promos` · `cartTotal()` = ยอดหลังหักโปร, ราคาในรายการ (`unit`) เป็นราคาเต็มเสมอ
 - เข้าใช้งานด้วยรหัส (`js/auth.js` + `js/ui/login.js`): ครั้งแรกตั้งเจ้าของ + รหัสกู้คืน · ผู้ใช้เก็บใน `SETTINGS.users` (รหัสเป็น sha256(salt:รหัส) ห้ามเก็บตัวเลข) · สิทธิ์อยู่ที่ `CAN` เช็กด้วย `can('void')` ฯลฯ · `USER` = คนที่เข้าอยู่ · บิลเก็บ `staff`, `staffId` · log ยกเลิกเก็บ `by` · เข้า/ออกเก็บใน `<SETTINGS_KEY>_staff_log` · ตารางสิทธิ์อยู่ใน business-rules.md §6.5 · ไม่มี PIN ในโค้ดแล้ว
 - ตั้งค่า (ปุ่มบนแถบหัว): สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง กดแล้วใช้ทันที + เลข PromptPay · ของหมดเก็บใน `SETTINGS.out = {menus, items}` แล้ว `applyOut` ใส่ `out:true` ใน CONFIG · **ราคาแก้ในแอปไม่ได้โดยตั้งใจ** (Tee 2026-10-12 กลัวกดผิด) แก้ราคาที่ CONFIG เท่านั้น
 - เปิด/ปิดร้าน (`js/cash.js` + `js/ui/close-ui.js`): เข้าระบบด้วยรหัสแล้วรอบนี้ยังไม่มีเงินทอนตั้งต้น → ถาม (ข้ามได้) · สรุปยอด → ปิดร้าน / นับเงิน เทียบ นับได้ กับ ตั้งต้น + ขายเงินสด · เก็บใน `<SETTINGS_KEY>_cash` ต่อท้ายอย่างเดียว ใช้ครั้งล่าสุดของรอบ · ตารางอยู่แท็บชำระเงิน
 - สำรอง/นำข้อมูลกลับ (`js/backup.js`): ไฟล์ JSON เดียว (บิล + settings + staff log + cash) · นำกลับ = รวม ไม่ลบ บิลซ้ำใช้ `newerSale` · ใช้พนักงาน/รหัสจากไฟล์เมื่อเลือก หรือเมื่อทำจากหน้าตั้งค่าครั้งแรก (เครื่องใหม่) · ทุกคนสำรองได้ นำกลับได้เฉพาะเจ้าของ · `SETTINGS.lastBackup`
+- ฟอนต์ทั้งระบบ (Tee 2026-10-15): **IBM Plex Sans Thai Looped** (ไทยมีหัว) ใน `app/fonts/` + `app/css/fonts.css` ใช้ `var(--font)` · 400/600/700 subset · ห้ามใช้ฟอนต์อื่นหรือโหลดจากเน็ต · line-height ข้อความไทย ≥ 1.4
+- ตั๋ว (Tee 2026-10-15): เนื้อหาอยู่ `js/slips.js` ชุดเดียว (USB + window.print + printer-test) · ใบเสร็จแยกกลุ่มท็อปปิ้งมีป้าย (ไม่รับ: แยกบรรทัด) · ตั๋วครัวไม่มีพื้นดำทึบ (กรอบเส้นหนา/เส้นคู่) หมายเหตุเป็นกรอบเด่น
 - ยังไม่มี: เปิดลิ้นชัก
 
 ## งานถัดไป (ขั้น 0 → 1)
@@ -37,12 +39,14 @@ docs/
   business-rules.md       ← แหล่งความจริงของเมนู ราคา กติกา (+ คำถามที่ยังเปิด)
   project-plan.md         ← แผน 6 ขั้น เช็กลิสต์ทดสอบฮาร์ดแวร์ ความเสี่ยง
   hardware.md             ← อุปกรณ์ที่ยืนยันแล้ว + คำสั่ง ESC/POS
-  qa-checklist.md         ← เช็กลิสต์ตรวจก่อนปล่อย (รหัส Z/P/PR/C/U/V/R/E/K/D/X/H/UI) · แก้กติกาใน business-rules.md ต้องแก้ค่าคาดหวังที่นี่ด้วย
+  qa-checklist.md         ← เช็กลิสต์ตรวจก่อนปล่อย (รหัส Z/P/PR/C/U/V/R/E/K/D/X/H/F/UI) · แก้กติกาใน business-rules.md ต้องแก้ค่าคาดหวังที่นี่ด้วย
   qa/                     ← รายงานผลตรวจ report-YYYY-MM-DD.md (screens/ อยู่ใน .gitignore)
   purchasing/*.pdf        ← shopping list และงบที่เสนอเจ้าของร้าน (อยู่ใน .gitignore ห้าม commit เพราะ repo เป็น public)
 app/                      ← ซอร์สจริง (แก้ที่นี่) เปิด app/index.html ได้เลย
   index.html              ← markup + ลำดับ <script> (ลำดับสำคัญ ดูด้านล่าง)
+  css/fonts.css           ← @font-face IBM Plex Sans Thai Looped (โหลด ../fonts/*.woff2) + `--font` · ใช้ร่วมกับ printer-test/ manual/ · build ฝัง base64 ใน prototype
   css/pos.css
+  fonts/                  ← plex-thai-looped-400/600/700.woff2 (subset ด้วย fonttools pyftsubset: Thai + Latin พื้นฐาน + ฿ × · – … → − ≈ ≥ ✓) + OFL.txt
   manifest.webmanifest    ← PWA: ชื่อแอป ไอคอน สีแบรนด์
   sw.js                   ← service worker เก็บไฟล์แอปทั้งหมดไว้ใช้ออฟไลน์ · VERSION/FILES สร้างโดย build ห้ามแก้มือ
   icons/                  ← icon.svg (ต้นฉบับ) → icon-192/512.png
@@ -59,7 +63,8 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/cart.js (ต่อ)     ← กล่องออเดอร์ยุบ/ขยาย (แนวนอน): body.picking = แถบแคบ #cartMini · body.cartopen = overlay (คอลัมน์ main ไม่เปลี่ยน) · cartMode() เรียกจาก renderBuilder · openPay ถามก่อนถ้ามีแก้วค้าง (askPendingCup) · cartFlash ไฮไลต์บรรทัดที่เพิ่งเพิ่ม
   js/ui/modal.js          ← $, toast (ลอยเหนือแถบล่าง · มีหน้าต่างเปิด = .mtoast ในหน้าต่าง), openModal(body, {title, key, foot, wide, backdrop, onClose}) หัวติดบน + X (id closeX → modalClose) + แถบล่าง · เลื่อนเฉพาะ .mbody · ล็อก body (iOS: position fixed + จำ scrollY) · key เดิม = คงตำแหน่งเลื่อน · askConfirm, askOwner
   js/ui/codepad.js        ← ใส่รหัส 2 แบบ: แป้นของแอป (padNew/padHtml/padVal/padError) เฉพาะหน้าเข้าใช้งาน + รหัสกู้คืน · ฟอร์มอื่น (ตั้งค่าครั้งแรก, ตั้งรหัสใหม่, พนักงาน, askOwner) ใช้ codeField(id, ปุ่มที่ Enter กด) = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS + ปุ่มตากดค้าง (Tee 2026-10-13 แป้นของแอปในฟอร์มทำให้งง) · **ห้ามใช้ `<input type=password>`** iPad ขึ้นแป้นตัวอักษร · ช่องตัวเลขอื่นใส่ `data-digits pattern="[0-9]*"` · `data-enter="id"` = Enter กดปุ่มนั้น
-  js/ui/print.js          ← ใบเสร็จ + ตั๋วครัว 2 แบบ: receiptHtml/kitchenHtml (window.print) และ receiptBlocks/kitchenBlocks (USB) · แก้เนื้อหาตั๋วต้องแก้ทั้งคู่ · printSale เลือก USB ก่อน + ปุ่มปริ้นเตอร์
+  js/slips.js             ← เนื้อหาตั๋ว receiptBlocks / kitchenBlocks (ไม่แตะ DOM) + slipHtml (HTML จากบล็อกเดียวกัน) + slipLines (ข้อความทีละบรรทัดไว้เทสต์) · ใช้ทั้งแอปและ printer-test · แก้ตั๋วแก้ที่นี่ที่เดียว
+  js/ui/print.js          ← receiptHtml/kitchenHtml = slipHtml(…Blocks) · printSale เลือก USB ก่อน (รอ slipFontsReady แล้ววาด) + ปุ่มปริ้นเตอร์
   js/ui/builder.js        ← หน้าเลือกออเดอร์ (v3 Tee 2026-10-13): ขั้นที่เปิดแล้วเปิดค้าง (stepsShown) · ครบแล้ว = ถูกเขียว (stepDone) · ขั้นใหม่ .enter + เลื่อนจอ · ปุ่มหลักหน้าที่เดียว ยังขาด = class off + flashStep(missingStep()) · ช่องสรุปแก้วในแถบล่าง cupSummaryHtml (P จาก priceSel() ตัวเดียวกับปุ่ม) · แถบล่าง #actBar position fixed ความสูงคงที่ (--abh) วางตรงกล่องเลือกด้วย placeActBar() · หน้าต่างถามท็อปปิ้งตอนกดเพิ่ม · เทสต์ใช้ tests/flow-helper.js
   js/ui/cart.js, pay.js, summary.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
@@ -74,9 +79,9 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/backup.js            ← backupData / parseBackup / applyBackup (ไม่แตะ DOM)
   js/ui/close-ui.js       ← ถามเงินทอนตั้งต้น, หน้าปิดร้าน, สำรอง (exportFile ใน summary.js), นำข้อมูลกลับ (restoreText ให้เทสต์เรียกตรง)
   js/ui/login.js          ← หน้าเข้าใช้งานเต็มจอ (ตั้งครั้งแรก / แป้นรหัส / รหัสกู้คืน) + ปุ่มผู้ใช้บนแถบหัว + needUser()
-  js/printer.js           ← ESC/POS, แปลงภาพเป็น raster (GS v 0), renderSlip วาดตั๋วลง canvas, UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
+  js/printer.js           ← ESC/POS, raster (GS v 0), renderSlip วาดบล็อกลง canvas (fillRect + fillText เท่านั้น), wrapText (ตัดคำ ห้ามขึ้นบรรทัดด้วยเครื่องหมาย), slipFontsReady (รอฟอนต์ ≤ 2 วิ), UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 manual/index.html         ← คู่มือพนักงาน 1 หน้า + การ์ดแก้ปัญหา (พิมพ์ A4 2 หน้า) · **แก้ข้อความปุ่ม/ขั้นตอนในแอป ต้องแก้คู่มือด้วย**
-printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์วันแรก (ใช้ ../app/js/printer.js) มีเช็กลิสต์ + log ให้คัดลอกส่งกลับ
+printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์ (ใช้ ../app/js/ config core printer slips + css/fonts.css) ตั๋วตัวอย่างเป็นบิลสมมติผ่าน receiptBlocks/kitchenBlocks ของแอป + บรรทัดทดสอบสระ (เฉพาะหน้านี้) · เช็กลิสต์ + log
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
 prototype/
   pos.html                ← ไฟล์ build (ห้ามแก้ตรง) ไฟล์เดียว เปิดได้เลย
@@ -92,6 +97,8 @@ tests/
   app/app-files.test.js   ← เปิด app/index.html แบบแยกไฟล์ แล้วขาย 1 บิล
   app/printer.test.js     ← byte ESC/POS + raster ใน vm เปล่า
   app/printer-test-page.test.js ← หน้า printer-test กับปริ้นเตอร์ปลอม (jsdom ไม่มี canvas จึงไม่ได้เทสต์ภาพตั๋ว)
+  app/slips.test.js       ← ตั๋วใน vm + canvas จำลอง: ไม่รับแยกกลุ่ม ตัดบรรทัด ราคาต่อชิ้น ท้ายใบ หมายเหตุถูกแก้ว ไม่มีพื้นดำ คอลัมน์ตรง รอฟอนต์
+  qa/e2e.test.js          ← npm run qa:e2e (Playwright 4 จอ) · S01 วาดตั๋วด้วยฟอนต์จริง → docs/qa/screens/<วันที่>/slips/*.png
   auth-helper.js          ← บัญชีทดสอบ (เจ้าของ 1234 · พนักงาน แพร 1111) seed() ใน beforeParse + signIn() หลังเปิดหน้า · เทสต์หน้าจอใหม่ต้องใช้
   prototype/*.test.js     ← เทสต์ pos.html ด้วย jsdom (กติการาคา, รายงาน, void/restore/CSV, รอบ 23:00)
 ```

@@ -34,7 +34,7 @@ const total = () => $('#total').textContent;
   click('.addsum'); click('#modal [data-aless="Mango"]'); click('#addsDone'); eq('edit in window: minus back to 204', $('#btnAdd').textContent.includes('฿204'), true);
   F.finish(w);
   eq('cart line shows add-on', $('#cart .d').textContent.includes('เพิ่ม มะม่วง (+15)'), true);
-  eq('kitchen ticket shows add-on', w.eval(`kitchenBlocks({no:1, dining:'dinein', ts:new Date().toISOString(), items:cart})`).some(b => b.text === '  + เพิ่ม มะม่วง'), true);
+  eq('kitchen ticket shows add-on', w.eval(`kitchenBlocks({no:1, dining:'dinein', ts:new Date().toISOString(), items:cart})`).some(b => b.tag === '+' && b.text === 'เพิ่ม มะม่วง'), true);
   // ---- ปุ่มโปร + เลือกโปร ----
   order('banana');
   eq('promo button shown', $('#promoOpen').textContent.includes('ใช้โปรโมชัน'), true);

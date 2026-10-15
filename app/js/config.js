@@ -18,8 +18,9 @@ const CONFIG = {
     {id:'side',   name:'แยก'},
   ],
   dining: [
-    {id:'dinein',   name:'กินเลย'},
-    {id:'takeaway', name:'กลับบ้าน'},
+    /* ตั๋วครัว: box = กรอบป้าย (single เส้นหนา / double เส้นคู่) · lead = ข้อความนำเหนือชื่อ แยก 2 แบบให้ต่างกันชัดโดยไม่ใช้พื้นดำ */
+    {id:'dinein',   name:'กินเลย',   box:'single'},
+    {id:'takeaway', name:'กลับบ้าน', box:'double', lead:'ใส่ถุง'},
   ],
   methods: [
     /* logo = โลโก้ทางการ (ต้นฉบับใน assets/payment/) · ไม่มี logo ใช้ไอคอน */

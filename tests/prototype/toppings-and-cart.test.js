@@ -189,7 +189,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   click('[data-method="cash"]'); click('[data-q="1000"]'); click('#payOk'); await wait(300);
   const sale = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];
   eq('sale stores grouped tops', sale.items[0].tops, [{name:'Banana', n:2, extra:0, from:null}]);
-  const pa = $('#printArea').innerHTML; eq('kitchen shows Banana ×2', pa.includes('กล้วย <b>×2</b>'), true);
+  const pa = $('#printArea').innerHTML; eq('kitchen shows Banana ×2 in bold', pa.includes('<span>กล้วย ×2</span>') && $$('#printArea .g.b').some(e => e.textContent.includes('กล้วย ×2')), true);
   eq('receipt shows Banana ×2', pa.includes('กล้วย ×2'), true);
   eq('kitchen warns portion, once (not on receipt)', pa.split('ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ').length - 1, 1);
   eq('sale keeps fewTops', sale.items[0].fewTops, 2);

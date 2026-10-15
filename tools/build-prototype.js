@@ -27,8 +27,11 @@ const sw2 = sw.replace(/^const VERSION = .*$/m, `const VERSION = '${VERSION}';`)
   .replace(/^const FILES = .*$/m, `const FILES = ${JSON.stringify(['./', ...swFiles])};`);
 if(sw2 !== sw) fs.writeFileSync(swPath, sw2);
 
-html = html.replace(/<link rel="(manifest|icon)"[^>]*>\n/g, '');   // ต้นแบบไฟล์เดียวไม่ใช่ PWA
-html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, f) => `<style>\n${read(path.join(APP, f))}</style>`);
+html = html.replace(/<link rel="(manifest|icon|preload)"[^>]*>\n/g, '');   // ต้นแบบไฟล์เดียวไม่ใช่ PWA · preload ฟอนต์ใช้ไม่ได้บน file://
+/* ฟอนต์ใน CSS → base64 ในไฟล์ (file:// โหลดไฟล์ฟอนต์ข้างๆ ไม่ได้) */
+const inlineFonts = (css, from) => css.replace(/url\(([^)]+\.woff2)\)/g, (_, f) =>
+  `url(data:font/woff2;base64,${fs.readFileSync(path.join(path.dirname(from), f)).toString('base64')})`);
+html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, f) => `<style>\n${inlineFonts(read(path.join(APP, f)), path.join(APP, f))}</style>`);
 html = html.replace(/<!--.*?-->\n/g, '');
 html = html.replace(/<script src="([^"]+)"><\/script>/g, (_, f) => {
   const js = read(path.join(APP, f)).replace(/'(img\/[^']+\.(jpg|png))'/g, (_, img, ext) =>

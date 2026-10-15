@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ทดสอบปริ้นเตอร์ · Geek Pop-up POS</title>
+<link rel="stylesheet" href="../app/css/fonts.css">
 <style>
   :root{
     --blue:#1A00B8; --blue-soft:#ECE9FF; --orange:#F7941D; --orange-soft:#FFF1DE;
     --ink:#1b1b2f; --mute:#6b6b80; --line:#e3e3ee; --bg:#f6f6fb; --ok:#14804a; --bad:#c62828;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Thai","Sarabun",system-ui,sans-serif;font-size:17px}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px}
   button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
   button:disabled{opacity:.4;cursor:default}
   header{background:var(--blue);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
@@ -39,7 +40,7 @@
   .check button{padding:8px 12px;border-radius:10px;background:var(--bg);font-weight:700;font-size:14px;min-height:44px}
   .check button.on[data-v="pass"]{background:var(--ok);color:#fff}
   .check button.on[data-v="fail"]{background:var(--bad);color:#fff}
-  #log{font:14px/1.45 ui-monospace,Menlo,monospace;background:#11112a;color:#e8e8ff;border-radius:12px;padding:12px;height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0}
+  #log{font:14px/1.5 ui-monospace,Menlo,var(--font);background:#11112a;color:#e8e8ff;border-radius:12px;padding:12px;height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0}
   .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
   #preview{display:flex;gap:12px;overflow-x:auto;padding:4px 0;align-items:flex-start}
   #preview canvas{width:260px;height:auto;border:1px solid var(--line);background:#fff;flex:none}
@@ -66,7 +67,7 @@
       <button class="connect" id="btnConnect">🔌 เชื่อมปริ้นเตอร์</button>
       <div class="tests">
         <button data-test="text" disabled>🔤 ข้อความอังกฤษ<small>เช็กว่าส่งข้อมูลได้</small></button>
-        <button data-test="slips" disabled>🧾 ตั๋วภาษาไทย<small>ใบเสร็จ + ตั๋วครัว ตัดแยก</small></button>
+        <button data-test="slips" disabled>🧾 ตั๋วภาษาไทย<small>ใบเสร็จ + ตั๋วครัว 2 แบบ ตัดแยก</small></button>
         <button data-test="ruler" disabled>📏 ความกว้างกระดาษ<small>ต้องเห็นกรอบครบ 2 ข้าง</small></button>
         <button data-test="cut" disabled>✂️ ตัดกระดาษ</button>
         <button data-test="drawer" disabled>💰 เปิดลิ้นชัก<small>ไม่มีลิ้นชักก็กดได้ ไม่เสียหาย</small></button>
@@ -104,10 +105,13 @@
   </div>
 </main>
 
+<!-- เนื้อหาตั๋วชุดเดียวกับแอป (config + core + slips) -->
+<script src="../app/js/config.js"></script>
+<script src="../app/js/core.js"></script>
 <script src="../app/js/printer.js"></script>
+<script src="../app/js/slips.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const pad = n => String(n).padStart(2, '0');
 const now = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
 function log(msg, kind){
   const line = `${now()} ${kind === 'ok' ? '✅' : kind === 'bad' ? '❌' : '·'} ${msg}`;
@@ -187,25 +191,22 @@ if(UsbPrinter.supported()){
   navigator.usb.addEventListener('connect', e => { log(`เสียบอุปกรณ์ USB: ${e.device.productName || hex4(e.device.vendorId)}`); tryReconnect('เสียบสายใหม่'); });
 }
 
-/* ---------- ตั๋วตัวอย่าง (เลย์เอาต์เดียวกับ app/js/ui/print.js) ---------- */
-function sampleSlips(){
-  const d = new Date(), ts = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const receipt = [
-    {text:'Geek Yogurt & Smoothie Bar', size:32, bold:true, align:'center'}, {text:'Pop-up Store', align:'center'}, {rule:'dash'},
-    {left:'ออเดอร์ #042', right:'กินเลย', bold:true}, {text:ts}, {rule:'dash'},
-    {left:'Greek Yogurt · 2 สกู๊ป', right:'154'}, {text:'  Banana ×3, Mango (+15), Granola (+10)', size:22}, {text:'  น้ำผึ้ง: ราดปกติ', size:22},
-    {left:'Acai ×2', right:'378'}, {text:'  Mango (แทน Banana), ไม่รับ Strawberries, Blueberries, Granola, Flaxseeds', size:22}, {text:'  น้ำผึ้ง: ไม่รับ', size:22},
-    {rule:'dash'}, {left:'รวม', right:'฿532', size:32, bold:true}, {left:'ชำระด้วย', right:'เงินสด'}, {left:'รับเงิน', right:'฿1,000'}, {left:'เงินทอน', right:'฿468'},
-    {rule:'dash'}, {text:'ขอบคุณที่อุดหนุนครับ/ค่ะ', align:'center'},
-    {text:'ทดสอบสระ: กี่ ปู่ ญี่ปุ่น ฐ ฎ ฏ ฤ ฦ ๆ ฯ ๑๒๓ ปั๊ม น้ำ', size:22, align:'center'},
-  ];
-  const kitchen = [
-    {text:'#042', size:110, bold:true, align:'center'}, {text:'กินเลย', size:52, bold:true, align:'center', invert:true}, {text:ts, align:'center'}, {rule:'dash'},
-    {text:'1 × Greek Yogurt · 2 สกู๊ป', size:34, bold:true}, {text:'  - Banana ×3'}, {text:'  - Mango (+15)'}, {text:'  - Granola (+10)'}, {text:'  น้ำผึ้ง: ราดปกติ', bold:true}, {text:'  หมายเหตุ: แพ้ถั่ว ไม่เอาถ้วยใหญ่', bold:true},
-    {gap:8}, {text:'2 × Acai', size:34, bold:true}, {text:'  - Mango (เปลี่ยนจาก Banana)', bold:true}, {text:'  - ไม่รับ Strawberries', bold:true}, {text:'  - Blueberries'}, {text:'  - Granola'}, {text:'  - Flaxseeds'}, {text:'  น้ำผึ้ง: ไม่รับ', bold:true},
-  ];
-  const o = opt();
-  return [renderSlip(receipt, o.dots), renderSlip(kitchen, o.dots)];
+/* ---------- ตั๋วตัวอย่าง: บิลสมมติ ผ่าน receiptBlocks / kitchenBlocks ตัวเดียวกับแอป (app/js/slips.js) ---------- */
+function sampleSale(dining){
+  const ts = new Date().toISOString();
+  if(dining === 'takeaway') return {no:43, ts, dining, items:[{menu:'banana', name:'Banana Choco', sizeName:'', tops:[], unit:149, qty:1}]};
+  const acai = [{name:'Mango', n:1, extra:0, from:'Banana'}, {name:'Strawberries', n:1, extra:0, from:null, removed:true}, {name:'Blueberries', n:1, extra:0, from:null},
+    {name:'Granola', n:1, extra:0, from:null, removed:true}, {name:'Flaxseeds', n:1, extra:0, from:null}, {name:'Chia', n:1, extra:15, from:null, add:true}];
+  return {no:42, ts, dining:'dinein', staff:'ทดสอบ', method:'cash', total:562, received:1000, change:438, items:[
+    {menu:'greek', name:'Greek Yogurt', sizeName:'2 สกู๊ป', tops:[{name:'Banana', n:3, extra:0}, {name:'Mango', n:1, extra:15}, {name:'Granola', n:1, extra:10}], honey:'normal', note:'แพ้ถั่ว ไม่เอาถ้วยใหญ่', unit:154, qty:1},
+    {menu:'acai', name:'Acai', sizeName:'', tops:acai, honey:'none', unit:204, qty:2}]};
+}
+/* บรรทัดทดสอบสระมีเฉพาะหน้านี้ ไม่อยู่ในตั๋วของแอป */
+const VOWEL_TEST = {text:'ทดสอบสระ: กี่ ปู่ ญี่ปุ่น ฐ ฎ ฏ ฤ ฦ ๆ ฯ ๑๒๓ ปั๊ม น้ำ', size:22, align:'center'};
+async function sampleSlips(){
+  const ok = await slipFontsReady(), o = opt();
+  log(`ฟอนต์ตั๋ว ${ok ? SLIP_FACE + ' พร้อม' : 'ยังไม่พร้อม ใช้ฟอนต์สำรอง'}`, ok ? '' : 'bad');
+  return [renderSlip([...receiptBlocks(sampleSale()), VOWEL_TEST], o.dots), renderSlip(kitchenBlocks(sampleSale()), o.dots), renderSlip(kitchenBlocks(sampleSale('takeaway')), o.dots)];
 }
 function rulerCanvas(dots){
   const c = document.createElement('canvas'), x = c.getContext('2d'); c.width = dots; c.height = 150;
@@ -229,8 +230,8 @@ function printedView(src, thr){
   x.putImageData(img, 0, 0); return c;
 }
 function showPreview(canvases){ const p = $('preview'), thr = opt().thr; p.innerHTML = ''; canvases.forEach(c => p.appendChild(printedView(c, thr))); }
-$('btnPreview').onclick = () => {
-  try{ const t = performance.now(), s = sampleSlips(); showPreview([...s, rulerCanvas(opt().dots)]); log(`วาดตัวอย่าง ${s.map(c => c.width + '×' + c.height).join(', ')} ใช้ ${Math.round(performance.now() - t)} ms`); }
+$('btnPreview').onclick = async () => {
+  try{ const t = performance.now(), s = await sampleSlips(); showPreview([...s, rulerCanvas(opt().dots)]); log(`วาดตัวอย่าง ${s.map(c => c.width + '×' + c.height).join(', ')} ใช้ ${Math.round(performance.now() - t)} ms`); }
   catch(e){ log('วาดตัวอย่างไม่ได้ · ' + e.message, 'bad'); }
 };
 
@@ -245,11 +246,11 @@ async function send(label, data){
 const TESTS = {
   text: () => send('ข้อความอังกฤษ', bytes(ESCPOS.init(), ESCPOS.text('Geek Pop-up POS - printer test'), ESCPOS.text('ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789'),
     ESCPOS.text(new Date().toISOString()), ESCPOS.feed(4))),
-  slips: () => {
-    const o = opt(), s = sampleSlips(); showPreview(s);
-    return send('ตั๋วภาษาไทย (ใบเสร็จ + ตั๋วครัว)', bytes(ESCPOS.init(), canvasCmds(s[0], o.thr), o.cut, canvasCmds(s[1], o.thr), o.cut));
+  slips: async () => {
+    const o = opt(), s = await sampleSlips(); showPreview(s);
+    return send('ตั๋วภาษาไทย (ใบเสร็จ + ตั๋วครัว กินเลย + กลับบ้าน)', bytes(ESCPOS.init(), ...s.flatMap(c => [canvasCmds(c, o.thr), o.cut])));
   },
-  ruler: () => { const o = opt(), c = rulerCanvas(o.dots); showPreview([c]); return send(`ความกว้าง ${o.dots} จุด`, bytes(ESCPOS.init(), canvasCmds(c, o.thr), ESCPOS.feed(4))); },
+  ruler: async () => { await slipFontsReady(); const o = opt(), c = rulerCanvas(o.dots); showPreview([c]); return send(`ความกว้าง ${o.dots} จุด`, bytes(ESCPOS.init(), canvasCmds(c, o.thr), ESCPOS.feed(4))); },
   cut: () => send('ตัดกระดาษ', bytes(ESCPOS.feed(1), opt().cut)),
   drawer: () => send(`เปิดลิ้นชัก (ขา ${opt().pin ? 5 : 2})`, bytes(ESCPOS.drawer(opt().pin))),
   disconnect: async () => { await P.close(); log('ตัดการเชื่อมแล้ว (เครื่องยังจำการอนุญาตไว้)'); setConnected(); },
@@ -298,7 +299,7 @@ $('btnCopy').onclick = async () => {
 };
 $('btnClearLog').onclick = () => { $('log').textContent = ''; };
 
-showEnv(); renderChecks(); setConnected(); tryReconnect('เปิดหน้า');
+showEnv(); renderChecks(); setConnected(); tryReconnect('เปิดหน้า'); slipFontsReady();
 </script>
 </body>
 </html>
