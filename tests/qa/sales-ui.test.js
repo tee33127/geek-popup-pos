@@ -31,7 +31,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   eq('P09 89 + กล้วย ×2 ยืนยัน 2 อย่าง → บิล fewTops 2 · ตั๋วครัวพิมพ์ "ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ"', [s9.total, s9.items[0].fewTops, kitchen(s9).includes('ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ')], [89, 2, true]);
 
   // P05 ตัวนับ · P12 สลับขนาด
-  menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); click('[data-more="Banana"]');
+  menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-pick="Banana"]'); click('[data-pick="Banana"]');
   eq('P05 ตัวนับ "ฟรี ●●●" (ไม่มีตัวเลข) ใช้ฟรีแล้ว 3 จาก 3 ราคา 89', [$('.cupsum .tq').textContent.trim(), $$('.fdots i.on').length, $('.cupsum .tq').getAttribute('aria-label'), (p.honey('normal'), addBtn().includes('฿89'))], ['ฟรี', 3, 'ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', true]);
   click('[data-pick="Granola"]');
   const sz = s => { size(s); p.honey('normal'); return [ev('sel.picks.length'), addBtn().match(/฿([\d,]+)/)[1]]; };
@@ -137,7 +137,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   // C08 กดชำระตอน IndexedDB ยังโหลดไม่เสร็จ
   add({menu:'acai'}); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="tcp"]');
   ev("STORE_MODE = 'loading'"); const n8 = ev('loadSales().length'); click('#payOk');
-  const toastNow = $('#toast').style.display === 'block' ? $('#toast').textContent : '';
+  const toastNow = $('#modal .mtoast') ? $('#modal .mtoast').textContent : '';   // หน้าต่างชำระเงินเปิดอยู่: ข้อความแสดงในหน้าต่าง ไม่ใช่ toast ลอย (Tee 2026-10-15)
   eq('C08 ยังโหลดไม่เสร็จ: ไม่บันทึก', ev('loadSales().length') - n8, 0);
   eq('C08 ยังโหลดไม่เสร็จ: มีข้อความบอกให้รอ', /รอ|โหลด/.test(toastNow), true);
   ev("STORE_MODE = 'localstorage'"); click('#payOk'); click('#nextOrder');

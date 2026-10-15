@@ -63,7 +63,7 @@ function keySubmit(){
   const code = padVal('login');
   if(LG.mode === 'code'){
     const u = userByCode(code);
-    if(u){ signIn(u); hideLogin(); toast(`สวัสดี ${u.name}`, 'check'); askFloat(); return; }
+    if(u){ signIn(u); hideLogin(); askFloat(); return; }   // ไม่มี toast ทักทาย (Tee 2026-10-15) ชื่ออยู่บนแถบหัวแล้ว
     padError('login', 'รหัสไม่ถูกต้อง');
   } else if(LG.mode === 'recover'){
     if(recoveryOk(code)){ LG = LG.after === 'setup' ? {mode:'setup', msg:'', recovered:true} : {mode:'reset', msg:''}; renderLogin(); return; }

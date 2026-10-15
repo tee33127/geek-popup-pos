@@ -1,7 +1,50 @@
 /* ---------- ตัวช่วยหน้าจอ: $, toast, modal, ยืนยัน, รหัสเจ้าของ ---------- */
 const $ = id => document.getElementById(id);
 
-function toast(msg, ic){ const t = $('toast'); t.innerHTML = (ic ? icon(ic, 18) + ' ' : '') + esc(msg); t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(()=> t.style.display='none', 1800); }
+/* toast (Tee 2026-10-15 Redmi จริง)
+   ไม่มีหน้าต่าง: ลอยเหนือแถบล่างของหน้าเลือกเมนู ตรงปุ่ม "เพิ่มลงออเดอร์" (ไม่ทับปุ่มหลัก ยอดเงิน · กล่องออเดอร์ที่ขยายอยู่)
+   มีหน้าต่างเปิด: ห้ามทับหน้าต่าง → แสดงเป็นแถบข้อความในตัวหน้าต่างใต้หัว (.mtoast) กันทับยอดเงินทอน
+   แสดง 1.4 วินาที · แตะแล้วหายทันที · หน้าต่างวาดใหม่ระหว่างนั้น (openModal) ข้อความยังอยู่ */
+let MTOAST = null;   // ข้อความที่แสดงในหน้าต่าง {html, until}
+function toast(msg, ic){
+  const html = (ic ? icon(ic, 18) + ' ' : '') + esc(msg), t = $('toast');
+  clearTimeout(toast.h);
+  if($('modal').classList.contains('show')){
+    t.style.display = 'none'; MTOAST = {html, until:Date.now() + 1400}; modalToast();
+    toast.h = setTimeout(() => { MTOAST = null; const m = document.querySelector('#modal .mtoast'); if(m) m.remove(); }, 1400);
+    return;
+  }
+  t.innerHTML = html; t.style.display = 'block';
+  placeToast(t); toast.h = setTimeout(() => { t.style.display = 'none'; }, 1400);
+}
+function modalToast(){
+  const box = document.querySelector('#modal .box'); if(!box || !MTOAST || Date.now() > MTOAST.until) return;
+  let m = box.querySelector('.mtoast');
+  if(!m){ m = document.createElement('div'); m.className = 'mtoast'; m.setAttribute('role', 'status');
+    const head = box.querySelector('.mhead'); if(head) head.after(m); else box.prepend(m);
+    m.onclick = () => { MTOAST = null; m.remove(); }; }
+  m.innerHTML = MTOAST.html;
+}
+function placeToast(t){
+  const W = window.innerWidth, bar = $('actBar'), b = bar && bar.getBoundingClientRect ? bar.getBoundingClientRect() : null;
+  let cx = W / 2, bottom = 16, L = 8, R = W - 8;
+  if(b && b.width){ const add = $('btnAdd').getBoundingClientRect(); cx = add.left + add.width / 2; bottom = window.innerHeight - b.top + 8; }
+  if(document.body.classList.contains('cartopen')){ const c = document.querySelector('aside.cart').getBoundingClientRect(); if(c.width) R = Math.min(R, c.left - 8); }   // ไม่ทับกล่องออเดอร์ที่ขยาย
+  t.style.maxWidth = Math.max(160, R - L) + 'px'; t.style.top = 'auto'; t.style.bottom = bottom + 'px';
+  const w = t.offsetWidth || 0;
+  t.style.left = Math.min(Math.max(cx, L + w / 2), R - w / 2) + 'px';
+  /* ห้ามทับปุ่มหลัก/ยอดเงินที่เห็นอยู่ (แนวตั้ง: ปุ่มชำระเงินในกล่องออเดอร์อาจเลื่อนมาอยู่เหนือแถบล่าง) → ขยับขึ้นเหนือสิ่งนั้น */
+  const keep = ['btnPay', 'total', 'barTotal', 'btnClear'].map($).filter(e => e && e.getBoundingClientRect && e.offsetParent !== null);
+  for(let i = 0; i < 4; i++){
+    const a = t.getBoundingClientRect(), hit = keep.map(e => e.getBoundingClientRect()).find(r => r.width && r.left < a.right && r.right > a.left && r.top < a.bottom && r.bottom > a.top);
+    if(!hit) break;
+    bottom = window.innerHeight - hit.top + 8; t.style.bottom = bottom + 'px';
+  }
+}
+$('toast').addEventListener('click', () => { clearTimeout(toast.h); $('toast').style.display = 'none'; });
+/* ความสูงแถบหัว → หน้าต่างเริ่มใต้แถบนี้ */
+const setHdrH = () => { const hd = document.querySelector('header'); if(hd) document.documentElement.style.setProperty('--hdrh', hd.offsetHeight + 'px'); };
+window.addEventListener('resize', setHdrH); setHdrH();
 
 /* ---------- Modal: แบบเดียวกันทุกหน้าต่าง (Tee 2026-10-13 · iPad ปัดในตั้งค่าแล้วหน้าขายข้างหลังเลื่อนแทน) ----------
    openModal(body, o) · o = {title, key, foot, wide, backdrop, onClose} (ส่ง true = wide แบบเดิม)
@@ -26,12 +69,27 @@ function openModal(body, o = {}){
   if(o === true || o === false) o = {wide:o};
   const prev = MD, body0 = $('modal').querySelector('.mbody'), keep = prev && o.key && prev.key === o.key && body0 ? body0.scrollTop : 0;
   MD = {key:o.key || null, backdrop:!!o.backdrop, onClose:o.onClose || null};
-  $('modal').innerHTML = `<div class="box ${o.wide ? 'wide' : ''}" role="dialog" aria-modal="true"${o.title ? ' aria-labelledby="mdTitle"' : ''}>` +
+  $('modal').innerHTML = `<div class="box ${o.wide ? 'wide' : ''} ${o.cls || ''}" role="dialog" aria-modal="true"${o.title ? ' aria-labelledby="mdTitle"' : ''}>` +
     (o.title ? `<div class="mhead"><h3 id="mdTitle">${o.title}</h3><button class="mx" id="closeX" aria-label="ปิด">${icon('x', 26)}</button></div>` : '') +
     `<div class="mbody">${body}</div>` + (o.foot ? `<div class="mfoot">${o.foot}</div>` : '') + `</div>`;
   $('modal').classList.add('show'); lockPage();
   if(keep) $('modal').querySelector('.mbody').scrollTop = keep;
+  modalToast();   // ข้อความที่ยังแสดงอยู่ ไม่หายตอนหน้าต่างวาดใหม่
+  $('toast').style.display = 'none';   // toast ที่ค้างอยู่ห้ามทับหน้าต่าง
 }
+/* แป้นพิมพ์บนจอ (Android/iOS) ทำให้จอที่มองเห็นเตี้ยลงโดยหน้าไม่ย่อตาม: หน้าต่างใช้ความสูงของ visualViewport
+   แล้วเลื่อนช่องที่กำลังพิมพ์ (และเงินทอนใต้ช่อง) ให้อยู่ในจอ · ปุ่มยืนยันอยู่ในแถบล่างของกล่องจึงเห็นตลอด (Tee 2026-10-14 Redmi) */
+function fitViewport(){
+  const vv = window.visualViewport; if(!vv) return;
+  const r = document.documentElement.style;
+  r.setProperty('--vvh', Math.round(vv.height) + 'px'); r.setProperty('--vvtop', Math.round(vv.offsetTop) + 'px');
+  const a = document.activeElement, mb = a && a.closest && a.closest('#modal .mbody');
+  if(!mb || !a.scrollIntoView) return;
+  a.scrollIntoView({block:'nearest'});
+  const ch = mb.querySelector('.change'); if(ch) ch.scrollIntoView({block:'nearest'});
+}
+if(window.visualViewport){ visualViewport.addEventListener('resize', fitViewport); visualViewport.addEventListener('scroll', fitViewport); fitViewport(); }
+document.addEventListener('focusin', e => { if(e.target.closest && e.target.closest('#modal')) setTimeout(fitViewport, 300); });   // แป้นพิมพ์ขึ้นหลัง focus นิดหน่อย
 function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML = ''; MD = null; unlockPage(); }
 /* ปุ่ม X / แตะพื้นหลัง: ใช้ onClose ของหน้าต่างนั้น (ล้างข้อมูลที่ค้าง) ถ้ามี */
 function modalClose(){ const f = MD && MD.onClose; if(f) f(); else closeModal(); }
