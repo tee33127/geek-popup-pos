@@ -52,10 +52,10 @@ const server = http.createServer((q, r) => {
       return r;
     };
     const L = {};
-    /* ข้อความล้นกล่อง: element ที่มีข้อความตรงๆ กว้างเกินกล่องตัวเอง (ไม่นับกล่องที่ตั้งใจให้เลื่อน) */
+    /* ข้อความล้นกล่อง: element ที่มีข้อความตรงๆ กว้างเกินกล่องตัวเอง (ไม่นับกล่องที่ตั้งใจให้เลื่อน และที่ตั้งใจตัด … เช่นรายละเอียดตะกร้า) */
     const overflow = () => page.evaluate(() => [...document.querySelectorAll('main *, #modal *, #actBar *, header *')].filter(el => {
       const st = getComputedStyle(el), b = el.getBoundingClientRect();
-      if(st.display === 'none' || st.visibility === 'hidden' || !b.width || /auto|scroll/.test(st.overflowX) || /^(INPUT|TEXTAREA|SELECT|svg|path)$/i.test(el.tagName)) return false;
+      if(st.display === 'none' || st.visibility === 'hidden' || !b.width || /auto|scroll/.test(st.overflowX) || (st.textOverflow === 'ellipsis' && st.overflowX === 'hidden') || /^(INPUT|TEXTAREA|SELECT|svg|path)$/i.test(el.tagName)) return false;
       if(![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false;
       return el.scrollWidth > el.clientWidth + 1;
     }).map(el => `${el.tagName.toLowerCase()}.${el.className} "${el.textContent.trim().slice(0, 20)}" ${el.scrollWidth}>${el.clientWidth}`));
@@ -73,6 +73,11 @@ const server = http.createServer((q, r) => {
     await page.click('[data-honey="lots"]'); await page.click('[data-noteopen]');
     await page.fill('#note', 'ลูกค้าแพ้ถั่วลิสงขอไม่ใส่เนยถั่วและช็อกโกแลตชิพ '.repeat(10) + '😀👍🏽 ฮ่าาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาา่');   // X02 หมายเหตุยาว
     await page.click('#btnAdd');
+    /* C10 ตะกร้าจัดกลุ่มเหมือนใบเสร็จ: กลุ่มละบรรทัดเดียว (ยาวตัด …) · ไม่รับ = ส้ม ไม่ใช่แดง · แตะ = ดูเต็ม */
+    L.cartGroups = await page.evaluate(() => { const cg = [...document.querySelectorAll('#cart .line:not(.full) .cg')];
+      const one = cg.every(c => c.getBoundingClientRect().height <= parseFloat(getComputedStyle(c).fontSize) * 1.6);
+      const no = [...document.querySelectorAll('#cart .cg.no')], noColor = no.map(c => getComputedStyle(c).color);
+      return [cg.length > 0, one, noColor.every(c => c === 'rgb(163, 84, 0)')]; });
     L.cart = await check('cart'); L.cartOver = await overflow(); await page.screenshot({path:path.join(SHOTS, `${label}-05-cart.png`), fullPage:true});
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2');
     await page.click('[data-dine="takeaway"]'); await page.click('[data-method="cash"]');
@@ -97,6 +102,7 @@ const server = http.createServer((q, r) => {
     eq(`U01 ${label}: รหัสเจ้าของ = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS ได้ focus · ไม่มีช่อง password`, L.ownerPad, ['text', 'numeric', 'disc', true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงิน (หรือแถบออเดอร์ที่ยุบ) เห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
+    eq(`C10 ${label}: ตะกร้าจัดกลุ่มเหมือนใบเสร็จ แต่ละกลุ่มบรรทัดเดียว (ยาวตัด …) · ไม่รับ สีส้มไม่ใช่แดง`, L.cartGroups, [true, true, true]);
     eq(`F01 ${label}: ฟอนต์ที่ใช้จริง IBM Plex Sans Thai Looped (400 + 700 โหลดแล้ว)`, L.font, ['IBM Plex Sans Thai Looped', true, true, true]);
     eq(`F02 ${label}: ไม่มีข้อความล้นกล่อง (Acai, หน้าต่างเปลี่ยน, Greek, ตะกร้า, ชำระเงิน+แป้น, ตั้งค่า)`, [L.acaiOver, L.swapOver, L.greekOver, L.cartOver, L.payOver, L.settingsOver], Array(6).fill([]));
   }

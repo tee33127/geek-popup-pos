@@ -99,7 +99,13 @@ main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + cal
 .empty{color:var(--mute);text-align:center;padding:calc(24px * var(--ui-scale)) 0}
 .line{border-bottom:1px solid var(--line);padding:calc(10px * var(--ui-scale)) 0}
 .line .t{display:flex;justify-content:space-between;gap:calc(8px * var(--ui-scale));font-weight:700}
-.line .d{color:var(--mute);font-size:max(12px, calc(14.5px * var(--ui-scale)));margin:2px 0 calc(6px * var(--ui-scale))}
+main > .cart{min-width:0}   /* แนวตั้ง: บรรทัดตะกร้าที่ไม่ตัดคำ (ยาวตัด …) ต้องไม่ดันคอลัมน์ 1fr จนจอเลื่อนแนวนอน */
+.line .d{min-width:0;color:var(--mute);font-size:max(12px, calc(14.5px * var(--ui-scale)));margin:2px 0 calc(6px * var(--ui-scale));cursor:pointer;display:flex;flex-wrap:wrap;column-gap:calc(16px * var(--ui-scale))}
+.line .d .cg{min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}   /* กลุ่มไม่แยกกลาง มีป้ายของตัวเอง กล่องกว้างวางต่อกันได้ · ยาวเกินตัด … แถวไม่สูงขึ้น · แตะ = ดูเต็ม */
+.line .d .cg b{font-weight:600;color:var(--ink)}
+.line .d .cg.no,.line .d .cg.no b{color:#a35400}   /* ไม่รับ: ส้มเข้ม (สีเดียวกับคิดเพิ่ม) ไม่ใช่สีแดงเตือน */
+.line .d .cg.no b{font-weight:700}
+.line.full .d .cg{white-space:normal;overflow:visible}
 .qty{display:flex;align-items:center;gap:calc(10px * var(--ui-scale))}
 .qty button{width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));border-radius:10px;background:var(--bg);font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700}
 .qty .rm{margin-left:auto;width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));display:grid;place-items:center;color:var(--bad);background:none;border-radius:10px}

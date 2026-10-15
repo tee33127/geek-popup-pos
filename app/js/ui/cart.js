@@ -20,12 +20,26 @@ function cartMode(){
 function openCart(){ cartOpen = true; cartMode(); }
 function closeCart(){ cartOpen = false; cartMode(); }
 
+/* รายละเอียดแก้วในตะกร้า (Tee 2026-10-15): จัดกลุ่มเดียวกับใบเสร็จ (topGroups ใน slips.js) กลุ่มละบรรทัด
+   เปลี่ยน → ท็อปปิ้ง/เพิ่ม → ไม่รับ (ส้ม ตัวหนา) → น้ำผึ้ง · แยก → หมายเหตุ · Acai/Banana ไม่เปลี่ยนอะไร = "ตามสูตร"
+   แต่ละบรรทัดไม่ขึ้นบรรทัดใหม่ ยาวเกินตัดด้วย … แถวจึงไม่สูงขึ้น · แตะรายละเอียด = ดูเต็ม / แตะอีกครั้ง = ย่อ */
+const cartFull = new Set();
+function cartDetailHtml(i){
+  const row = (text, tag, cls = '') => `<div class="cg ${cls}">${tag ? `<b>${esc(tag)}</b> ` : ''}${esc(text)}</div>`;
+  const G = topGroups(i), out = G.map(([tag, list]) => row(list.join(', '), tag, tag === 'ไม่รับ:' ? 'no' : ''));
+  if(!G.length && MENU[i.menu] && MENU[i.menu].defaults) out.push(row('ตามสูตร'));
+  const meta = [i.honey !== undefined ? 'น้ำผึ้ง: ' + HONEY[i.honey].name : '', i.sep ? `แยกท็อปปิ้ง (+${i.sep})` : ''].filter(Boolean).join(' · ');
+  if(meta) out.push(row(meta));
+  if(i.note) out.push(row(i.note, 'หมายเหตุ:'));
+  return out.join('');
+}
 function renderCart(){
+  if(!cart.length) cartFull.clear();
   if(!cart.length) $('cart').innerHTML = '<div class="empty">ยังไม่มีรายการ<br>เลือกเมนูได้เลย</div>';
   else $('cart').innerHTML = cart.map((i, idx) => `
-    <div class="line ${i.key && i.key === cartFlash ? 'justadded' : ''}">
+    <div class="line ${i.key && i.key === cartFlash ? 'justadded' : ''} ${cartFull.has(i.key || idx) ? 'full' : ''}">
       <div class="t"><span>${esc(itemTitle(i))}</span><span>${baht(i.unit * i.qty)}</span></div>
-      <div class="d">${itemLines(i).map(esc).join('<br>')}</div>
+      <div class="d" data-full="${idx}">${cartDetailHtml(i)}</div>
       <div class="qty">
         <button data-m="${idx}">−</button><b>${i.qty}</b><button data-p="${idx}">+</button>
         <button class="rm" data-r="${idx}" aria-label="ลบรายการ" title="ลบรายการ">${icon('trash', 22)}</button>
@@ -47,6 +61,7 @@ $('cart').onclick = e => {
   if(el = g('p')) cart[el.dataset.p].qty++;
   else if(el = g('m')){ const i = cart[el.dataset.m]; i.qty--; if(i.qty <= 0) cart.splice(el.dataset.m, 1); }
   else if(el = g('r')) cart.splice(el.dataset.r, 1);
+  else if(el = g('full')){ const i = cart[el.dataset.full], k = i.key || Number(el.dataset.full); cartFull.has(k) ? cartFull.delete(k) : cartFull.add(k); }
   else return;
   renderCart();
 };

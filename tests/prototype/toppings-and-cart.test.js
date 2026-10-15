@@ -135,7 +135,13 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   eq('removed row styled', $$('.comp')[1].className.includes('removed'), true);
   eq('price unchanged', addPrice(), '189');
   add();
-  eq('cart shows ไม่รับ', $('#cart .line:nth-child(2) .d').textContent.includes('ไม่รับ สตรอว์เบอร์รี่'), true);
+  eq('cart shows ไม่รับ', $('#cart .line:nth-child(2) .d').textContent.includes('ไม่รับ: สตรอว์เบอร์รี่'), true);
+  /* ตะกร้าจัดกลุ่มเหมือนใบเสร็จ (topGroups): กลุ่มละบรรทัด ไม่รับแยกบรรทัด สีส้ม (class no) · แตะ = ดูเต็ม */
+  { const rows = [...$$('#cart .line:nth-child(2) .cg')].map(r => [r.className.trim(), r.textContent]);
+    eq('cart groups: each group own row, ไม่รับ row marked, never shares a row', [rows.filter(r => r[1].includes('ไม่รับ:')).every(r => r[0] === 'cg no' && r[1].startsWith('ไม่รับ:')), rows.length >= 2], [true, true]);
+    eq('cart groups match receipt grouping', rows.filter(r => /^(เปลี่ยน|ท็อปปิ้ง|เพิ่ม|ไม่รับ):/.test(r[1])).map(r => r[1]), ev(`topGroups(cart[1]).map(g => g[0] + ' ' + g[1].join(', '))`));
+    click('#cart .line:nth-child(2) .d'); eq('tap detail → full view', $('#cart .line:nth-child(2)').classList.contains('full'), true);
+    click('#cart .line:nth-child(2) .d'); eq('tap again → short view', $('#cart .line:nth-child(2)').classList.contains('full'), false); }
   // restore flow
   menu('acai'); click('[data-skip="0"]'); click('[data-reset="0"]');
   eq('ใส่กลับ restores', ev('sel.comps[0]'), 'Banana');
