@@ -1,7 +1,19 @@
 /* ---------- Payment ---------- */
 /* ไม่เลือกอะไรไว้ก่อน · ต้องเลือกกินเลย/กลับบ้านก่อน ปุ่มวิธีชำระเงินจึงจะกดได้ */
 let pay = {dining:null, method:null, received:0}, lastSale = null;
-function openPay(){ if(!cart.length || !needUser()) return; pay = {dining:null, method:null, received:0}; renderPay(); }
+function openPay(){
+  if(!cart.length || !needUser()) return;
+  if(sel.menu) return askPendingCup();   // กันแก้วหาย: เลือกเมนูแล้วแต่ยังไม่เพิ่ม
+  pay = {dining:null, method:null, received:0}; renderPay();
+}
+/* กด "ชำระเงิน" ตอนยังมีแก้วเลือกค้าง (Tee 2026-10-15) · ปุ่มหลัก = กลับไปเพิ่มก่อน · ปุ่มรอง = ทิ้งแก้วนี้ แล้วชำระเงิน */
+function askPendingCup(){
+  const m = curMenu(), P = priceSel(), s = m.sizes && m.sizes.find(x => x.id === sel.size);
+  openModal(`<h3 class="warn">${icon('alert', 22)} แก้วที่กำลังเลือกยังไม่ได้เพิ่มลงออเดอร์</h3>
+    <p style="color:var(--mute);margin:0 0 10px">${esc(m.name)}${s ? ' ' + esc(s.name) : ''}${m.sizes && !s ? '' : ' · ' + baht(P.unit)} · ถ้าชำระเงินตอนนี้ แก้วนี้จะไม่อยู่ในบิล</p>
+    <button class="pay" id="pendBack">กลับไปเพิ่มก่อน</button>
+    <button class="ghost wide" id="pendDrop">ทิ้งแก้วนี้ แล้วชำระเงิน</button>`, {key:'pending'});
+}
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
   const cashOk = pay.method !== 'cash' || pay.received >= total;
@@ -15,9 +27,10 @@ function renderPay(){
     <div class="row wrap">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
   if(!pay.method){ /* ยังไม่เลือกวิธีชำระ: ไม่แสดงส่วนรับเงิน */ }
   else if(pay.method === 'cash'){
-    h += `<div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
-      <input class="num" id="recv" inputmode="numeric" pattern="[0-9]*" data-digits placeholder="รับเงินมา" value="${pay.received || ''}">
-      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
+    /* แป้นตัวเลขของแอปข้างช่อง (ไม่เปิดแป้นระบบ) · ปุ่มลัดอยู่เหมือนเดิม */
+    h += `<div class="cashgrid"><div class="cashl"><div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
+      <label class="recvrow"><span>รับเงินมา</span>${moneyField('recv', pay.received || '', true)}</label>
+      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div></div>${moneyPadHtml()}</div>`;
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
     h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}
       <div class="ppamt">${baht(total)}</div>
@@ -28,7 +41,7 @@ function renderPay(){
   }
   const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot});   // X = ยกเลิก
+  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'mid'});   // X = ยกเลิก
   const r = $('recv');
   if(r){
     r.oninput = () => { pay.received = Number(r.value.replace(/\D/g, '')) || 0; renderPay(); const n = $('recv'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };

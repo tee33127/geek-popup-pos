@@ -37,6 +37,8 @@ $('modal').onclick = e => {
   if(id === 'payCancel') closeModal();
   else if(id === 'closeX') modalClose();   // ปุ่ม X บนหัวหน้าต่าง (หรือปุ่ม "ปิด" ในหน้าต่างที่ไม่มีหัว)
   else if(id === 'nextOrder'){ closeModal(); backToMenu(); }
+  else if(id === 'pendBack'){ closeModal(); closeCart(); const miss = missingStep(); if(miss) flashStep(miss); }   // แก้วค้าง: กลับไปทำต่อ ตัวเลือกยังอยู่
+  else if(id === 'pendDrop'){ closeModal(); backToMenu(); openPay(); }
   else if(id === 'pinNo'){ pinCb = null; renderSummary(); }   // ใช้จากแท็บบิลเท่านั้น
   else if(id === 'cfYes'){ const cb = confirmCb; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
   else if(id === 'cfNo'){ const cb = confirmNo; confirmCb = confirmNo = null; closeModal(); if(cb) cb(); }
