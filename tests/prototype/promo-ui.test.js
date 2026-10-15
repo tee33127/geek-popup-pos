@@ -29,9 +29,9 @@ const total = () => $('#total').textContent;
   F.menu(w, 'acai'); F.honey(w, 'normal');   // ปุ่มบอกราคาเมื่อเลือกครบ
   eq('add-on section present, grid closed', [$('[data-addopen]').textContent, !!$('[data-add]')], ['+ เพิ่มท็อปปิ้ง', false]);
   click('[data-addopen]'); eq('grid opens with every topping at +15', [$$('[data-add]').length, $('[data-add="Granola"] small').textContent], [20, '+15']);
-  click('[data-add="Mango"]'); click('[data-amore="Mango"]');
-  eq('Mango ×2 = 219', [$('#btnAdd').textContent.includes('฿219'), $('.trow .nm').textContent], [true, 'เพิ่ม มะม่วง']);
-  click('[data-aless="Mango"]'); eq('minus back to 204', $('#btnAdd').textContent.includes('฿204'), true);
+  click('#modal [data-add="Mango"]'); click('#modal [data-add="Mango"]'); click('#addsDone');
+  eq('Mango ×2 = 219 · one-line summary "+ เพิ่มท็อปปิ้ง: มะม่วง ×2 · +฿30 แก้ไข"', [$('#btnAdd').textContent.includes('฿219'), $('.addsum').textContent.replace(/\s+/g, ' ').trim()], [true, '+ เพิ่มท็อปปิ้ง: มะม่วง ×2 · +฿30แก้ไข']);
+  click('.addsum'); click('#modal [data-aless="Mango"]'); click('#addsDone'); eq('edit in window: minus back to 204', $('#btnAdd').textContent.includes('฿204'), true);
   F.finish(w);
   eq('cart line shows add-on', $('#cart .d').textContent.includes('เพิ่ม มะม่วง (+15)'), true);
   eq('kitchen ticket shows add-on', w.eval(`kitchenBlocks({no:1, dining:'dinein', ts:new Date().toISOString(), items:cart})`).some(b => b.text === '  + เพิ่ม มะม่วง'), true);

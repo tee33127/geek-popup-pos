@@ -4,7 +4,7 @@
    ขั้นใหม่เลื่อนลงมาต่อท้าย (slide down + fade) แล้วเลื่อนจอให้อยู่ในจอ เฉพาะตอนเพิ่งเปิด · กดท็อปปิ้งไม่เลื่อน
    ปุ่มหลักหน้าที่เดียว "เพิ่มลงออเดอร์" · ยังไม่ครบ = สีเทา (class off) บอกสิ่งที่ขาด กดแล้วพาไปขั้นที่ขาด */
 let sel, tallyHad = false, shownKeys = ['menu'];   // tallyHad: ช่องสรุปเคยมีส่วน "คิดเพิ่ม" (กะพริบครั้งเดียวตอนเปลี่ยนจากไม่มีเป็นมี) · shownKeys: ขั้นที่แสดงอยู่ (หาขั้นใหม่)
-function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:'', noteOpen:false}; tallyHad = false; }
+function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], honey:CONFIG.honeyDefault, sep:false, adds:[], note:'', noteOpen:false}; tallyHad = false; }
 resetSel();
 const curMenu = () => sel.menu ? MENU[sel.menu] : null;
 /* ขั้นที่แสดงตอนนี้ · Greek ยังไม่เลือกขนาด = ยังไม่แสดงท็อปปิ้ง/น้ำผึ้ง (ราคาท็อปปิ้งขึ้นกับขนาด) */
@@ -30,7 +30,7 @@ const stepDone = id => id === 'menu' ? !!sel.menu : id === 'size' ? !!sel.size :
 function pickMenu(id){
   if(sel.menu === id) return;
   const m = MENU[id];
-  sel = {menu:id, size:null, picks:[], comps:m.defaults ? [...m.defaults] : [], swapSlot:null, honey:CONFIG.honeyDefault, sep:false, adds:[], addOpen:false, note:'', noteOpen:false};
+  sel = {menu:id, size:null, picks:[], comps:m.defaults ? [...m.defaults] : [], honey:CONFIG.honeyDefault, sep:false, adds:[], note:'', noteOpen:false};
   tallyHad = false;
 }
 const calm = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -49,9 +49,9 @@ function flashStep(id){
 }
 
 /* หัวขั้น: วงกลมเลขขั้น (ครบแล้ว = ถูกสีเขียว) อยู่แค่ในหัวขั้น · เนื้อหาเต็มความกว้างกล่อง */
-function sec(id, n, title, body, enter){
+function sec(id, n, title, body, enter, inline){
   const done = stepDone(id);
-  return `<section class="sec ${done ? 'done' : ''} ${enter ? 'enter' : ''}" data-step="${id}"><div class="sh"><b class="sn" aria-label="${done ? 'ขั้นที่ ' + n + ' เลือกครบแล้ว' : 'ขั้นที่ ' + n}">${done ? icon('check', 18) : n}</b><span class="stitle">${title}</span></div><div class="sb">${body}</div></section>`;
+  return `<section class="sec ${done ? 'done' : ''} ${enter ? 'enter' : ''} ${inline ? 'inline' : ''}" data-step="${id}"><div class="sh"><b class="sn" aria-label="${done ? 'ขั้นที่ ' + n + ' เลือกครบแล้ว' : 'ขั้นที่ ' + n}">${done ? icon('check', 18) : n}</b><span class="stitle">${title}</span></div><div class="sb">${body}</div></section>`;
 }
 
 /* ช่องสรุปแก้วที่กำลังเลือก (ซ้ายของแถบล่าง) · ทุกตัวเลขมาจาก P = priceSel() ตัวเดียวกับราคาบนปุ่ม
@@ -93,87 +93,115 @@ function sepHtml(P){
   return `<button class="sep ${on ? 'on' : ''}" data-sep role="switch" aria-checked="${on}">` +
     `<span class="nm">แยกท็อปปิ้ง · ใส่ถ้วยแยก <b>+${baht(CONFIG.separateToppingPrice)}</b></span><span class="sw ${on ? 'on' : ''}"><span></span></span></button>`;
 }
-function greekTopsHtml(P){
-  const chip = it => {
-    const t = P.tops.find(x => x.name === it.name), cnt = t ? t.n : 0;
-    /* บรรทัดล่าง: จำนวน (×2) และเงินที่คิดเพิ่ม ไม่เขียนว่า "ฟรี" เพราะเลือกเกินโควตาแล้วจะไม่ฟรี
-       ปุ่มสูงคงที่ (CSS) ไม่มีอะไรจะบอกก็ไม่ใส่บรรทัดล่าง ชื่อจึงอยู่กลางปุ่ม */
-    /* ของหมด: กดเลือกไม่ได้ (ที่เลือกไว้แล้วยังกดเอาออกได้) */
-    if(it.out && !cnt) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
-    let tag = '';
-    if(cnt) tag = [cnt > 1 ? '×' + cnt : '', t.extra ? '+' + t.extra : ''].filter(Boolean).join(' · ');
-    else if(P.perTop) tag = '+' + P.perTop;
-    else if(it.price > 0) tag = '+' + it.price;
-    else if(P.freeUsed >= CONFIG.freeToppingCount) tag = '+' + CONFIG.overToppingPrice;
-    /* แตะ = เลือก 1 ชิ้น · แตะซ้ำ = เอาออกทั้งหมด · ปรับจำนวนในแถบ "ท็อปปิ้งที่เลือก" ด้านล่าง ปุ่มนี้จึงไม่เปลี่ยนขนาด */
-    return `<div class="topw ${cnt ? 'on':''} ${cnt && t.extra ? 'over':''}"><button class="top" data-pick="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span>${tag ? `<small>${tag}</small>` : ''}</button></div>`;
-  };
-  let h = '';
-  CONFIG.cats.forEach(c => {
-    const list = CONFIG.items.filter(i => i.cat === c.id && i.price === 0);
-    h += `<div class="gt">${c.th || c.name}</div><div class="tops">${list.map(chip).join('')}</div>`;
+/* ปุ่มท็อปปิ้งแบบเดียวทั้งแอป (ตาราง Greek · หน้าต่างเปลี่ยน · หน้าต่างเพิ่มท็อปปิ้ง) (Tee 2026-10-15 เลือกแบบ A บน Redmi จริง)
+   ขนาดเท่ากันทุกสถานะ · ข้อความชิดซ้าย ชื่อบรรทัดบน ราคา/จำนวนบรรทัดล่าง · ชื่อบรรทัดเดียว ยาวเกินลดขนาดตัวอักษร (fitNames) ห้ามตัดกลางคำ
+   เลือกแล้ว: บรรทัดล่าง = "n ชิ้น · +฿ที่คิด" (ของฟรี "n ชิ้น") + ปุ่ม − เป็นแถบชิดขวาในปุ่ม (44px) มีเส้นคั่น
+   ทุกปุ่มเว้นที่ขวาไว้เท่ากันเสมอ ชื่อจึงไม่ขยับตอนเลือก · ไม่มีอะไรยื่นออกนอกขอบปุ่ม (เคยชนวงกลมของปุ่มข้างๆ)
+   o = {label, tag (ราคาตอนยังไม่เลือก), cnt, paid (เงินที่คิดของปุ่มนี้), out, over, extra (ของที่คิดเงินตามราคา: ป้ายสีส้มเสมอ), attr (ปุ่มหลัก), minus (ปุ่ม −)} */
+function chipHtml(o){
+  const tag = o.out ? 'หมด' : o.cnt ? [o.cnt + ' ชิ้น', o.paid ? '+' + o.paid : ''].filter(Boolean).join(' · ') : o.tag;
+  return `<div class="topw ${o.cnt ? 'on' : ''} ${o.over ? 'over' : ''} ${o.extra ? 'extra' : ''} ${o.out && !o.cnt ? 'out' : ''}">` +
+    `<button class="top" ${o.attr} ${o.out ? 'disabled' : ''} aria-label="${o.label}${o.cnt ? ` เลือก ${o.cnt} ชิ้น` : ''}${o.out ? ' หมด' : ''}"><span class="tn">${o.label}</span><small>${tag}</small></button>` +
+    (o.cnt && o.minus ? `<button class="tminus" ${o.minus} aria-label="ลด ${o.label}"><span aria-hidden="true">−</span></button>` : '') + `</div>`;
+}
+/* ตารางท็อปปิ้งแบบเดียวทั้งแอป (ตาราง Greek · หน้าต่างเพิ่ม · หน้าต่างเปลี่ยน) (Tee 2026-10-15)
+   กลุ่มละหมวด หัวข้อหมวดอยู่บนกลุ่ม · ไม่มีหมวด Extra บนจอ: Extra อยู่ในหมวดของมันเอง (cat ใน CONFIG.items) เรียงของฟรีก่อน ของที่คิดเงิน (price > 0) ท้ายหมวด
+   เปลี่ยนแค่การแสดงผล ราคา/โควตา/กติกาเปลี่ยนในหมวดเดียวกัน ยังมาจาก cat และ price เหมือนเดิม */
+const topRow = (label, list, chip) => `<div class="tcat"><div class="gt">${label}</div><div class="tops">${list.map(chip).join('')}</div></div>`;
+function toppingGrid(chip, only){
+  const keep = it => !only || only(it);
+  return CONFIG.cats.map(c => { const all = CONFIG.items.filter(i => i.cat === c.id && keep(i)), list = [...all.filter(i => !(i.price > 0)), ...all.filter(i => i.price > 0)];
+    return list.length ? topRow(esc(c.short || c.th || c.name), list, chip) : ''; }).join('');
+}
+/* ชื่อยาวเกินปุ่ม → ลดขนาดตัวอักษรของปุ่มนั้นทีละน้อย (ไม่ขึ้นบรรทัดใหม่ ไม่ตัดคำ) */
+function fitNames(root){
+  (root || document).querySelectorAll('.tops .tn').forEach(el => {
+    el.style.fontSize = '';
+    if(!el.clientWidth) return;
+    let fs = parseFloat(getComputedStyle(el).fontSize);
+    while(el.scrollWidth > el.clientWidth + 0.5 && fs > 11){ fs = Math.max(11, fs - 0.5); el.style.fontSize = fs + 'px'; }
   });
-  h += `<div class="gt">${P.perTop ? 'Extra' : 'Extra · คิดเพิ่มตามราคา'}</div><div class="tops">${CONFIG.items.filter(i => i.price > 0).map(chip).join('')}</div>`;
-  /* แถบสรุป: เรียงตามลำดับที่เลือก · − จนเหลือ 0 = เอาออก */
-  if(P.tops.length) h += `<div class="gt">ท็อปปิ้งที่เลือก</div><div class="tsel">` + P.tops.map(t => { const nm = esc(t.name);
-    return `<div class="trow ${t.extra ? 'over':''}"><span class="nm">${esc(topName(t.name))}</span>${t.extra ? `<span class="px">+${t.extra}</span>` : ''}` +
-      `<div class="tqty"><button data-less="${nm}" aria-label="ลด ${esc(topName(t.name))}">−</button><b>${t.n}</b><button data-more="${nm}" aria-label="เพิ่ม ${esc(topName(t.name))}">+</button></div></div>`; }).join('') + `</div>`;
-  h += sepHtml(P);
-  h += `<p class="hint">แตะเพื่อเลือก แตะอีกครั้งเพื่อเอาออก · เพิ่มหรือลดจำนวนที่ "ท็อปปิ้งที่เลือก"<br>${P.perTop ? `ขนาดนี้ทุกท็อปปิ้ง +${P.perTop} บาท/ชิ้น (รวม Extra) ไม่มีโควตาฟรี</p>` : `ฟรี ${CONFIG.freeToppingCount} ชิ้นแรก · ชิ้นที่ ${CONFIG.freeToppingCount+1} ขึ้นไป +${CONFIG.overToppingPrice} บาท/ชิ้น · Extra คิดตามราคาต่อชิ้น</p>`}`;
-  return h;
+}
+window.addEventListener('resize', () => fitNames());
+/* ท็อปปิ้ง Greek: แตะปุ่ม = เพิ่ม 1 ชิ้น · ปุ่ม − = ลด 1 (ถึง 0 = เอาออก) */
+function greekTopsHtml(P){
+  const q = CONFIG.freeToppingCount;
+  /* ป้ายราคาเหมือนกันทั้งก่อนและหลังเลือก = ราคาถ้าแตะเพิ่มอีก 1 ชิ้น */
+  const nextTag = it => P.perTop ? '+' + P.perTop : it.price > 0 ? '+' + it.price : P.freeUsed >= q ? '+' + CONFIG.overToppingPrice : '';
+  const chip = it => { const t = P.tops.find(x => x.name === it.name), cnt = t ? t.n : 0, n = esc(it.name);
+    return chipHtml({label:esc(topName(it.name)), tag:nextTag(it), cnt, paid: t ? t.extra : 0, out:!!it.out, over:!!(cnt && t.extra), extra: it.price > 0, attr:`data-pick="${n}"`, minus:`data-less="${n}"`}); };
+  return toppingGrid(chip) + sepHtml(P);
 }
 function presetHtml(m, P){
-  let h = '<p class="hint" style="margin:0 0 4px">เปลี่ยนได้ในหมวดเดียวกัน · เปลี่ยนเป็นของ Extra คิดเงินเพิ่มตามราคา (แต่ไม่แนะนำให้เปลี่ยน)</p>';
+  let h = '<div class="comps">';
   m.defaults.forEach((d, i) => {
     const cur = sel.comps[i], removed = cur === null, ch = !removed && cur !== d, out = !removed && ITEM[cur].out;
     h += `<div class="comp ${ch ? 'changed' : ''} ${removed ? 'removed' : ''} ${out ? 'out' : ''}"><div class="nm">${esc(topName(removed ? d : cur))}<small>${out ? '<b class="outtag">หมด · กดเปลี่ยนหรือไม่รับ</b>' : removed ? 'ไม่รับ' : ch ? 'แทน ' + esc(topName(d)) + (P.tops[i].extra ? ` · <b class="px">+${P.tops[i].extra}</b>` : '') : 'มาพร้อมเมนู'}</small></div>` +
          (ch || removed ? `<button class="skip" data-reset="${i}">${removed ? 'ใส่กลับ' : 'คืนค่า'}</button>` : '') +
          (!removed ? `<button class="skip" data-skip="${i}">ไม่รับ</button>` : '') +
-         `<button data-swap="${i}">${sel.swapSlot === i ? 'ปิด' : 'เปลี่ยน'}</button></div>`;
-    if(sel.swapSlot === i){
-      /* เลือกซ้ำกับช่องอื่นได้ (เช่น Acai กล้วย → สตรอว์เบอร์รี่ = สตรอว์เบอร์รี่ 2 ส่วน) ราคาตามกติกาเดิม */
-      const cat = ITEM[d].cat;
-      const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur);
-      const cost = it => it.name !== d && it.price > 0 && !(ITEM[d].price > 0) ? it.price : 0;   // ตรงกับ priceItem
-      h += `<div class="tops swapgrid">` + (opts.map(it => it.out ? `<button class="top out" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button>` : `<button class="top" data-choose="${esc(it.name)}" data-slot="${i}"><span class="tn">${esc(it.th || it.name)}</span>${cost(it) ? `<small>+${cost(it)}</small>` : ''}</button>`).join('') || '<span class="hint">ไม่มีตัวเลือกอื่นในหมวดนี้</span>') + `</div>`;
-    }
+         `<button data-swap="${i}">เปลี่ยน</button></div>`;
   });
-  return h + addsHtml(P) + sepHtml(P);
+  return h + '</div>' + addsHtml(P) + sepHtml(P);
 }
-/* Acai / Banana Choco: เพิ่มท็อปปิ้ง ชิ้นละ addTopPrice ทุกอย่าง · ปุ่มเปิดตารางเลือก + แถบจำนวนแบบเดียวกับ Greek */
+/* Acai / Banana Choco: ยังไม่มีของเพิ่ม = ปุ่ม "+ เพิ่มท็อปปิ้ง" · มีแล้ว = บรรทัดสรุปบรรทัดเดียว ไม่มีพื้นสี
+   "+ เพิ่มท็อปปิ้ง: เมล็ดแฟลกซ์, ช็อกโกแลตครัมเบิล ×2 · +฿45  [แก้ไข]" แตะทั้งบรรทัด = เปิดหน้าต่างเพิ่มท็อปปิ้ง (ปรับจำนวนในนั้น) (Tee 2026-10-15) */
 function addsHtml(P){
   const adds = P.tops.filter(t => t.add), price = CONFIG.addTopPrice;
-  let h = `<div class="gt">เพิ่มท็อปปิ้ง <small>ชิ้นละ ${price} บาท</small></div>`;
-  if(adds.length) h += `<div class="tsel">` + adds.map(t => { const nm = esc(t.name);
-    return `<div class="trow over"><span class="nm">เพิ่ม ${esc(topName(t.name))}</span><span class="px">+${t.extra}</span>` +
-      `<div class="tqty"><button data-aless="${nm}" aria-label="ลด ${esc(topName(t.name))}">−</button><b>${t.n}</b><button data-amore="${nm}" aria-label="เพิ่ม ${esc(topName(t.name))}">+</button></div></div>`; }).join('') + `</div>`;
-  h += `<button class="ghost wide" data-addopen>${sel.addOpen ? 'ปิดรายการท็อปปิ้ง' : '+ เพิ่มท็อปปิ้ง'}</button>`;
-  if(sel.addOpen) CONFIG.cats.forEach(c => {
-    h += `<div class="gt">${c.th || c.name}</div><div class="tops">` + CONFIG.items.filter(i => i.cat === c.id).map(it => {
-      const t = adds.find(x => x.name === it.name);
-      if(it.out && !t) return `<div class="topw out"><button class="top" disabled><span class="tn">${esc(it.th || it.name)}</span><small>หมด</small></button></div>`;
-      return `<div class="topw ${t ? 'on over' : ''}"><button class="top" data-add="${esc(it.name)}"><span class="tn">${esc(it.th || it.name)}</span><small>${t ? `×${t.n} · +${t.extra}` : '+' + price}</small></button></div>`;
-    }).join('') + '</div>';
-  });
-  return h;
+  if(!adds.length) return `<div class="addrow"><button class="ghost" data-addopen>+ เพิ่มท็อปปิ้ง</button><small class="gt">ชิ้นละ ${price} บาท</small></div>`;
+  const list = adds.map(t => esc(topName(t.name)) + (t.n > 1 ? ' ×' + t.n : '')).join(', '), money = adds.reduce((a, t) => a + t.extra, 0);
+  return `<button class="addsum" data-addopen><span class="as-t"><span class="as-l">+ เพิ่มท็อปปิ้ง:</span> ${list} · <b>+${baht(money)}</b></span><span class="chg">แก้ไข</span></button>`;
 }
+/* หน้าต่าง "เปลี่ยน <ชื่อ> เป็น…": ปุ่มแบบเดียวกับตาราง Greek · เลือกซ้ำกับช่องอื่นได้ (Acai กล้วย → สตรอว์เบอร์รี่ = 2 ส่วน) · กดแล้วปิดเอง */
+function openSwap(i){
+  const m = curMenu(); if(!m || !m.defaults) return;
+  const d = m.defaults[i], cur = sel.comps[i], cat = ITEM[d].cat;
+  const opts = CONFIG.items.filter(it => it.cat === cat && it.name !== cur);
+  const cost = it => it.name !== d && it.price > 0 && !(ITEM[d].price > 0) ? it.price : 0;   // ตรงกับ priceItem
+  const chip = it => chipHtml({label:esc(topName(it.name)), tag: cost(it) ? '+' + cost(it) : '', out:!!it.out, extra: it.price > 0, attr:`data-choose="${esc(it.name)}" data-slot="${i}"`});
+  const body = opts.length ? `<div class="swapgrid">${toppingGrid(chip, it => opts.includes(it))}</div>` : '<p class="note2">ไม่มีตัวเลือกอื่นในหมวดนี้</p>';
+  openModal(body, {title:`เปลี่ยน ${esc(topName(cur === null ? d : cur))} เป็น…`, key:'swap', wide:true});   // กว้างเท่าหน้าต่างเพิ่ม ปุ่มขนาดเดียวกับตาราง Greek
+  fitNames($('modal'));
+}
+/* หน้าต่าง "เพิ่มท็อปปิ้ง": แตะ = เพิ่ม 1 ชิ้น · − = ลด · เพิ่มได้หลายชิ้น แล้วกด "เสร็จ" */
+function openAdds(){
+  const price = CONFIG.addTopPrice, adds = priceSel().tops.filter(t => t.add);
+  const body = toppingGrid(it => { const t = adds.find(x => x.name === it.name), n = esc(it.name);
+    return chipHtml({label:esc(topName(it.name)), tag:'+' + price, cnt: t ? t.n : 0, paid: t ? t.extra : 0, out:!!it.out, over:!!t, extra: it.price > 0, attr:`data-add="${n}"`, minus:`data-aless="${n}"`}); });
+  openModal(body, {title:`เพิ่มท็อปปิ้ง <small>ชิ้นละ ${price} บาท</small>`, key:'adds', wide:true, foot:'<button class="pay" id="addsDone">เสร็จ</button>'});
+  fitNames($('modal'));
+}
+/* คลิกในหน้าต่างเปลี่ยน / เพิ่มท็อปปิ้ง */
+$('modal').addEventListener('click', e => {
+  const g = a => e.target.closest(`#modal [data-${a}]`); let el;
+  if(el = g('choose')){ sel.comps[Number(el.dataset.slot)] = el.dataset.choose; closeModal(); renderBuilder(); }
+  else if(el = g('add')){ sel.adds.push(el.dataset.add); renderBuilder(); openAdds(); }
+  else if(el = g('aless')){ const i = sel.adds.lastIndexOf(el.dataset.aless); if(i >= 0) sel.adds.splice(i, 1); renderBuilder(); openAdds(); }
+  else if(e.target.closest('#addsDone')) closeModal();
+});
 function renderBuilder(){
   const m = curMenu(), P = priceSel();
   const body = {
-    menu: () => '<div class="bases">' + CONFIG.menus.map(x =>
+    menu: () => `<div class="bases ${sel.menu ? 'compact' : ''}">` + CONFIG.menus.map(x =>
       (x.out && sel.menu !== x.id ? `<button class="base out" disabled><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>หมด</small></button>`
         : `<button class="base ${sel.menu === x.id ? 'on':''}" data-menu="${x.id}" aria-pressed="${sel.menu === x.id}"><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>${menuPriceLabel(x)}</small></button>`)).join('') + '</div>',
-    size: () => '<div class="sizes">' + m.sizes.map(s =>
-      `<button class="size ${sel.size === s.id ? 'on':''}" data-size="${s.id}" aria-pressed="${sel.size === s.id}">${esc(s.name)}<small>${esc(s.sub)}</small><small><b>${baht(s.price)}</b></small></button>`).join('') + '</div>',
+    size: () => `<div class="sizes ${sel.size ? 'compact' : ''}">` + m.sizes.map(s =>
+      `<button class="size ${sel.size === s.id ? 'on':''}" data-size="${s.id}" aria-pressed="${sel.size === s.id}"><span class="sz">${esc(s.name)}</span><small>${esc(s.sub)}</small><small><b>${baht(s.price)}</b></small></button>`).join('') + '</div>',
     tops: () => (m.sizes ? (P.noTop ? '<div class="empty" style="padding:6px 0">ขนาดนี้ไม่มีท็อปปิ้ง</div>' : greekTopsHtml(P)) : presetHtml(m, P)) + (lastStep() === 'tops' ? noteHtml() : ''),
     honey: () => '<div class="honey">' + CONFIG.honey.map(x => `<button class="hon ${sel.honey === x.id ? 'on':''}" data-honey="${x.id}" aria-pressed="${sel.honey === x.id}">${esc(x.name)}</button>`).join('') + '</div>' + noteHtml(),
   };
-  const title = {menu:'เลือกเมนู', size:'เลือกขนาด', tops: m && !m.sizes ? 'ท็อปปิ้งที่มากับเมนู' : 'ท็อปปิ้ง', honey:'น้ำผึ้ง <small>(ฟรี)</small>'};
+  /* หัวขั้นสั้น · กติกาย่อไว้ใน <small> (แทนย่อหน้าคำอธิบายใต้ตาราง) */
+  const P0 = P || {};
+  const title = {menu: sel.menu ? 'เมนู' : 'เลือกเมนู', size: sel.size ? 'ขนาด' : 'เลือกขนาด',
+    tops: m && !m.sizes ? 'ท็อปปิ้งที่มากับเมนู <small>เปลี่ยนได้ในหมวดเดียวกัน · ป้ายสีส้ม = คิดเงินเพิ่มตามราคา</small>'
+      : `ท็อปปิ้ง <small>${P0.perTop ? `ทุกชิ้น +${P0.perTop} · แตะ = เพิ่ม 1 · − = ลด` : `ฟรี ${CONFIG.freeToppingCount} ชิ้นแรก · ชิ้นต่อไป +${CONFIG.overToppingPrice} · ป้ายสีส้ม = คิดเงินเพิ่มตามราคา · แตะ = เพิ่ม 1 · − = ลด`}</small>`,
+    honey:'น้ำผึ้ง <small>(ฟรี)</small>'};
+  /* เลือกแล้วย่อเป็นแถวเตี้ย (หัว + ตัวเลือกบรรทัดเดียว) ตัวเลือกยังอยู่ครบ กดเปลี่ยนได้ทันที · น้ำผึ้งเป็นแถวเดียวเสมอ */
+  const inline = {menu: !!sel.menu, size: !!sel.size, honey: true};
   /* ขั้นใหม่ = ไม่อยู่ในรอบก่อน · เปลี่ยนเมนู = ขั้นหลังเมนูนับเป็นขั้นใหม่ทั้งหมด (key มีชื่อเมนู) */
   const steps = stepsShown(m), keys = steps.map(id => id === 'menu' ? 'menu' : sel.menu + ':' + id);
   const fresh = steps.filter((id, i) => !shownKeys.includes(keys[i]));
   shownKeys = keys;
-  $('builder').innerHTML = steps.map((id, i) => sec(id, i + 1, title[id], body[id](), fresh.includes(id))).join('');
+  $('builder').innerHTML = steps.map((id, i) => sec(id, i + 1, title[id], body[id](), fresh.includes(id), inline[id])).join('');
 
   /* ปุ่มหลัก: หน้าที่เดียว · ยังไม่ครบ = สีเทา (ยังกดได้ เพื่อพาไปขั้นที่ขาด) */
   const add = $('btnAdd'), miss = missingStep();
@@ -183,7 +211,7 @@ function renderBuilder(){
   add.textContent = miss ? MISSING_TEXT[miss] + (priced ? ` · ${baht(P.unit)}` : '') : `เพิ่มลงออเดอร์ · ${baht(P.unit)}`;
   add.classList.toggle('off', !!miss); add.disabled = false;   // ไม่ใช้ aria-disabled: ปุ่มเทายังทำงาน (พาไปขั้นที่ขาด) ข้อความบนปุ่มบอกสิ่งที่ขาดอยู่แล้ว
   $('tally').innerHTML = cupSummaryHtml(m, P);
-  placeActBar();
+  cartMode(); placeActBar(); fitNames($('builder'));   // cartMode ก่อน: ความกว้างกล่องเลือกขึ้นกับกล่องออเดอร์ยุบหรือไม่
   if(fresh.length) scrollToStep(fresh[0]);
 }
 /* แถบล่าง (position fixed) วางตรงกับกล่องเลือก · หน้าตา/ความสูงเดียวทุกขั้น */
@@ -200,17 +228,12 @@ $('builder').onclick = e => {
   else if(el = g('honey')) sel.honey = el.dataset.honey;
   else if(g('noteopen')){ sel.noteOpen = true; renderBuilder(); const n = $('note'); if(n) n.focus(); return; }
   else if(el = g('less')){ const i = sel.picks.lastIndexOf(el.dataset.less); if(i >= 0) sel.picks.splice(i, 1); }
-  else if(el = g('more')) sel.picks.push(el.dataset.more);
-  else if(el = g('pick')){ const n = el.dataset.pick; if(sel.picks.includes(n)) sel.picks = sel.picks.filter(x => x !== n); else sel.picks.push(n); }
-  else if(el = g('choose')){ sel.comps[Number(el.dataset.slot)] = el.dataset.choose; sel.swapSlot = null; }
-  else if(el = g('reset')){ const i = Number(el.dataset.reset); sel.comps[i] = MENU[sel.menu].defaults[i]; if(sel.swapSlot === i) sel.swapSlot = null; }
-  else if(el = g('skip')){ const i = Number(el.dataset.skip); sel.comps[i] = null; if(sel.swapSlot === i) sel.swapSlot = null; }
-  else if(el = g('swap')){ const i = Number(el.dataset.swap); sel.swapSlot = sel.swapSlot === i ? null : i; }
+  else if(el = g('pick')) sel.picks.push(el.dataset.pick);   // แตะ = เพิ่ม 1 ชิ้น (ลดด้วยปุ่ม − มุมปุ่ม)
+  else if(el = g('reset')){ const i = Number(el.dataset.reset); sel.comps[i] = MENU[sel.menu].defaults[i]; }
+  else if(el = g('skip')){ const i = Number(el.dataset.skip); sel.comps[i] = null; }
+  else if(el = g('swap')){ openSwap(Number(el.dataset.swap)); return; }
   else if(g('sep')) sel.sep = !sel.sep;
-  else if(g('addopen')) sel.addOpen = !sel.addOpen;
-  else if(el = g('add')){ const n = el.dataset.add; if(sel.adds.includes(n)) sel.adds = sel.adds.filter(x => x !== n); else sel.adds.push(n); }
-  else if(el = g('amore')) sel.adds.push(el.dataset.amore);
-  else if(el = g('aless')){ const i = sel.adds.lastIndexOf(el.dataset.aless); if(i >= 0) sel.adds.splice(i, 1); }
+  else if(g('addopen')){ openAdds(); return; }
   else return;
   renderBuilder();
 };
@@ -226,6 +249,7 @@ function addSel(fewTops){
   item.key = JSON.stringify([item.menu, item.sizeName, item.tops.map(t => [t.name, t.n, t.removed ? 1 : 0, t.from, t.add ? 1 : 0]), item.honey, item.sep, item.note]);
   const found = cart.find(i => i.key === item.key);
   if(found) found.qty++; else cart.push(item);
+  cartFlash = item.key;   // บรรทัดนั้นในกล่องออเดอร์ไฮไลต์จางหาย
   backToMenu(); renderCart(); toast('เพิ่มแล้ว', 'check');
 }
 /* Greek: ท็อปปิ้งฟรีไม่ครบโควตา → ต้องยืนยันก่อน (กึ่งบังคับ ไม่บล็อก เพื่อให้บันทึกตรงกับที่ลูกค้าได้จริง)

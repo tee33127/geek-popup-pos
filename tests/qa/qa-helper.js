@@ -65,9 +65,9 @@ function open(o = {}){
   P.add = (c) => {
     P.menu(c.menu);
     if(c.size) P.size(c.size);
-    (c.picks || []).forEach(n => { const on = ev('sel.picks').includes(n); click(on ? `[data-more="${n}"]` : `[data-pick="${n}"]`); });
+    (c.picks || []).forEach(n => click(`[data-pick="${n}"]`));   // แตะ = เพิ่ม 1 ชิ้น
     Object.entries(c.comps || {}).forEach(([i, n]) => { if(n === null) click(`[data-skip="${i}"]`); else { click(`[data-swap="${i}"]`); click(`[data-choose="${n}"][data-slot="${i}"]`); } });
-    if(c.adds && c.adds.length){ click('[data-addopen]'); c.adds.forEach(n => { const on = ev('sel.adds').includes(n); click(on ? `[data-amore="${n}"]` : `[data-add="${n}"]`); }); }
+    if(c.adds && c.adds.length){ click('[data-addopen]'); c.adds.forEach(n => click(`#modal [data-add="${n}"]`)); click('#addsDone'); }   // หน้าต่างเพิ่มท็อปปิ้ง: แตะ = +1
     if(c.sep) click('.sep');
     const answers = Array.isArray(c.answer) ? [...c.answer] : c.answer ? [c.answer] : [];
     for(let i = 0; i < 8; i++){

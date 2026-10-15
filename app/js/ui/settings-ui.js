@@ -92,7 +92,7 @@ function recoveryNew(){
 function openPromptPay(){
   if(!can('promptpay')) return;
   openModal(`<p class="note2" style="margin:0 0 8px">เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/ผู้เสียภาษี 13 หลัก ที่ผูกพร้อมเพย์ไว้ · เก็บในเครื่องนี้เท่านั้น</p>
-    <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="ยังไม่ได้ตั้ง" value="${esc(SETTINGS.promptpay || '')}">
+    <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="08xxxxxxxx" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
     <div id="ppPrev"></div>`, {title:`${icon('settings', 22)} เลข PromptPay ของร้าน`, key:'pp',
     foot:`<div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`});

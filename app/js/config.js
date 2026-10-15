@@ -35,9 +35,9 @@ const CONFIG = {
     {id:'freetop', type:'freetop', name:'ฟรี 1 ท็อปปิ้ง', sub:'ท็อปปิ้งที่ต้องจ่าย 1 ชิ้น (ยกเว้น กราโนล่า บลูเบอร์รี่ สตรอว์เบอร์รี่)', exclude:['Granola','Blueberries','Strawberries']},
   ],
   cats: [
-    {id:'dried', name:'Dried', th:'ธัญพืชและของแห้ง'},
-    {id:'fruit', name:'Fruits', th:'ผลไม้'},
-    {id:'sauce', name:'Sauce', th:'ซอส'},
+    {id:'dried', name:'Dried', th:'ธัญพืชและของแห้ง', short:'ธัญพืช'},
+    {id:'fruit', name:'Fruits', th:'ผลไม้', short:'ผลไม้'},
+    {id:'sauce', name:'Sauce', th:'ซอส', short:'ซอส'},
   ],
   /* name = รหัสภาษาอังกฤษ ใช้เก็บในบิลและห้ามเปลี่ยน (บิลเก่าจะนับแยก) · th = ชื่อที่แสดงทุกที่ (ปุ่ม ตะกร้า ตั๋ว ใบเสร็จ รายงาน CSV)
      price 0 = ท็อปปิ้งฟรี (กลุ่ม Free) · price > 0 = Extra คิดเพิ่มตามราคา

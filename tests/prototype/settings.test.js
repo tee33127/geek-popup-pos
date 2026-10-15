@@ -31,12 +31,12 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('#closeX');
   click('[data-menu="greek"]'); click('[data-size="g1"]');
   const mango = $$('.topw.out').find(x => x.textContent.includes('มะม่วง'));
-  eq('greek: sold-out tile grey + disabled', [!!mango, mango && mango.querySelector('button').disabled, mango && mango.textContent.includes('หมด'), !!$('[data-pick="Mango"]')], [true, true, true, false]);
+  eq('greek: sold-out tile grey + disabled', [!!mango, mango && mango.querySelector('button').disabled, mango && mango.textContent.includes('หมด'), $('[data-pick="Mango"]').disabled], [true, true, true, true]);
   eq('banana choco menu grey + disabled', [$('.base.out') && $('.base.out').textContent.includes('Banana Choco'), !!$('[data-menu="banana"]')], [true, false]);
   click('[data-menu="acai"]');
   eq('acai: sold-out default flagged', $$('.comp.out').map(c => c.textContent.includes('สตรอว์เบอร์รี่')), [true]);
-  click('[data-swap="1"]'); eq('swap grid: sold-out option disabled', [!!$('[data-choose="Mango"]'), $$('.swapgrid .top.out').length], [false, 1]);
-  click('[data-addopen]'); eq('add grid: Mango disabled', !!$('[data-add="Mango"]'), false);
+  click('[data-swap="1"]'); eq('swap grid: sold-out option disabled', [$('[data-choose="Mango"]').disabled, $$('.swapgrid .topw.out').length], [true, 1]);
+  click('[data-addopen]'); eq('add grid: Mango disabled', $('[data-add="Mango"]').disabled, true);
   click('[data-skip="1"]'); eq('removing the sold-out default clears flag', $$('.comp.out').length, 0);
 
   // ---- เปิดกลับ ----

@@ -40,7 +40,7 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
       [['menu', 'size', 'tops', 'honey'], ['tops', 'honey'], ['menu', 'size'], ['tops'], `เลือกน้ำผึ้งก่อน · ฿${base}`, `${name} · ${mid}`]);
     const n0 = scrolls.length;
     const greyPrice = [];   // ราคาบนปุ่มเทา = priceSel() ทุกครั้งที่กดท็อปปิ้ง
-    const pick = t => { click(ev('sel.picks').includes(t) ? `[data-more="${t}"]` : `[data-pick="${t}"]`); greyPrice.push(btn() === `เลือกน้ำผึ้งก่อน · ฿${ev('priceSel().unit')}`); };
+    const pick = t => { click(`[data-pick="${t}"]`); greyPrice.push(btn() === `เลือกน้ำผึ้งก่อน · ฿${ev('priceSel().unit')}`); };
     if(sz === 'g1n') pick('Banana');   // 69: 1 ชิ้น (84 < 89 ไม่ถามเปลี่ยน)
     else ['Kiwi', 'Mango', 'Mango', 'Banana'].forEach(pick);   // ฟรีครบ 3 + เกิน 1
     eq(`greek ${sz}: grey button price follows priceSel() on every topping tap`, greyPrice.every(Boolean) && greyPrice.length > 0, true);
@@ -135,9 +135,9 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
   const bad = [];
   for(const [code, c, want] of C){
     menu(c.menu); if(c.size) size(c.size);
-    (c.picks || []).forEach(n => click(ev('sel.picks').includes(n) ? `[data-more="${n}"]` : `[data-pick="${n}"]`));
+    (c.picks || []).forEach(n => click(`[data-pick="${n}"]`));
     Object.entries(c.comps || {}).forEach(([i, n]) => { if(n === null) click(`[data-skip="${i}"]`); else { click(`[data-swap="${i}"]`); click(`[data-choose="${n}"][data-slot="${i}"]`); } });
-    if(c.adds){ click('[data-addopen]'); c.adds.forEach(n => click(ev('sel.adds').includes(n) ? `[data-amore="${n}"]` : `[data-add="${n}"]`)); }
+    if(c.adds){ click('[data-addopen]'); c.adds.forEach(n => click(`#modal [data-add="${n}"]`)); click('#addsDone'); }
     if(c.sep) click('.sep');
     const greyOk = !$('[data-honey]') || btn() === `เลือกน้ำผึ้งก่อน · ฿${ev('priceSel().unit')}`;   // ปุ่มเทา (ยังไม่เลือกน้ำผึ้ง) บอกราคาเดียวกับ priceSel()
     if($('[data-honey]')) click('[data-honey="normal"]');
@@ -156,7 +156,7 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
   eq('no extra yet: no orange part', !!$('.cupsum .xtra'), false);
   click('[data-pick="Chia"]'); eq('extra appears: flashes', !!$('.cupsum .xtra.flash'), true);
   click('[data-pick="Almonds"]'); eq('extra grows: no second flash', [!!$('.cupsum .xtra'), !!$('.cupsum .xtra.flash')], [true, false]);
-  click('[data-pick="Almonds"]'); click('[data-pick="Chia"]'); click('[data-pick="Chia"]');
+  click('[data-less="Almonds"]'); click('[data-less="Chia"]'); click('[data-pick="Chia"]');
   eq('back to none then some again: flashes again', !!$('.cupsum .xtra.flash'), true);
   ev('backToMenu()');
 

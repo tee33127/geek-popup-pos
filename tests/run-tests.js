@@ -17,6 +17,8 @@ const runs = [
   ['prototype/toppings-and-cart.test.js'],
   ['prototype/steps.test.js'],
   ['prototype/modal.test.js'],
+  ['prototype/swap-keypad.test.js'],
+  ['prototype/cart-mini.test.js'],
   ['prototype/reports.test.js'],
   ['prototype/void-restore-csv.test.js'],
   ['prototype/promo-ui.test.js'],

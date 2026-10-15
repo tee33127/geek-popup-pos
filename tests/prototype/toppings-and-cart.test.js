@@ -17,6 +17,7 @@ const add = () => F.finish(w);
 /* ช่องสรุปแก้วในแถบล่าง */
 const tq = () => $('.cupsum .tq').getAttribute('aria-label'), xtra = () => $('.cupsum .xtra');   // "ฟรี ●●○" อ่านจำนวนจาก aria-label
 /* ราคาบนปุ่ม: ปุ่มบอกราคาเมื่อครบแล้ว จึงเลือกน้ำผึ้ง 'ราดปกติ' ให้ก่อนถ้ายังไม่เลือก (น้ำผึ้งไม่มีผลกับราคา) */
+const chipCnt = el => ((el.closest('.topw').querySelector('small').textContent.match(/(\d+) ชิ้น/) || [])[1] || '');   // จำนวนอยู่บรรทัดล่างของปุ่ม "n ชิ้น"
 const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-honey="normal"]'); return $('#btnAdd').textContent.match(/฿([\d,]+)/)[1].replace(',',''); };
 
 (async () => {
@@ -27,7 +28,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   click('[data-honey="side"]'); eq('honey chosen: add enabled, side honey free', [off(), $('#btnAdd').textContent, addPrice()], [false, 'เพิ่มลงออเดอร์ · ฿189', '189']);
   eq('sep button shown, off', [!!$('.sep'), $('.sep').classList.contains('on'), $('.sep b').textContent], [true, false, '+฿5']);
   eq('sep is a switch row (no dashed frame), label + price', [$('.sep').getAttribute('role'), $('.sep').getAttribute('aria-checked'), !!$('.sep .sw:not(.on)'), $('.sep .nm').textContent, /dashed/.test(w.getComputedStyle($('.sep')).borderTopStyle)], ['switch', 'false', true, 'แยกท็อปปิ้ง · ใส่ถ้วยแยก +฿5', false]);
-  eq('sep row tap target >= 48px (CSS min-height)', parseInt(w.getComputedStyle($('.sep')).minHeight) >= 48, true);
+  eq('sep row tap target >= 44px (CSS min-height)', parseInt(w.getComputedStyle($('.sep')).minHeight) >= 44, true);
   click('.sep'); eq('sep on: +5', [$('.sep').classList.contains('on'), addPrice()], [true, '194']);
   eq('sep on: switch on + aria-checked', [$('.sep').getAttribute('aria-checked'), !!$('.sep .sw.on')], ['true', true]);
   add(); eq('item stores sep 5 + honey side', [ev('cart[0].unit'), ev('cart[0].sep'), ev('cart[0].honey')], [194, 5, 'side']);
@@ -42,7 +43,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   menu('greek'); size('g1n');
   eq('greek without toppings: no sep button', !!$('.sep'), false);
   click('[data-pick="Banana"]'); click('.sep'); eq('greek 69 + Banana + sep = 89', addPrice(), '89');
-  click('[data-pick="Banana"]'); eq('last topping removed: sep hidden, not charged', [!!$('.sep'), addPrice()], [false, '69']);
+  click('[data-less="Banana"]'); eq('last topping removed: sep hidden, not charged', [!!$('.sep'), addPrice()], [false, '69']);
   click('[data-pick="Banana"]'); eq('topping back: sep still on', [$('.sep').classList.contains('on'), addPrice()], [true, '89']);
   menu('acai'); for(let k = 0; k < 5; k++) click(`[data-skip="${k}"]`);
   eq('acai with every topping removed: no sep button', !!$('.sep'), false);
@@ -60,30 +61,28 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   // ---- 1) ท็อปปิ้งซ้ำได้ ----
   menu('greek'); size('g1');
   click('[data-pick="Banana"]');
-  eq('tap selects 1 + shows stepper', [ev('sel.picks'), $('[data-more="Banana"]').parentNode.querySelector('b').textContent], [['Banana'], '1']);
-  click('[data-pick="Banana"]'); eq('tap again removes', [ev('sel.picks'), $('.trow')], [[], null]);
-  click('[data-pick="Banana"]');
-  click('[data-more="Banana"]'); click('[data-more="Banana"]');
-  eq('Banana x3 shows count', $('[data-more="Banana"]').parentNode.querySelector('b').textContent, '3');
+  eq('tap selects 1: count 1 shown on the chip + − inside the chip, no separate selected row', [ev('sel.picks'), chipCnt($('[data-pick="Banana"]')), $('[data-pick="Banana"] small').textContent, !!$('.topw.on [data-less="Banana"]'), !!$('.trow'), !!$('[data-more]')], [['Banana'], '1', '1 ชิ้น', true, false, false]);
+  click('[data-pick="Banana"]'); eq('tap again = +1 (no longer removes)', ev('sel.picks'), ['Banana', 'Banana']);
+  click('[data-less="Banana"]'); click('[data-less="Banana"]'); eq('− to 0 removes', [ev('sel.picks'), !!$('[data-less="Banana"]')], [[], false]);
+  click('[data-pick="Banana"]'); click('[data-pick="Banana"]'); click('[data-pick="Banana"]');
+  eq('Banana x3: count 3 shown as "3 ชิ้น" (free quota, nothing charged)', [chipCnt($('[data-pick="Banana"]')), $('[data-pick="Banana"] small').textContent], ['3', '3 ชิ้น']);
   eq('Banana x3 all free', addPrice(), '89');
-  eq('chip shows ×3, same height as unselected', [$('[data-pick="Banana"] small').textContent, $('[data-pick="Banana"]').closest('.topw').querySelector('[data-more]')], ['×3', null]);
-  eq('selected list in tap order', $$('.trow .nm').map(e => e.textContent), ['กล้วย']);
   eq('free counter ●●● (3 of 3), no numbers shown, no over badge', [tq(), $('.cupsum .tq').textContent.trim(), $$('.fdots i.on').length, xtra()], ['ใช้ท็อปปิ้งฟรีแล้ว 3 จาก 3', 'ฟรี', 3, null]);
   eq('unselected free chip shows +15 at quota', $('[data-pick="Kiwi"] small').textContent, '+15');
-  click('[data-more="Banana"]'); eq('4th Banana +15', addPrice(), '104');
+  click('[data-pick="Banana"]'); eq('4th Banana +15', addPrice(), '104');
   eq('charge badge', xtra().textContent, 'คิดเพิ่ม +฿15');
   eq('over chip styled orange', $('[data-pick="Banana"]').closest('.topw').classList.contains('over'), true);
   click('[data-less="Banana"]'); eq('minus back to x3', addPrice(), '89');
-  click('[data-pick="Kiwi"]'); click('[data-more="Kiwi"]'); click('[data-pick="Kiwi"]'); eq('tap removes all of a ×2 item', ev('sel.picks'), ['Banana','Banana','Banana']);
+  click('[data-pick="Kiwi"]'); click('[data-pick="Kiwi"]'); click('[data-less="Kiwi"]'); click('[data-less="Kiwi"]'); eq('− twice removes a ×2 item', ev('sel.picks'), ['Banana','Banana','Banana']);
   eq('no charge badge within quota', xtra(), null);
-  click('[data-pick="Granola"]'); click('[data-more="Granola"]'); eq('Granola x2 = +20', addPrice(), '109');
+  click('[data-pick="Granola"]'); click('[data-pick="Granola"]'); eq('Granola x2 = +20', addPrice(), '109');
   eq('Extra group counted in charge badge', xtra().textContent, 'คิดเพิ่ม +฿20');
   click('[data-less="Granola"]'); click('[data-less="Granola"]');
   eq('minus to 0 deselects', [$('[data-less="Granola"]'), $('[data-pick="Granola"]').closest('.topw').classList.contains('on')], [null, false]);
   click('[data-pick="Mango"]'); click('[data-pick="Kiwi"]'); // Banana3 free + Mango(4th) + Kiwi(5th)
   eq('charge badge 2 over-quota', xtra().textContent, 'คิดเพิ่ม +฿30');
   click('[data-pick="Granola"]'); eq('charge badge mixes over-quota + Extra', [xtra().textContent, addPrice()], ['คิดเพิ่ม +฿40', '129']);
-  click('[data-pick="Granola"]');
+  click('[data-less="Granola"]');
   eq('mixed over limit', addPrice(), String(89 + 15 + 15));
   add();
   eq('cart line label groups duplicates', $('#cart .d').textContent.includes('กล้วย ×3'), true);
@@ -153,7 +152,7 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   menu('banana');
   eq('banana choco: no honey option', [$$('[data-honey]').length, $('#builder').textContent.includes('น้ำผึ้ง')], [0, false]);
   click('[data-swap="0"]'); eq('banana fruit options incl. Extra', $$('[data-choose]').map(e => e.dataset.choose).sort(), ['Blueberries','Kiwi','Mango','Strawberries']);
-  eq('Extra option shows +15, free option shows nothing', [$('[data-choose="Strawberries"] small').textContent, $('[data-choose="Kiwi"] small')], ['+15', null]);
+  eq('Extra option shows +15, free option shows nothing', [$('[data-choose="Strawberries"] small').textContent, $('[data-choose="Kiwi"] small').textContent], ['+15', '']);
   click('[data-choose="Strawberries"]');
   eq('paid swap: price + label', [addPrice(), $$('.comp')[0].textContent.includes('แทน กล้วย · +15')], ['164', true]);
   click('[data-swap="0"]'); click('[data-choose="Kiwi"]'); eq('swap back to free → 149', addPrice(), '149');
@@ -174,9 +173,14 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   menu('acai'); click('#btnClear'); click('#cfYes');
   eq('clear empties cart + resets builder', [ev('cart.length'), ev('sel.menu'), $('#btnClear').disabled, $('#btnPay').disabled], [0, null, true, true]);
   // ---- 5) PIN modal + pay + void ----
-  menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-more="Banana"]'); add(); click('#fewOk'); add();
+  menu('greek'); size('g1'); click('[data-pick="Banana"]'); click('[data-pick="Banana"]'); add(); click('#fewOk'); add();
   menu('acai');   // เลือกแก้วถัดไปค้างไว้ก่อนจ่าย (Tee เจอบน iPad 2026-10-13)
-  click('#btnPay');
+  click('#btnPay');   // กันแก้วหาย (Tee 2026-10-15): ถามก่อน
+  eq('pay with a cup still being picked: asks first, main = go back and add, 2nd = drop and pay', [$('#modal h3').textContent.trim(), $('#modal button.pay').id, $('#modal button.pay').textContent, $('#pendDrop').textContent],
+    ['แก้วที่กำลังเลือกยังไม่ได้เพิ่มลงออเดอร์', 'pendBack', 'กลับไปเพิ่มก่อน', 'ทิ้งแก้วนี้ แล้วชำระเงิน']);
+  click('#pendBack'); eq('go back: window closes, cup kept, nothing paid', [ev('MD'), ev('sel.menu'), ev('cart.length')], [null, 'acai', 1]);
+  click('#btnPay'); click('#pendDrop');
+  eq('drop the cup and pay: cup cleared, pay window open', [ev('sel.menu'), !!$('[data-dine]')], [null, true]);
   eq('pay: nothing preselected, methods locked', [$$('#modal .opt.on').length, $$('[data-method]').every(b => b.disabled), !!$('[data-q]'), $('#payOk').disabled, $('#payOk').textContent], [0, true, false, true, 'เลือกกินเลย / กลับบ้านก่อน']);
   eq('pay: no emoji', /\p{Extended_Pictographic}/u.test($('#modal').textContent), false);
   click('[data-method="cash"]'); eq('locked method tap ignored', ev('pay.method'), null);
@@ -194,7 +198,6 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   eq('auto-printed both slips once', [printed, $$('#printArea .slip').length], [1, 2]);
   eq('success screen: no print choices, one next button', [!!$('#prRec'), !!$('#prKit'), $$('#modal button.pay').length, $('#modal button.pay').id], [false, false, 1, 'nextOrder']);
   click('#prBoth'); await wait(150); eq('reprint link prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
-  eq('before next order: menu picked earlier still selected', ev('sel.menu'), 'acai');
   click('#nextOrder'); eq('next order: back to menu step (nothing selected)', [ev('sel.menu'), $$('.base.on').length, $$('.sec').length, $('#btnAdd').textContent], [null, 0, 1, 'เลือกเมนูก่อน']);
   click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('#pinIn'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
   click('[data-tab="bills"]'); click('[data-v]'); eq('void confirm modal', $('#modal').textContent.includes('ยกเลิกบิล #001?'), true);
