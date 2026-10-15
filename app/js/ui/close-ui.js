@@ -5,9 +5,9 @@ function askFloat(){
   if(dayFloat(bizDate(new Date())) !== null) return;
   openModal(`<h3>${icon('cash', 22)} เปิดร้าน · เงินทอนตั้งต้น</h3>
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
-    <div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
-    <input class="num" id="floatIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="เงินทอนตั้งต้น (บาท)">
-    <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`);
+    <div class="cashgrid"><div class="cashl"><div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
+    <label class="recvrow"><span>เงินทอนตั้งต้น <small>บาท</small></span>${moneyField('floatIn', '', true)}</label></div>${moneyPadHtml()}</div>
+    <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
   $('floatIn').oninput = floatInput;
 }
 function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
@@ -29,15 +29,15 @@ function renderClose(){
   const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
   openModal(`<div class="note2" style="margin-top:0"><b>${roundLabel(d.date, d.date)}</b></div>
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
-    <div class="cashbox">
-      <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span><input class="cnum" id="clFloat" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" value="${d.float === null ? '' : d.float}" placeholder="0"></div>
+    <div class="cashgrid"><div class="cashl"><div class="cashbox">
+      <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span>${moneyField('clFloat', d.float === null ? '' : d.float, d.float === null, 'cnum')}</div>
       <div class="crow"><span>เงินสดจากการขาย <small>(${c.cashBills} บิล)</small></span><b>${baht(c.cashSales)}</b></div>
       <div class="crow tot"><span>ควรมีในลิ้นชัก</span><b id="clExp">${d.float === null ? '–' : baht(c.expected)}</b></div>
-      <div class="crow"><span>นับได้จริง</span><input class="cnum" id="clCount" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" placeholder="นับเงินสดทั้งหมดในลิ้นชัก"></div>
+      <div class="crow"><span>นับได้จริง<small class="sub">นับเงินสดทั้งหมดในลิ้นชัก</small></span>${moneyField('clCount', '', d.float !== null, 'cnum')}</div>
     </div>
-    <div class="cldiff" id="clDiff">&nbsp;</div>
-    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ (ถ้าเงินไม่ตรง เช่น ทอนผิด / หยิบไปซื้อน้ำแข็ง 100)">`,
-    {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', onClose: () => { closeDraft = null; closeModal(); },
+    <div class="cldiff" id="clDiff">&nbsp;</div></div>${moneyPadHtml()}</div>
+    <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ ถ้าเงินไม่ตรง เช่น ทอนผิด">`,
+    {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', cls:'mid', onClose: () => { closeDraft = null; closeModal(); },
      foot:`<div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
   $('clFloat').oninput = $('clCount').oninput = closeInput;
 }

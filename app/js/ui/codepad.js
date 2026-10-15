@@ -73,3 +73,28 @@ document.addEventListener('input', e => {
   const i = e.target; if(!i.hasAttribute || !i.hasAttribute('data-digits')) return;
   const v = i.value.replace(/\D/g, ''); if(v !== i.value) i.value = v;
 }, true);
+
+/* ---------- แป้นตัวเลขเงินของแอป (Tee 2026-10-14 Redmi จริง: แป้นพิมพ์ Android กินครึ่งจอ หน้าต่างไม่เหลือที่) ----------
+   ใช้กับช่องเงินที่ใช้บ่อย: รับเงินมา (เงินสด), เงินทอนตั้งต้น, ตั้งต้น/นับได้จริง (ปิดร้าน)
+   ช่อง moneyField(): หน้าตาเหมือนช่องกรอก แต่ readonly + inputmode="none" แป้นระบบไม่ขึ้น · แตะช่อง = เลือกช่องที่จะใส่ (class cur)
+   แป้น moneyPadHtml(): วางข้างช่องแบบเครื่องคิดเลข 0-9, 00, ⌫, ล้าง · กดแล้วยิง input ให้ตัวจัดการเดิมของช่องทำงาน */
+const MONEY_MAX = 7;   // สูงสุด 9,999,999 บาท
+function moneyField(id, value, cur, cls = 'num'){
+  return `<input class="${cls} moneyin ${cur ? 'cur' : ''}" id="${id}" readonly inputmode="none" data-money autocomplete="off" placeholder="0" value="${value === null || value === undefined ? '' : value}" aria-label="ช่องเงิน แตะแล้วใช้แป้นตัวเลขด้านข้าง">`;
+}
+function moneyPadHtml(){
+  const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '00', '0', 'back'];
+  return `<div class="mpad" role="group" aria-label="แป้นตัวเลข">` + keys.map(k => `<button type="button" data-mk="${k}"${k === 'back' ? ' aria-label="ลบ"' : ''}>${k === 'back' ? '⌫' : k}</button>`).join('') +
+    `<button type="button" data-mk="clear" class="mclear">ล้าง</button></div>`;
+}
+document.addEventListener('click', e => {
+  const t0 = e.target.closest && e.target.closest('input[data-money]');
+  if(t0){ (t0.closest('.box') || document).querySelectorAll('input[data-money]').forEach(x => x.classList.toggle('cur', x === t0)); return; }
+  const k = e.target.closest && e.target.closest('[data-mk]'); if(!k) return;
+  const scope = k.closest('.box') || document, t = scope.querySelector('input[data-money].cur') || scope.querySelector('input[data-money]'); if(!t) return;
+  let v = t.value.replace(/\D/g, ''); const key = k.dataset.mk;
+  if(key === 'back') v = v.slice(0, -1);
+  else if(key === 'clear') v = '';
+  else { v = (v === '0' ? '' : v) + key; if(!/[1-9]/.test(v)) v = '0'; v = v.slice(0, MONEY_MAX); }
+  t.value = v; t.dispatchEvent(new Event('input', {bubbles:true}));
+});
