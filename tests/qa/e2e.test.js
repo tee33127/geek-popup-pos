@@ -1,4 +1,4 @@
-// QA ผ่านเบราว์เซอร์จริง (Playwright): UI01 UI02 C06 E01 Z08 D03 UI08 X02(จอ)
+// QA ผ่านเบราว์เซอร์จริง (Playwright): UI01 UI02 C06 E01 Z08 D03 UI08 X02(จอ) H25–H28 (พิมพ์หลังชำระเงิน ปริ้นเตอร์ USB จำลอง)
 // จอ: Redmi Pad 2 (Chromium 1280×800 / 800×1280) + iPad (WebKit แบบ Safari 1180×820 / 820×1180 · ไม่มี WebKit ใช้ Chromium แทน)
 // ติดตั้ง WebKit ครั้งแรก: npx playwright install webkit
 // รัน: npm run qa:e2e · ไม่อยู่ใน npm test (ช้า) · screenshot → docs/qa/screens/YYYY-MM-DD/
@@ -669,6 +669,88 @@ const server = http.createServer((q, r) => {
     const tSale = await ms(() => sell(C, 'banana'));
     console.log(`INFO UI08 Chromium (เดสก์ท็อป) 5,000 บิล: สรุปทั้งหมด ${tAll} ms · แท็บบิล ${tBills} ms · ขาย 1 บิลทั้งขั้นตอน ${tSale} ms`);
     eq('UI08 Chromium: เปิดสรุปทั้งหมด / แท็บบิล / ขาย 1 บิล กับ 5,000 บิล < 1.5 วินาที', [tAll < 1500, tBills < 1500, tSale < 1500], [true, true, true]);
+    await ctx.close();
+  }
+
+  // ---------- H25–H28 พิมพ์หลังชำระเงิน ด้วยปริ้นเตอร์ USB จำลอง (Tee 2026-10-17) ----------
+  // บั๊กเครื่องจริง: หัวจอขึ้น "ปริ้นเตอร์พร้อม" แต่จ่ายเงินแล้วตั๋วไม่ออก · เทสต์เดิมเปิด pos-demo.html (autoPrint ปิด) และแทน window.print เฉยๆ ไม่เคยเช็กว่ามีข้อมูลส่งออกจริง
+  // fakeUsb: navigator.usb ปลอม (XP-Q807K) นับงาน = transferOut ก้อนที่ขึ้นต้นด้วย ESC @ · window.print นับแยก (ต้องเป็น 0 ถ้าพนักงานไม่ได้กด)
+  {
+    const fakeUsb = () => {
+      window.__jobs = 0; window.__bytes = 0; window.__printed = 0; window.__delay = 2;   // __delay = ms ต่อก้อน (ปรับให้ช้าตอนเทสต์กดรัวระหว่างพิมพ์) window.print = () => { window.__printed++; };
+      const dev = {opened:false, productName:'XP-Q807K', configuration:null,
+        configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'out', type:'bulk', packetSize:64}]}]}]}],
+        async open(){ this.opened = true; }, async selectConfiguration(){ this.configuration = this.configurations[0]; this.configuration.interfaces.forEach(i => { i.alternate = i.alternates[0]; }); },
+        async claimInterface(){}, async releaseInterface(){}, async close(){ this.opened = false; },
+        async transferOut(ep, d){ if(d[0] === 0x1B && d[1] === 0x40) window.__jobs++; window.__bytes += d.length; await new Promise(r => setTimeout(r, window.__delay)); return {status:'ok'}; }};
+      Object.defineProperty(Navigator.prototype, 'usb', {configurable:true, get(){ return {getDevices: async () => [dev], requestDevice: async () => dev, addEventListener(){}}; }});
+    };
+    const sellOne = async pg => { await pg.click('[data-menu="acai"]'); if(await pg.$('[data-honey]')) await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd');
+      await pg.click('#btnPay'); await pg.click('[data-dine="dinein"]'); await pg.click('[data-method="cash"]'); await pg.click('[data-q="500"]'); await pg.click('#payOk'); };
+    const out = pg => pg.evaluate(() => ({jobs:window.__jobs, bytes:window.__bytes, printed:window.__printed}));
+    const status = pg => pg.textContent('#prStatus').then(t => t.replace(/\s+/g, ' ').trim());
+    const printedOk = pg => pg.waitForFunction(() => /พิมพ์แล้ว/.test(document.getElementById('prStatus').textContent), null, {timeout:8000}).catch(() => {});
+    for(const [label, vp, br] of SCREENS){
+      const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:!label.startsWith('ipad'), reducedMotion:'reduce'});
+      await ctx.addInitScript(fakeUsb);
+      const page = await ctx.newPage(); watch(page, 'h25-' + label);
+      await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
+      await page.waitForFunction(() => /ปริ้นเตอร์พร้อม/.test(document.getElementById('btnPrinter').textContent), null, {timeout:4000}).catch(() => {});
+      const hdr = (await page.textContent('#btnPrinter')).trim();
+      await sellOne(page);
+      const st0 = await status(page);
+      await printedOk(page);
+      const o1 = await out(page), st1 = await status(page);
+      eq(`H25 ${label} หัวจอ "ปริ้นเตอร์พร้อม" → ชำระเงินแล้วส่งข้อมูลออก USB จริง 2 งาน (ใบเสร็จ + ตั๋วครัว) ไม่เด้งหน้าพิมพ์ของระบบ · สถานะ กำลังพิมพ์ → พิมพ์แล้ว`,
+        [hdr, o1.jobs, o1.bytes > 10000, o1.printed, /^กำลังพิมพ์/.test(st0), st1], ['ปริ้นเตอร์พร้อม', 2, true, 0, true, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ']);
+      const lay = await page.evaluate(() => {
+        const r = id => document.getElementById(id).getBoundingClientRect(), W = innerWidth, H = innerHeight;
+        const n = r('nextOrder'), a = r('prReceipt'), b = r('prKitchen'), inV = x => x.top >= 0 && x.bottom <= H + 1 && x.left >= 0 && x.right <= W + 1;
+        const hit = (p, q) => !(p.right <= q.left || q.right <= p.left || p.bottom <= q.top || q.bottom <= p.top);
+        const top = x => document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
+        return {inView:[n, a, b].every(inV), overlap:hit(n, a) || hit(n, b), nextOnTop:top(n) && top(n).closest('#nextOrder') !== null, below:a.top >= n.bottom, min:Math.round(Math.min(a.height, b.height, a.width, b.width))};
+      });
+      await page.screenshot({path:path.join(SHOTS, `h26-${label}-done-printed.png`)});
+      eq(`H26 ${label} หน้าสำเร็จ: ปุ่ม พิมพ์ใบเสร็จ / พิมพ์ตั๋วครัวซ้ำ อยู่ใต้ "ออเดอร์ถัดไป" ไม่ทับ ไม่บัง เห็นครบในจอ ≥ 44 px`,
+        [lay.inView, lay.overlap, lay.nextOnTop, lay.below, lay.min >= 44], [true, false, true, true, true]);
+      await page.evaluate(() => { window.__delay = 120; });   // ตั๋วครัวใช้ ~2 วิ เหมือนเครื่องจริง · กดรัวทั้ง 5 ครั้งระหว่างพิมพ์
+      for(let i = 0; i < 5; i++) await page.click('#prKitchen', {force:true});
+      await printedOk(page); await page.evaluate(() => { window.__delay = 2; });
+      const o2 = await out(page);
+      eq(`H26 ${label} กด "พิมพ์ตั๋วครัวซ้ำ" รัว 5 ครั้งระหว่างพิมพ์ → ออก 1 ใบ ไม่พิมพ์ซ้อน`, [o2.jobs - o1.jobs, o2.printed], [1, 0]);
+      // H27 ยังไม่ได้เชื่อม: บิลบันทึก ไม่ส่ง ไม่เด้งหน้าพิมพ์ · บอกชัด + ปุ่มเชื่อม · กดเชื่อมแล้วตั๋วออกเอง
+      await page.click('#nextOrder'); await page.evaluate(() => { usbPrinter.forget(); renderPrinterBtn(); });
+      const n0 = await page.evaluate(() => loadSales().length);
+      await sellOne(page); await page.waitForTimeout(500);
+      const o3 = await out(page), st3 = await status(page);
+      await page.screenshot({path:path.join(SHOTS, `h27-${label}-not-connected.png`)});
+      eq(`H27 ${label} ยังไม่ได้เชื่อม: บิลบันทึก · ไม่ส่ง · ไม่เด้งหน้าพิมพ์ · ขึ้น "ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก" + ปุ่มเชื่อม + แถบส้ม`,
+        [await page.evaluate(() => loadSales().length) - n0, o3.jobs - o2.jobs, o3.printed, st3.includes('ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก'), await page.isVisible('#prConnect'), await page.isVisible('#printFail')],
+        [1, 0, 0, true, true, true]);
+      await page.click('#prConnect'); await printedOk(page);
+      const o4 = await out(page);
+      eq(`H27 ${label} กดเชื่อมปริ้นเตอร์บนหน้าสำเร็จ → ตั๋วที่ค้างออกเอง 2 ใบ · แถบส้มหาย`, [o4.jobs - o3.jobs, await status(page), await page.isVisible('#printFail')], [2, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', false]);
+      await ctx.close();
+    }
+    // H28 แอปจริง (app/index.html) · เจ้าของตั้ง "เมื่อลูกค้าขอ" → ตั๋วครัวออกเอง ใบเสร็จออกเมื่อกด
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}, hasTouch:true, isMobile:true});
+    await ctx.addInitScript(fakeUsb);
+    const page = await ctx.newPage(); watch(page, 'h28');
+    await page.goto(`${BASE}/app/index.html`); await page.waitForSelector('#lgName');
+    await page.fill('#lgName', 'เจ้าของ'); await page.fill('#lgCode', '1234'); await page.fill('#lgCode2', '1234'); await page.click('#lgSave'); await page.click('#lgDone'); await skipFloat(page);
+    await sellOne(page); await printedOk(page);
+    const a1 = await out(page);
+    await page.click('#nextOrder'); await page.click('#btnSettings'); await page.click('[data-rcpt="ask"]');
+    const setOn = await page.$$eval('#modal [data-rcpt]', b => b.map(x => x.classList.contains('on')));
+    await page.screenshot({path:path.join(SHOTS, 'h28-settings-receipt.png')});
+    await page.click('#closeX');
+    await sellOne(page); await printedOk(page);
+    const a2 = await out(page), acc = await page.evaluate(() => document.getElementById('prReceipt').classList.contains('accent'));
+    await page.screenshot({path:path.join(SHOTS, 'h28-ask-mode-done.png')});
+    await page.click('#prReceipt'); await page.waitForTimeout(300); await printedOk(page);
+    const a3 = await out(page);
+    eq('H28 app/ ทุกบิล (ค่าเริ่มต้น) = 2 ใบ · ตั้ง "เมื่อลูกค้าขอ" → ตั๋วครัวอย่างเดียว ปุ่มพิมพ์ใบเสร็จเด่น · กดแล้วได้ใบเสร็จ 1 ใบ · ไม่เด้งหน้าพิมพ์',
+      [a1.jobs, setOn, a2.jobs - a1.jobs, acc, a3.jobs - a2.jobs, await status(page), a3.printed], [2, [false, true], 1, true, 1, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', 0]);
     await ctx.close();
   }
 

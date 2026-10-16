@@ -21,7 +21,9 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     setTimeout(() => {
       const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];
       eq('sale saved', [s.no, s.total, s.change, s.dining], [1, 99, 1, 'takeaway']);
-      eq('print slips rendered', $('#printArea').querySelectorAll('.slip').length, 2);
+      eq('no WebUSB: nothing printed by itself, success screen says slips not out', [$('#printArea').querySelectorAll('.slip').length, $('#prStatus').textContent.includes('ตั๋วยังไม่ออก')], [0, true]);
+      $('#prKitchen').click(); $('#prReceipt').click();
+      eq('staff taps print: slips rendered for browser print', $('#printArea').querySelectorAll('.slip').length, 1);
       $('#nextOrder').click(); eq('next order number', $('#nextNo').textContent, 'ออเดอร์ #002');
       eq('no runtime errors', errors, []);
       console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);

@@ -70,8 +70,8 @@ function confirmPay(){
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}
-    <button class="pay" id="nextOrder">ออเดอร์ถัดไป</button>
-    ${CONFIG.autoPrint ? `<button class="linkbtn" id="prBoth">${icon('printer', 16)} กระดาษไม่ออก? พิมพ์อีกครั้ง</button>` : ''}`);
-  if(CONFIG.autoPrint) printSale(sale, 'both');   // ใบเสร็จ + ตั๋วครัวทุกบิล พนักงานไม่ต้องกดอะไร
+    ${doneHtml(sale)}`);
+  /* บันทึกบิลแล้วจึงพิมพ์ (ไม่รอ UI ไม่ค้าง) · ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (Tee 2026-10-17) */
+  printSale(sale, receiptMode() === 'all' ? 'both' : 'kitchen');
 }
 $('btnPay').onclick = $('btnPay2').onclick = openPay;

@@ -2,8 +2,8 @@
    รหัส 4 หลักเก็บเป็น sha256(salt:รหัส) ไม่เก็บตัวเลข · ใส่รหัสใครก็เข้าเป็นคนนั้น รหัสจึงห้ามซ้ำกัน
    ตำแหน่งมี 2 แบบ สิทธิ์กำหนดที่ CAN ในโค้ดเท่านั้น (Tee 2026-10-12) */
 const CAN = {
-  owner: {pastReports:true,  void:true,  promptpay:true,  users:true},
-  staff: {pastReports:false, void:false, promptpay:false, users:false},
+  owner: {pastReports:true,  void:true,  promptpay:true,  users:true,  printMode:true},
+  staff: {pastReports:false, void:false, promptpay:false, users:false, printMode:false},
 };
 const ROLE_NAME = {owner:'เจ้าของ', staff:'พนักงาน'};
 const CODE_LEN = 4, RECOVERY_LEN = 8;

@@ -29,8 +29,8 @@ $('modal').onclick = e => {
     else askOwner(run, `${isVoid ? 'ยกเลิก' : 'นำกลับ'}บิล #${pad(sv.no, 3)} ต้องใช้รหัสเจ้าของ`);
     return;
   }
-  if(el = g('prr')){ const s = loadSales().find(x => String(x.id) === el.dataset.prr); if(s) printSale(s, 'receipt'); return; }
-  if(el = g('prk')){ const s = loadSales().find(x => String(x.id) === el.dataset.prk); if(s) printSale(s, 'kitchen'); return; }
+  if(el = g('prr')){ const s = loadSales().find(x => String(x.id) === el.dataset.prr); if(s) printSale(s, 'receipt', true); return; }
+  if(el = g('prk')){ const s = loadSales().find(x => String(x.id) === el.dataset.prk); if(s) printSale(s, 'kitchen', true); return; }
   if(el = g('tab')){ REP.tab = el.dataset.tab; renderSummary(); return; }
   if(el = g('range')){ setRange(el.dataset.range); renderSummary(); return; }
   const b = e.target.closest('button'); const id = b && b.id;
@@ -55,7 +55,9 @@ $('modal').onclick = e => {
   else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(typeof b === 'function') b(); else if(b) renderSummary(); else closeModal(); }
   else if(id === 'csvAll') exportCsv();
   else if(id === 'payOk') confirmPay();
-  else if(id === 'prBoth' && lastSale) reprint(lastSale, true);   // เฉพาะใบที่ยังไม่ออก หรือให้เลือก
+  else if(id === 'prReceipt' && lastSale) printSale(lastSale, 'receipt', true);   // หน้าสำเร็จ: กดรัวๆ ไม่พิมพ์ซ้อน (printSale ข้ามใบที่กำลังพิมพ์)
+  else if(id === 'prKitchen' && lastSale) printSale(lastSale, 'kitchen', true);
+  else if(id === 'prConnect') connectPrinter();
   else if(id === 'prTest') printTest();
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();

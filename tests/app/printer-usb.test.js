@@ -1,6 +1,7 @@
 // พิมพ์ตรงผ่าน USB ในแอป: จำลอง WebUSB + canvas ใน jsdom แล้วขาย 1 บิล
 // - เคยอนุญาตเครื่องแล้ว → เชื่อมเองตอนเปิดแอป · ส่ง ESC/POS (ภาพ GS v 0 + ตัดกระดาษ 2 ใบ) ไม่เรียก window.print
-// - ส่งไม่สำเร็จ → กลับไปใช้ window.print + ปุ่มกลับเป็น "เชื่อมปริ้นเตอร์"
+// - ส่งไม่สำเร็จ → แถบส้ม ไม่เด้ง window.print เอง + ปุ่มกลับเป็น "เชื่อมปริ้นเตอร์" (Tee 2026-10-17)
+// - หลังชำระเงิน (Tee 2026-10-17): ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (ทุกบิล / เมื่อลูกค้าขอ) · สถานะ กำลังพิมพ์ → พิมพ์แล้ว · ยังไม่ได้เชื่อม → บอกชัด + ปุ่มเชื่อม · กดรัวๆ ไม่พิมพ์ซ้อน
 // - ปริ้นเตอร์ไม่ตอบ (transferOut ค้าง) → หมดเวลาต่องาน ล้างคิว เชื่อมใหม่ แถบแจ้ง + พิมพ์ซ้ำเฉพาะใบที่ขาด (Tee 2026-10-16)
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const {finish} = require('../flow-helper');
@@ -43,8 +44,12 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     A.signIn(w);
     await wait(100);
     eq('auto reconnect to allowed printer', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
-    sell(); await wait(250);
+    sell();
+    eq('success screen at once: printing status, buttons below next order, busy buttons disabled', [$('#prStatus').textContent.trim(), !!$('#nextOrder'), $('#prReceipt').disabled, $('#prKitchen').disabled,
+      $('#nextOrder').compareDocumentPosition($('#prReceipt')) & 4 ? 'below' : 'above'], ['กำลังพิมพ์ตั๋วครัว + ใบเสร็จ…', true, true, true, 'below']);
+    await wait(250);
     eq('sent ESC/POS, no browser print', [sent.length > 0, printed], [true, 0]);
+    eq('status after print: printed ✓ both · buttons enabled again', [$('#prStatus').textContent.trim(), $('#prStatus').className.includes('ok'), $('#prReceipt').disabled, $('#prKitchen').disabled], ['พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', true, false, false]);
     eq('fonts: both slip weights requested at app start', timeline.filter(t => t.startsWith('load')).slice(0, 2), ['load 400 26px "IBM Plex Sans Thai Looped"', 'load 700 26px "IBM Plex Sans Thai Looped"']);
     eq('fonts: first slip drawn only after fonts loaded', timeline.indexOf('loaded') >= 0 && timeline.indexOf('loaded') < timeline.indexOf('draw'), true);
     eq('starts with ESC @', sent.slice(0, 2), [0x1B, 0x40]);
@@ -54,17 +59,47 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('blocks: kitchen ticket content', w.eval('kitchenBlocks(lastSale)').slice(0, 2).map(b => b.text), ['#001', 'กินเลย']);
     eq('blocks: dine-in is a framed box, no solid black band', w.eval('kitchenBlocks(lastSale)').slice(1, 2).map(b => [b.box, !!b.invert]), [['single', false]]);
     eq('blocks: receipt total + change', w.eval('receiptBlocks(lastSale)').filter(b => b.left === 'รวม' || b.left === 'เงินทอน').map(b => b.right), ['฿189', '฿311']);
-    // พิมพ์ซ้ำ 2 ครั้งติดกัน → ส่งต่อกันเป็นลำดับ ไม่ปนกัน
-    sent = []; w.eval('printSale(lastSale); printSale(lastSale)'); await wait(150);
-    eq('double reprint queued: 4 cuts, 2 inits', [count(sent, [0x1D, 0x56, 0x42, 0x00]), sent[0] === 0x1B && sent[1] === 0x40], [4, true]);
-    eq('one job per slip: receipt and kitchen each start with ESC @ and end with a cut', count(sent, [0x1B, 0x40]) >= 4, true);
-    // ส่งไม่สำเร็จ → window.print แทน
+    // กดรัวๆ บนหน้าสำเร็จ → ใบละครั้งเดียว ไม่พิมพ์ซ้อน
+    sent = []; for(let i = 0; i < 4; i++){ $('#prKitchen').click(); $('#prReceipt').click(); } await wait(200);
+    eq('rapid taps (4× each): one kitchen + one receipt only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40])], [2, 2]);
+    // พิมพ์ซ้ำทีละใบหลังใบก่อนเสร็จ → ส่งต่อกันเป็นลำดับ ไม่ปนกัน
+    sent = []; w.eval('printSale(lastSale, "receipt", true)'); await wait(150); w.eval('printSale(lastSale, "kitchen", true)'); await wait(150);
+    eq('one job per slip: receipt and kitchen each start with ESC @ and end with a cut', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40]), sent[0] === 0x1B && sent[1] === 0x40], [2, 2, true]);
+    // ส่งไม่สำเร็จ → แถบส้ม ห้ามเด้งหน้าพิมพ์ของระบบเอง
     failNext = true; w.eval('printSale(lastSale)'); await wait(250);
-    eq('send failure falls back to window.print', [printed, $('#printArea').querySelectorAll('.slip').length], [1, 2]);
+    eq('send failure: no browser print popped, fail bar + status say not out', [printed, !!$('#printFail'), $('#prStatus').className.includes('warn')], [0, true, true]);
     eq('button back to connect', $('#btnPrinter').textContent.trim(), 'เชื่อมปริ้นเตอร์');
-    // กดเชื่อมใหม่ → พิมพ์ทดสอบ
+    // กดเชื่อมใหม่ → พิมพ์ซ้ำจากแถบ → พิมพ์ทดสอบ
     $('#btnPrinter').click(); await wait(100);
     eq('connect again', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
+    sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(200);
+    eq('reprint from bar after reconnect: both slips · bar gone', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail')], [2, false]);
+
+    // ---------- ยังไม่ได้เชื่อมปริ้นเตอร์ตอนชำระเงิน (Tee 2026-10-17) ----------
+    $('#nextOrder').click(); w.eval('usbPrinter.forget(); renderPrinterBtn()'); sent = []; printed = 0;
+    sell(); await wait(200);
+    eq('not connected: bill saved, nothing sent, no browser print popped by itself', [w.eval('loadSales().some(s => s.id === lastSale.id)'), sent.length, printed], [true, 0, 0]);
+    eq('not connected: clear message + connect button on success screen · fail bar too', [$('#prStatus').textContent.includes('ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก'), !!$('#prConnect'), !!$('#printFail') && $('#printFail').textContent.includes('ยังไม่ได้เชื่อมปริ้นเตอร์')], [true, true, true]);
+    $('#prConnect').click(); await wait(300);
+    eq('connect from success screen: pending slips print by themselves · status printed · bar gone', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#prStatus').textContent.trim(), !!$('#printFail'), printed], [2, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', false, 0]);
+    // กดพิมพ์ตอนยังไม่เชื่อม → หน้าต่างเลือกปริ้นเตอร์ แล้วพิมพ์ (ไม่ใช่หน้าพิมพ์ของระบบ)
+    w.eval('usbPrinter.forget(); renderPrinterBtn()'); sent = [];
+    $('#prKitchen').click(); await wait(300);
+    eq('tap print while not connected: connects then prints that slip only', [$('#btnPrinter').textContent.trim(), count(sent, [0x1D, 0x56, 0x42, 0x00]), printed], ['ปริ้นเตอร์พร้อม', 1, 0]);
+
+    // ---------- ใบเสร็จ: เมื่อลูกค้าขอ (เจ้าของตั้ง) ----------
+    $('#nextOrder').click();
+    $('#btnSettings').click();
+    eq('owner sees receipt setting (default = every bill)', [...d.querySelectorAll('#modal [data-rcpt]')].map(b => [b.textContent, b.classList.contains('on')]), [['ทุกบิล', true], ['เมื่อลูกค้าขอ', false]]);
+    $('#modal [data-rcpt="ask"]').click(); eq('saved on this device', w.eval('SETTINGS.receiptMode'), 'ask'); w.eval('closeModal()');
+    sent = []; sell(); await wait(250);
+    eq('ask mode: kitchen auto (1 job) · receipt button stands out · status kitchen only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#prReceipt').classList.contains('accent'), $('#prStatus').textContent.trim(), w.eval('PRINTED.get(lastSale.id).receipt')], [1, true, 'พิมพ์แล้ว ✓ ตั๋วครัว', undefined]);
+    sent = []; $('#prReceipt').click(); $('#prReceipt').click(); await wait(250);
+    eq('customer asks: tap receipt (twice) → 1 receipt · status both', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#prStatus').textContent.trim()], [1, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ']);
+    A.signIn(w, '1111'); $('#nextOrder').click(); $('#btnSettings').click();
+    eq('staff: no receipt setting', d.querySelectorAll('#modal [data-rcpt]').length, 0);
+    w.eval('setReceiptMode("all")'); eq('staff cannot change it from code either', w.eval('SETTINGS.receiptMode'), 'ask');
+    A.signIn(w, '1234'); w.eval("setReceiptMode('all'); closeModal()"); eq('owner back to every bill', w.eval('receiptMode()'), 'all');
     $('#btnPrinter').click(); eq('info modal shows device', $('#modal').textContent.includes('XP-Q807K'), true);
     sent = []; $('#prTest').click(); await wait(150);
     eq('test print: 1 cut', count(sent, [0x1D, 0x56, 0x42, 0x00]), 1);
@@ -89,20 +124,18 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('after timeout: connection closed (pending transfer cancelled) and reconnected by itself', [dev.opened, $('#btnPrinter').textContent.trim()], [true, 'ปริ้นเตอร์พร้อม']);
     const bar = $('#printFail');
     eq('fail bar: message + one reprint button per bill, only the missing slip', [!!bar && bar.textContent.includes('ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ'), bar && bar.textContent.includes('ล้างงานค้างไม่ได้'), [...d.querySelectorAll('#printFail .pfbtn')].map(b => b.textContent)],
-      [true, false, ['พิมพ์ซ้ำ #002 ตั๋วครัว', 'พิมพ์ซ้ำ #003 ใบเสร็จ + ตั๋วครัว']]);
-    eq('success screen button (bill 2) says what will be reprinted', $('#prBoth').textContent.includes('พิมพ์ซ้ำใบเสร็จ + ตั๋วครัว'), true);
+      [true, false, w.eval(`[${s1}, ${s2}].map(id => pad(loadSales().find(s => s.id === id).no, 3))`).map((n, i) => `พิมพ์ซ้ำ #${n} ${i ? 'ใบเสร็จ + ตั๋วครัว' : 'ตั๋วครัว'}`)]);
+    eq('success screen (bill 2) says which slips are not out', [$('#prStatus').textContent.includes('ตั๋วครัว + ใบเสร็จยังไม่ออก'), $('#prStatus').className.includes('warn')], [true, true]);
     await wait(400); eq('no leftover bytes of the old job sent later (after reconnect)', [sent.length === sentAtHang, lateSent], [true, 0]);
     // เติมกระดาษแล้วกดพิมพ์ซ้ำ: เฉพาะใบที่ขาด
     hangJob = 0; sent = [];
     d.querySelector('#printFail .pfbtn').click(); await wait(150);
     eq('reprint bill 1 from bar: kitchen only (1 job, 1 cut) · bar keeps bill 2 only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), w.eval(`PRINTED.get(${s1}).kitchen`), [...d.querySelectorAll('#printFail .pfbtn')].length], [1, 'ok', 1]);
-    sent = []; $('#prBoth').click(); await wait(150);
-    eq('reprint bill 2 from success screen: both slips · bar gone', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail')], [2, false]);
-    // ส่งครบแล้วแต่พนักงานบอกกระดาษไม่ออก → ไม่แน่ใจ ให้เลือก
-    sent = []; $('#nextOrder') && $('#nextOrder').click(); sell(); await wait(150); $('#prBoth').click();
-    eq('all sent but staff says no paper: choose receipt / kitchen / both', [...d.querySelectorAll('#modal [data-rp]')].map(b => b.textContent), ['ใบเสร็จ', 'ตั๋วครัว', 'ใบเสร็จ + ตั๋วครัว']);
-    sent = []; $('#modal [data-rp="kitchen"]').click(); await wait(150);
-    eq('chosen: kitchen only', count(sent, [0x1D, 0x56, 0x42, 0x00]), 1);
+    sent = []; $('#prKitchen').click(); $('#prReceipt').click(); await wait(150);
+    eq('reprint bill 2 from success screen buttons: both slips · bar gone · status printed', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail'), $('#prStatus').textContent.trim()], [2, false, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ']);
+    // ส่งครบแล้วแต่พนักงานบอกกระดาษไม่ออก → กดพิมพ์ตั๋วครัวซ้ำ
+    sent = []; $('#nextOrder') && $('#nextOrder').click(); sell(); await wait(150); sent = []; $('#prKitchen').click(); await wait(150);
+    eq('all sent but no paper: reprint kitchen only', count(sent, [0x1D, 0x56, 0x42, 0x00]), 1);
     // งานค้างดันตอบ ok หลังเชื่อมใหม่: ส่วนที่เหลือของงานเก่าต้องไม่ถูกส่งผ่านการเชื่อมใหม่
     $('#nextOrder') && $('#nextOrder').click(); jobs = 0; hangJob = 2; lateOk = true; sell(); await wait(900);
     const tailFrom = hangAt; hangJob = 0; await wait(300);

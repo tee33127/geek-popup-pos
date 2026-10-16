@@ -501,3 +501,15 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 .tops .topw .tminus:active{background:rgba(26,0,184,.08)}
 /* toast: JS วาง (placeToast) ลอยเหนือแถบล่างตรงปุ่มเพิ่มลงออเดอร์ · มีหน้าต่างเปิด = .mtoast ในหน้าต่าง (Tee 2026-10-15) */
 #toast{width:max-content;text-align:center;font-size:max(12px, calc(15px * var(--ui-scale)));line-height:1.4;padding:calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale));border-radius:20px;z-index:40;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+/* หน้าสำเร็จหลังชำระเงิน: สถานะพิมพ์ + ปุ่มพิมพ์ (Tee 2026-10-17) · ปุ่มอยู่ใต้ "ออเดอร์ถัดไป" */
+.prstatus{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-height:max(44px, calc(48px * var(--ui-scale)));margin:0 0 calc(10px * var(--ui-scale));padding:6px 12px;border-radius:12px;color:var(--mute);font-weight:700;line-height:1.4;text-align:center}
+.prstatus:empty{display:none}
+.prstatus .ic{vertical-align:-4px}
+.prstatus.ok{color:var(--ok);background:#e8f5ee}
+.prstatus.warn{background:#fff3e0;color:#7a3e00;border:2px solid var(--orange)}
+.prstatus .pfbtn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--blue);color:#fff;font-weight:700}
+.donebtns{margin-top:calc(10px * var(--ui-scale));gap:calc(10px * var(--ui-scale))}
+.donebtns button{flex:1 1 0;min-height:max(44px, calc(52px * var(--ui-scale)));font-size:max(12px, calc(16px * var(--ui-scale)))}
+.donebtns button .ic{vertical-align:-4px}
+.donebtns button:disabled{opacity:.5}
+.ghost.accent{background:var(--orange-soft);color:#7a3e00;border:2px solid var(--orange)}
