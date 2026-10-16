@@ -280,6 +280,13 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 /* หน้าเข้าใช้งาน: เต็มจอ ทับทุกอย่าง (รวม modal) */
 #login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #login.show{display:flex}
+/* เปิดแอปซ้อนอีกหน้า (tablock.js) · อยู่บนทุกอย่าง รวมหน้าเข้าใช้งานและหน้าต่าง */
+#tabLock{position:fixed;inset:0;z-index:50;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
+#tabLock.show{display:flex}
+#tabLock .lgtitle{display:flex;align-items:center;justify-content:center;gap:8px;line-height:1.4}
+#tabLock .lgtitle .ic{color:var(--orange)}
+#tabLock .lgsub{line-height:1.5}
+#tabLock .pay{width:100%}
 .lgbox{background:#fff;border-radius:24px;padding:calc(28px * var(--ui-scale)) calc(24px * var(--ui-scale));width:100%;max-width:400px;text-align:center}
 .lgtitle{font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;color:var(--blue)}
 .lgtitle span{color:var(--orange)}

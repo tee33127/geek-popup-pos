@@ -52,6 +52,7 @@ function confirmPay(){
   if(!pay.dining || !pay.method || !cart.length) return;
   if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }
   if(pay.method === 'cash' && pay.received < cartTotal()) return;   // ปุ่มกดไม่ได้อยู่แล้ว กันเรียกโค้ดตรง
+  if(!tabCanSell()){ if(TAB_STATE === 'wait') toast('กำลังตรวจว่าแอปเปิดซ้อนอีกหน้าไหม รอสักครู่แล้วกดอีกครั้ง'); else showTabLock(); return; }   // ขายได้ทีละหน้า (tablock.js)
   if(!needUser()) return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;

@@ -38,6 +38,7 @@ const runs = [
   ['qa/reports-export.test.js'],
   ['qa/data-security.test.js'],
   ['qa/print-manual.test.js'],
+  ['qa/order-flow.test.js'],
 ];
 let failed = 0;
 for (const [file, ...args] of runs) {

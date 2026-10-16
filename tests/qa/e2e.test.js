@@ -73,7 +73,7 @@ const server = http.createServer((q, r) => {
     await page.click('[data-honey="lots"]'); await page.click('[data-noteopen]');
     await page.fill('#note', 'ลูกค้าแพ้ถั่วลิสงขอไม่ใส่เนยถั่วและช็อกโกแลตชิพ '.repeat(10) + '😀👍🏽 ฮ่าาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาาา่');   // X02 หมายเหตุยาว
     await page.click('#btnAdd');
-    /* C10 ตะกร้าจัดกลุ่มเหมือนใบเสร็จ: กลุ่มละบรรทัดเดียว (ยาวตัด …) · ไม่รับ = ส้ม ไม่ใช่แดง · แตะ = ดูเต็ม */
+    /* H20 (เดิม C10) ตะกร้าจัดกลุ่มเหมือนใบเสร็จ: กลุ่มละบรรทัดเดียว (ยาวตัด …) · ไม่รับ = ส้ม ไม่ใช่แดง · แตะ = ดูเต็ม */
     L.cartGroups = await page.evaluate(() => { const cg = [...document.querySelectorAll('#cart .line:not(.full) .cg')];
       const one = cg.every(c => c.getBoundingClientRect().height <= parseFloat(getComputedStyle(c).fontSize) * 1.6);
       const no = [...document.querySelectorAll('#cart .cg.no')], noColor = no.map(c => getComputedStyle(c).color);
@@ -102,7 +102,7 @@ const server = http.createServer((q, r) => {
     eq(`U01 ${label}: รหัสเจ้าของ = ช่อง text แป้นตัวเลข ซ่อนด้วย CSS ได้ focus · ไม่มีช่อง password`, L.ownerPad, ['text', 'numeric', 'disc', true, 0]);
     eq(`UI01 ${label}: ปุ่มชำระเงิน (หรือแถบออเดอร์ที่ยุบ) เห็นเสมอระหว่างขาย (หน้าแรก Acai Greek ตะกร้า)`, ['home', 'acai', 'greek', 'cart'].map(k => L[k].payVis), [true, true, true, true]);
     eq(`X02 ${label}: หมายเหตุยาว 500+ ตัว + อีโมจิ ในตะกร้าไม่ล้นกรอบ`, L.cartOverflow, false);
-    eq(`C10 ${label}: ตะกร้าจัดกลุ่มเหมือนใบเสร็จ แต่ละกลุ่มบรรทัดเดียว (ยาวตัด …) · ไม่รับ สีส้มไม่ใช่แดง`, L.cartGroups, [true, true, true]);
+    eq(`H20 ${label}: ตะกร้าจัดกลุ่มเหมือนใบเสร็จ แต่ละกลุ่มบรรทัดเดียว (ยาวตัด …) · ไม่รับ สีส้มไม่ใช่แดง`, L.cartGroups, [true, true, true]);
     eq(`F01 ${label}: ฟอนต์ที่ใช้จริง IBM Plex Sans Thai Looped (400 + 700 โหลดแล้ว)`, L.font, ['IBM Plex Sans Thai Looped', true, true, true]);
     eq(`F02 ${label}: ไม่มีข้อความล้นกล่อง (Acai, หน้าต่างเปลี่ยน, Greek, ตะกร้า, ชำระเงิน+แป้น, ตั้งค่า)`, [L.acaiOver, L.swapOver, L.greekOver, L.cartOver, L.payOver, L.settingsOver], Array(6).fill([]));
   }
@@ -607,37 +607,66 @@ const server = http.createServer((q, r) => {
     await ctx.close();
   }
 
-  // ---------- D03 เปิดแอป 2 แท็บพร้อมกัน (app/ แบบติดตั้ง ใช้ IndexedDB จริง) · UI08 ----------
+  // ---------- D03 เปิดแอป 2 แท็บพร้อมกัน (app/ แบบติดตั้ง ใช้ IndexedDB จริง) · ขายได้ทีละหน้า (tablock.js, Tee 2026-10-16) · UI08 ----------
   {
     const ctx = await browser.newContext({viewport:{width:1280, height:800}});
     await ctx.addInitScript(() => { window.print = () => {}; });
+    const shown = pg => pg.evaluate(() => { const e = document.getElementById('tabLock'); return !!e && e.classList.contains('show') && getComputedStyle(e).display !== 'none'; });
+    const settle = async pg => { await pg.waitForFunction(() => typeof TAB_STATE !== 'undefined' && TAB_STATE !== 'wait', null, {timeout:6000}); return pg.evaluate(() => TAB_STATE); };
     const A = await ctx.newPage(); watch(A, 'tabA');
     await A.goto(`${BASE}/app/index.html`); await A.waitForSelector('#lgName');
     await A.fill('#lgName', 'เจ้าของ'); await A.fill('#lgCode', '1234'); await A.fill('#lgCode2', '1234'); await A.click('#lgSave'); await A.click('#lgDone'); await skipFloat(A);
-    const B = await ctx.newPage(); watch(B, 'tabB');
-    await B.goto(`${BASE}/app/index.html`); await B.waitForSelector('#builder'); await B.waitForTimeout(300); await skipFloat(B);
+    const stA = await settle(A);
     const sell = async (pg, menu) => { await pg.click(`[data-menu="${menu}"]`); if(await pg.$('[data-honey]')) await pg.click('[data-honey="normal"]'); await pg.click('#btnAdd');
       await pg.click('#btnPay'); await pg.click('[data-dine="dinein"]'); await pg.click('[data-method="tcp"]'); await pg.click('#payOk'); const s = await pg.evaluate(() => ({id:lastSale.id, no:lastSale.no})); await pg.click('#nextOrder'); return s; };
     const mode = await A.evaluate(() => STORE_MODE);
-    const a1 = await sell(A, 'acai'), b1 = await sell(B, 'banana'), a2 = await sell(A, 'acai');
-    const lsCount = await A.evaluate(() => JSON.parse(localStorage.getItem(KEY)).length);
-    await A.reload(); await A.waitForSelector('#builder'); await A.waitForTimeout(400);
-    const after = await A.evaluate(() => loadSales().map(s => s.no));
-    console.log(`INFO D03 โหมด ${mode} · แท็บ A ได้ #${a1.no} #${a2.no} · แท็บ B ได้ #${b1.no} · localStorage ก่อนรีโหลดมี ${lsCount} บิล · หลังรีโหลด ${JSON.stringify(after)}`);
-    eq('D03 ขาย 2 แท็บพร้อมกัน: รีโหลดแล้วบิลครบ 3 ใบ (IndexedDB)', after.length, 3);
-    eq('D03 เลขออเดอร์ไม่ซ้ำกันระหว่าง 2 แท็บ', new Set([a1.no, b1.no, a2.no]).size, 3, 'S3 ⚠️ แต่ละแท็บนับเลขจากหน่วยความจำของตัวเอง แท็บ B ได้ #001 ซ้ำกับแท็บ A และ localStorage (สำเนาสำรอง) ถูกแท็บหลังเขียนทับ (บิลยังอยู่ใน IndexedDB)');
+    const a1 = await sell(A, 'acai');
 
+    // แท็บที่สอง: ขึ้นจอ "แอปเปิดอยู่อีกหน้าแล้ว" ขายไม่ได้ แม้เรียก confirmPay ตรง
+    const B = await ctx.newPage(); watch(B, 'tabB');
+    await B.goto(`${BASE}/app/index.html`); await B.waitForSelector('#builder');
+    const stB = await settle(B);
+    await B.screenshot({path:path.join(SHOTS, 'd03-second-tab.png')});
+    const bTry = await B.evaluate(() => { const n = loadSales().length; cart = [{menu:'banana', name:'Banana Choco', sizeName:'', tops:[], note:'', unit:149, qty:1, key:'x'}]; pay = {dining:'dinein', method:'tcp', received:0}; confirmPay(); return loadSales().length - n; });
+    eq('D03 แท็บแรกขายได้ · แท็บที่สองขึ้นจอ "แอปเปิดอยู่อีกหน้าแล้ว" + ปุ่ม "ใช้หน้านี้แทน" และบันทึกบิลไม่ได้', [stA, stB, await shown(A), await shown(B), await B.textContent('#tabLock .lgtitle').then(t => t.trim()), await B.textContent('#tabTake'), bTry],
+      ['own', 'other', false, true, 'แอปเปิดอยู่อีกหน้าแล้ว', 'ใช้หน้านี้แทน', 0]);
+
+    // กด "ใช้หน้านี้แทน": แท็บเก่าหยุดขายทันทีและขึ้นจอเดียวกัน · แท็บนี้โหลดใหม่ได้บิลล่าสุด เลขต่อจากแท็บเก่า
+    await Promise.all([B.waitForEvent('load'), B.click('#tabTake')]); await B.waitForSelector('#builder'); await skipFloat(B);
+    const stB2 = await settle(B);
+    await A.waitForFunction(() => TAB_STATE === 'other', null, {timeout:4000}).catch(() => {});
+    await A.screenshot({path:path.join(SHOTS, 'd03-old-tab-stopped.png')});
+    const aTry = await A.evaluate(() => { const n = loadSales().length; cart = [{menu:'banana', name:'Banana Choco', sizeName:'', tops:[], note:'', unit:149, qty:1, key:'x'}]; pay = {dining:'dinein', method:'tcp', received:0}; confirmPay(); return loadSales().length - n; });
+    const b1 = await sell(B, 'banana'), b2 = await sell(B, 'acai');
+    eq('D03 ใช้หน้านี้แทน: แท็บใหม่ขายได้ ไม่ต้องเข้าระบบใหม่ · แท็บเก่าหยุดขาย ขึ้นข้อความเดียวกัน บันทึกไม่ได้ · เลขต่อกัน', [stB2, await shown(B), await A.evaluate(() => TAB_STATE), await shown(A), await A.textContent('#tabLock .lgtitle').then(t => t.trim()), aTry, [a1.no, b1.no, b2.no]],
+      ['own', false, 'other', true, 'แอปเปิดอยู่อีกหน้าแล้ว', 0, [1, 2, 3]]);
+
+    // รีเฟรช / แอปถูกปิดแล้วเปิดใหม่: ห้ามติดหน้านี้
+    await B.reload(); await B.waitForSelector('#builder'); await skipFloat(B);
+    const stR = await settle(B), shR = await shown(B);
+    await B.close();
+    const C = await ctx.newPage(); watch(C, 'tabC');
+    await C.goto(`${BASE}/app/index.html`); await C.waitForSelector('#builder'); await skipFloat(C);
+    const stC = await settle(C), shC = await shown(C);
+    eq('D03 รีเฟรชหน้าที่ขายอยู่ = ไม่ติดจอเปิดซ้อน · ปิดหน้าแล้วเปิดใหม่ = ขายได้ทันที', [stR, shR, stC, shC], ['own', false, 'own', false]);
+    const c1 = await sell(C, 'banana');
+    await A.reload(); await A.waitForSelector('#builder'); await settle(A);
+    const after = await C.evaluate(() => loadSales().map(s => s.no));
+    const lsCount = await C.evaluate(() => JSON.parse(localStorage.getItem(KEY)).length);
+    console.log(`INFO D03 โหมด ${mode} · A #${a1.no} · B #${b1.no} #${b2.no} · C #${c1.no} · หลังรีโหลด ${JSON.stringify(after)} · localStorage ${lsCount} บิล · A หลังรีโหลด ${await A.evaluate(() => TAB_STATE)}`);
+    eq('D03 บิลครบ 4 ใบ เลขออเดอร์ไม่ซ้ำ · สำเนา localStorage ครบ · แท็บเก่ารีโหลดขณะอีกหน้าขายอยู่ = ขึ้นจอเปิดซ้อน', [after.length, new Set(after).size, lsCount, await A.evaluate(() => TAB_STATE), await shown(A)], [4, 4, 4, 'other', true]);
+    await A.close();
     // UI08 5,000 บิลในเบราว์เซอร์จริง
-    await A.evaluate(() => { const base = Date.now() - 5000 * 6 * 3600000, list = [];
+    await C.evaluate(() => { const base = Date.now() - 5000 * 6 * 3600000, list = [];
       for(let i = 0; i < 5000; i++){ const t = base + i * 6 * 3600000; const P = priceItem(MENU.acai, {comps:MENU.acai.defaults.slice(), adds:[], sep:false});
         list.push({id:t, no:(i % 4) + 1, date:bizDate(new Date(t)), ts:new Date(t).toISOString(), dining:'dinein', items:[{menu:'acai', name:'Acai', sizeName:'', tops:P.tops, honey:'normal', note:'', unit:P.unit, qty:1}], total:P.unit, method:'cash', received:P.unit, change:0, void:false, staff:'เจ้าของ'}); }
       saveSales(list); });
-    await A.waitForTimeout(500);
+    await C.waitForTimeout(500);
     const ms = async fn => { const t = Date.now(); await fn(); return Date.now() - t; };
-    const tAll = await ms(async () => { await A.click('#btnSummary'); await A.click('[data-range="all"]'); });
-    const tBills = await ms(() => A.click('[data-tab="bills"]'));
-    await A.click('#closeX');
-    const tSale = await ms(() => sell(A, 'banana'));
+    const tAll = await ms(async () => { await C.click('#btnSummary'); await C.click('[data-range="all"]'); });
+    const tBills = await ms(() => C.click('[data-tab="bills"]'));
+    await C.click('#closeX');
+    const tSale = await ms(() => sell(C, 'banana'));
     console.log(`INFO UI08 Chromium (เดสก์ท็อป) 5,000 บิล: สรุปทั้งหมด ${tAll} ms · แท็บบิล ${tBills} ms · ขาย 1 บิลทั้งขั้นตอน ${tSale} ms`);
     eq('UI08 Chromium: เปิดสรุปทั้งหมด / แท็บบิล / ขาย 1 บิล กับ 5,000 บิล < 1.5 วินาที', [tAll < 1500, tBills < 1500, tSale < 1500], [true, true, true]);
     await ctx.close();

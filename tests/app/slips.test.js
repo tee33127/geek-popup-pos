@@ -35,9 +35,33 @@ const rLines = ev('slipLines(receiptBlocks(sale))'), kLines = ev('slipLines(kitc
 
 // ---------- B1 "ไม่รับ" แยกกลุ่ม ----------
 const acaiR = rLines.slice(rLines.findIndex(l => l.startsWith('Acai')), rLines.findIndex(l => l.startsWith('Banana Choco')));
-eq('B1 Acai receipt: changed → added → not wanted, each own line, honey after', acaiR.slice(1), ['เปลี่ยน: มะม่วง แทน กล้วย', 'เพิ่ม: เมล็ดเจีย (+15)', 'ไม่รับ: สตรอว์เบอร์รี่, กราโนล่า', 'น้ำผึ้ง: ไม่รับ']);
+eq('B1 Acai receipt: changed → added → not wanted, each own line, honey after', acaiR.slice(1), ['เปลี่ยน: มะม่วง แทน กล้วย', 'เพิ่ม: เมล็ดเจีย · +15', 'ไม่รับ: สตรอว์เบอร์รี่, กราโนล่า', 'น้ำผึ้ง: ไม่รับ']);
 eq('B1 "ไม่รับ" never shares a line with another topping group', rLines.filter(l => /ไม่รับ/.test(l) && !/^(ไม่รับ:|น้ำผึ้ง: ไม่รับ$)/.test(l)), []);
-eq('B1 Greek receipt: toppings group (all picks)', rLines.includes('ท็อปปิ้ง: กล้วย ×3, มะม่วง (+15)'), true);
+eq('B1 Greek receipt: toppings group (all picks)', rLines.includes('ท็อปปิ้ง: กล้วย ×3, มะม่วง · +15'), true);
+
+// ---------- B11 ค่าเพิ่มบอกจำนวนชิ้นที่คิดเงิน (Tee 2026-10-16) · ราคาจาก priceItem ยอดไม่เปลี่ยน ----------
+{
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'app/js/pricing.js'), 'utf8'), ctx, {filename:'pricing.js'});
+  const cup = (menu, st) => ev(`(() => { const P = priceItem(MENU[${JSON.stringify(menu)}], ${JSON.stringify({picks:[], comps:[], adds:[], sep:false, ...st})}); return {menu:${JSON.stringify(menu)}, tops:P.tops, unit:P.unit}; })()`);
+  const grp = i => { ctx.__i = i; return ev('topGroups(__i)').map(([t, l]) => t + ' ' + l.join(', ')); };
+  const g89 = cup('greek', {size:'g1', picks:['Banana', 'Mango', 'Kiwi', 'Banana']});
+  eq('B11 Greek 89 กล้วย ×2 (ชิ้นที่ 4 เกินโควตา) → "กล้วย ×2 · เพิ่ม 1 ชิ้น +15" · ยอด 104', [grp(g89), g89.unit], [['ท็อปปิ้ง: กล้วย ×2 · เพิ่ม 1 ชิ้น +15, มะม่วง, กีวี'], 104]);
+  const g89b = cup('greek', {size:'g1', picks:['Banana', 'Banana', 'Banana', 'Banana', 'Banana']});
+  eq('B11 Greek 89 กล้วย ×5 → "เพิ่ม 2 ชิ้น +30" · ยอด 119', [grp(g89b), g89b.unit], [['ท็อปปิ้ง: กล้วย ×5 · เพิ่ม 2 ชิ้น +30'], 119]);
+  const g69 = cup('greek', {size:'g1n', picks:['Banana', 'Banana', 'Granola']});
+  eq('B11 Greek 69 ทุกชิ้นคิดเงิน → "กล้วย ×2 · +30" / "กราโนล่า · +15" · ยอด 114', [grp(g69), g69.unit], [['ท็อปปิ้ง: กล้วย ×2 · +30, กราโนล่า · +15'], 114]);
+  const gx = cup('greek', {size:'g2', picks:['Granola', 'Granola', 'Banana', 'Banana']});
+  eq('B11 Extra ×2 คิดทุกชิ้น → "กราโนล่า ×2 · +20" · ฟรีทั้งหมด → "กล้วย ×2" · ยอด 149', [grp(gx), gx.unit], [['ท็อปปิ้ง: กราโนล่า ×2 · +20, กล้วย ×2'], 149]);
+  const ac = cup('acai', {comps:['Strawberries', 'Strawberries', 'Blueberries', 'Granola', 'Flaxseeds'], adds:['Mango', 'Mango']});
+  eq('B11 Acai เพิ่ม ×2 → "มะม่วง ×2 · +30" · เปลี่ยนคงรูปเดิม "(+15)" · ยอด 234', [grp(ac), ac.unit], [['เปลี่ยน: สตรอว์เบอร์รี่ แทน กล้วย (+15)', 'เพิ่ม: มะม่วง ×2 · +30'], 234]);
+  const old = {menu:'greek', tops:[{name:'Banana', n:2, extra:15}, {name:'Granola', n:2, extra:20}]};   // บิลเก่าที่ไม่มี each
+  eq('B11 บิลเก่าไม่มี each: ยังบอกจำนวนชิ้นได้', grp(old), ['ท็อปปิ้ง: กล้วย ×2 · เพิ่ม 1 ชิ้น +15, กราโนล่า ×2 · +20']);
+  ctx.__s = {...sale, items:[{...g89, name:'Greek Yogurt', sizeName:'1 สกู๊ป', honey:'normal', note:'', qty:1}], total:104};
+  eq('B11 ใบเสร็จพิมพ์รูปแบบเดียวกัน และยอดรวมไม่เปลี่ยน', [ev('slipLines(receiptBlocks(__s))').filter(l => l.startsWith('ท็อปปิ้ง:') || l.startsWith('รวม'))], [['ท็อปปิ้ง: กล้วย ×2 · เพิ่ม 1 ชิ้น +15, มะม่วง, กีวี', 'รวม ฿104']]);
+  ctx.__w = {...ctx.__s, items:[{...ctx.__s.items[0], tops:[{name:'Banana', n:3, extra:15, each:15}, {name:'Hazelnut spread', n:2, extra:30, each:15}, {name:'Original peanut butter', n:2, extra:30, each:15}]}]};
+  const wr = render('receiptBlocks(__w)', 384).texts.map(t => t.t);
+  eq('B11 ตัดบรรทัด (58 มม.): "· เพิ่ม 1 ชิ้น" ไม่ขึ้นต้นบรรทัดด้วย · หรือ +', wr.filter(t => /^[·+]/.test(t.trim())), []);
+}
 const groups = ev(`receiptBlocks(sale).filter(b => b.tag).map(b => b.tag)`);
 eq('B1 every receipt topping line is labelled (tag ends with :)', groups.every(t => t.endsWith(':')), true);
 

@@ -33,7 +33,7 @@ const total = () => $('#total').textContent;
   eq('Mango ×2 = 219 · one-line summary "+ เพิ่มท็อปปิ้ง: มะม่วง ×2 · +฿30 แก้ไข"', [$('#btnAdd').textContent.includes('฿219'), $('.addsum').textContent.replace(/\s+/g, ' ').trim()], [true, '+ เพิ่มท็อปปิ้ง: มะม่วง ×2 · +฿30แก้ไข']);
   click('.addsum'); click('#modal [data-aless="Mango"]'); click('#addsDone'); eq('edit in window: minus back to 204', $('#btnAdd').textContent.includes('฿204'), true);
   F.finish(w);
-  eq('cart line shows add-on', $('#cart .d').textContent.includes('เพิ่ม: มะม่วง (+15)'), true);
+  eq('cart line shows add-on', $('#cart .d').textContent.includes('เพิ่ม: มะม่วง · +15'), true);
   eq('kitchen ticket shows add-on', w.eval(`kitchenBlocks({no:1, dining:'dinein', ts:new Date().toISOString(), items:cart})`).some(b => b.tag === '+' && b.text === 'เพิ่ม มะม่วง'), true);
   // ---- ปุ่มโปร + เลือกโปร ----
   order('banana');

@@ -299,6 +299,13 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 /* หน้าเข้าใช้งาน: เต็มจอ ทับทุกอย่าง (รวม modal) */
 #login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #login.show{display:flex}
+/* เปิดแอปซ้อนอีกหน้า (tablock.js) · อยู่บนทุกอย่าง รวมหน้าเข้าใช้งานและหน้าต่าง */
+#tabLock{position:fixed;inset:0;z-index:50;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
+#tabLock.show{display:flex}
+#tabLock .lgtitle{display:flex;align-items:center;justify-content:center;gap:8px;line-height:1.4}
+#tabLock .lgtitle .ic{color:var(--orange)}
+#tabLock .lgsub{line-height:1.5}
+#tabLock .pay{width:100%}
 .lgbox{background:#fff;border-radius:24px;padding:calc(28px * var(--ui-scale)) calc(24px * var(--ui-scale));width:100%;max-width:400px;text-align:center}
 .lgtitle{font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;color:var(--blue)}
 .lgtitle span{color:var(--orange)}
@@ -553,7 +560,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'3e36904e2061', built:'2026-10-15T15:11:32.104Z'};
+const APP_VERSION = {v:'64f772f6bf6c', built:'2026-10-16T05:38:26.870Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -1463,8 +1470,17 @@ class UsbPrinter {
 
 /* ท็อปปิ้งของแก้วบนใบเสร็จ แยกกลุ่มละบรรทัด: เปลี่ยน · ที่ได้ (ท็อปปิ้ง/เพิ่ม) · ไม่รับ ปิดท้าย
    แต่ละกลุ่มมีป้ายของตัวเอง "ไม่รับ:" จึงไม่มีทางอ่านว่าครอบคลุมรายการกลุ่มอื่น */
+/* ชื่อ ×จำนวน + ค่าเพิ่ม บอกให้ชัดว่ากี่ชิ้นที่คิดเงิน (Tee 2026-10-16 · "กล้วย ×2 (+15)" อ่านเป็นชิ้นละ 15 ได้)
+   ฟรีทั้งหมด "กล้วย ×2" · คิดทุกชิ้น "กล้วย ×2 · +30" / "มะม่วง · +15" · คิดบางชิ้น (Greek เกินโควตา) "กล้วย ×2 · เพิ่ม 1 ชิ้น +15"
+   ราคาต่อชิ้นที่คิด = t.each (บิลเก่าที่ไม่มี each: Extra ใช้ราคาของมัน ของฟรีใช้ค่าเกินโควตา) · แสดงอย่างเดียว ไม่เปลี่ยนยอด */
+function topQtyText(t){
+  const name = topName(t.name) + (t.n > 1 ? ' ×' + t.n : '');
+  if(!t.extra) return name;
+  const per = t.each || (ITEM[t.name] && ITEM[t.name].price) || CONFIG.overToppingPrice, paid = Math.round(t.extra / per);
+  return paid >= t.n ? `${name} · +${t.extra}` : `${name} · เพิ่ม ${paid} ชิ้น +${t.extra}`;
+}
 function topGroups(i){
-  const tops = printTops(i), each = t => topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.extra ? ` (+${t.extra})` : '');
+  const tops = printTops(i), each = topQtyText;
   const G = [
     ['เปลี่ยน:', tops.filter(t => t.from && !t.removed).map(t => `${topName(t.name)} แทน ${topName(t.from)}` + (t.extra ? ` (+${t.extra})` : ''))],
     ['ท็อปปิ้ง:', tops.filter(t => !t.from && !t.removed && !t.add).map(each)],
@@ -4751,6 +4767,7 @@ function confirmPay(){
   if(!pay.dining || !pay.method || !cart.length) return;
   if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }
   if(pay.method === 'cash' && pay.received < cartTotal()) return;   // ปุ่มกดไม่ได้อยู่แล้ว กันเรียกโค้ดตรง
+  if(!tabCanSell()){ if(TAB_STATE === 'wait') toast('กำลังตรวจว่าแอปเปิดซ้อนอีกหน้าไหม รอสักครู่แล้วกดอีกครั้ง'); else showTabLock(); return; }   // ขายได้ทีละหน้า (tablock.js)
   if(!needUser()) return;
   const total = cartTotal(), now = new Date(), sales = loadSales(), biz = bizDate(now), pr = promoNow();
   const no = (sales.filter(s => s.date === biz).length % 999) + 1;
@@ -5389,6 +5406,58 @@ $('login').addEventListener('click', e => {
   if(id === 'rsApply') restoreApply();
   else if(id === 'rsCancel'){ RS = null; showLogin(); }
 });
+</script>
+<script>
+/* ===== js/ui/tablock.js ===== */
+/* ---------- เปิดแอปซ้อนหลายหน้า (Tee 2026-10-16 · D03) ----------
+   ขายได้ทีละหน้า: หน้าที่ถือ Web Lock (navigator.locks) ชื่อ geek-pos-<KEY> เท่านั้นที่ขายได้ (DEMO ใช้ KEY แยก จึงไม่ชนกับของจริง)
+   หน้าที่สองขึ้นจอ "แอปเปิดอยู่อีกหน้าแล้ว" + ปุ่ม "ใช้หน้านี้แทน" → แย่ง lock (steal) หน้าเก่าหยุดขายทันทีและขึ้นจอเดียวกัน
+   แล้วหน้านี้โหลดใหม่ ให้ได้บิลล่าสุดที่หน้าเก่าขายไป (ไม่งั้นเลขออเดอร์ซ้ำ)
+   รีเฟรช / แอปค้างแล้วเปิดใหม่: lock ของหน้าเก่าคืนเองเมื่อหน้าเก่าปิด · ถ้ายังไม่คืนทันที รอได้ถึง TAB_WAIT ก่อนตัดสินว่ามีหน้าอื่นจริง
+   ไม่มี navigator.locks หรือใช้ไม่ได้ (เบราว์เซอร์เก่า, jsdom) = ทำงานแบบเดิม */
+const TAB_LOCK = 'geek-pos-' + KEY, TAB_WAIT = 2500;
+let TAB_STATE = 'free';   // free = ไม่มี API ขายได้ · wait = กำลังขอ lock · own = ถือ lock ขายได้ · other = หน้าอื่นขายอยู่
+const tabCanSell = () => TAB_STATE === 'free' || TAB_STATE === 'own';
+
+/* ขอ lock แล้วถือไว้จนหน้านี้ปิด · คืน true เมื่อได้ · ถูกแย่ง (AbortError) → หยุดขาย */
+function holdTab(opts){
+  return new Promise(done => {
+    navigator.locks.request(TAB_LOCK, opts, lock => {
+      if(!lock){ done(false); return; }
+      TAB_STATE = 'own'; hideTabLock(); done(true);
+      return new Promise(() => {});
+    }).catch(() => {
+      if(TAB_STATE === 'own'){ TAB_STATE = 'other'; showTabLock(); }   // หน้าอื่นกด "ใช้หน้านี้แทน"
+      done(false);
+    });
+  });
+}
+async function startTabLock(){
+  if(!(navigator.locks && typeof navigator.locks.request === 'function')) return;
+  TAB_STATE = 'wait';
+  try{
+    if(await holdTab({ifAvailable:true})) return;
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), TAB_WAIT);
+    const ok = await holdTab({signal:ac.signal}); clearTimeout(t);
+    if(!ok && TAB_STATE === 'wait'){ TAB_STATE = 'other'; showTabLock(); }
+  }catch(e){ console.warn('tab lock', e); TAB_STATE = 'free'; hideTabLock(); }
+}
+function takeTab(){
+  const b = $('tabTake'); if(b) b.disabled = true;
+  navigator.locks.request(TAB_LOCK, {steal:true}, () => { location.reload(); return new Promise(() => {}); })
+    .catch(e => { console.warn('tab steal', e); if(b) b.disabled = false; });
+}
+function showTabLock(){
+  let el = $('tabLock');
+  if(!el){ el = document.createElement('div'); el.id = 'tabLock'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true'); document.body.appendChild(el); }
+  el.innerHTML = `<div class="lgbox"><div class="lgtitle">${icon('alert', 26)} แอปเปิดอยู่อีกหน้าแล้ว</div>
+    <p class="lgsub">ขายได้ทีละหน้า เพื่อไม่ให้เลขออเดอร์ซ้ำ · ถ้าอีกหน้าปิดไปแล้วหรือค้าง กดปุ่มด้านล่าง หน้านั้นจะหยุดขาย</p>
+    <button class="pay" id="tabTake">ใช้หน้านี้แทน</button></div>`;
+  el.classList.add('show');
+  $('tabTake').onclick = takeTab;
+}
+function hideTabLock(){ const el = $('tabLock'); if(el) el.classList.remove('show'); }
+startTabLock();
 </script>
 <script>
 /* ===== js/ui/main.js ===== */

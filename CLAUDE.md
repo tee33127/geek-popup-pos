@@ -23,6 +23,8 @@ POS เขียนเองสำหรับร้าน **Geek Yogurt & Smoot
 - สำรอง/นำข้อมูลกลับ (`js/backup.js`): ไฟล์ JSON เดียว (บิล + settings + staff log + cash) · นำกลับ = รวม ไม่ลบ บิลซ้ำใช้ `newerSale` · ใช้พนักงาน/รหัสจากไฟล์เมื่อเลือก หรือเมื่อทำจากหน้าตั้งค่าครั้งแรก (เครื่องใหม่) · ทุกคนสำรองได้ นำกลับได้เฉพาะเจ้าของ · `SETTINGS.lastBackup`
 - ฟอนต์ทั้งระบบ (Tee 2026-10-15): **IBM Plex Sans Thai Looped** (ไทยมีหัว) ใน `app/fonts/` + `app/css/fonts.css` ใช้ `var(--font)` · 400/600/700 subset · ห้ามใช้ฟอนต์อื่นหรือโหลดจากเน็ต · line-height ข้อความไทย ≥ 1.4
 - ตั๋ว (Tee 2026-10-15): เนื้อหาอยู่ `js/slips.js` ชุดเดียว (USB + window.print + printer-test) · ใบเสร็จแยกกลุ่มท็อปปิ้งมีป้าย (ไม่รับ: แยกบรรทัด) · ตั๋วครัวไม่มีพื้นดำทึบ (กรอบเส้นหนา/เส้นคู่) หมายเหตุเป็นกรอบเด่น
+- ขายได้ทีละหน้า (Tee 2026-10-16 · `js/ui/tablock.js`): Web Lock `geek-pos-<KEY>` หน้าที่สองขึ้นจอ "แอปเปิดอยู่อีกหน้าแล้ว" + "ใช้หน้านี้แทน" (steal → หน้าเก่าหยุดขาย แล้วหน้านี้ reload ให้ได้บิลล่าสุด) · `confirmPay` เช็ก `tabCanSell()` · รีเฟรช/ปิดแล้วเปิดใหม่ไม่ติด (รอ lock คืนได้ถึง 2.5 วิ) · ไม่มี navigator.locks (jsdom, เบราว์เซอร์เก่า) = แบบเดิม · เทสต์ใน e2e D03
+- ใบเสร็จ/ตะกร้าบอกจำนวนชิ้นที่คิดเงิน (Tee 2026-10-16 · `topQtyText` ใน slips.js): "กล้วย ×2" / "กล้วย ×2 · +30" / "กล้วย ×2 · เพิ่ม 1 ชิ้น +15" · แสดงผลอย่างเดียว ยอดไม่เปลี่ยน · ตั๋วครัวและ CSV (`topLabel`) ยังเป็นรูปแบบเดิม
 - ยังไม่มี: เปิดลิ้นชัก
 
 ## งานถัดไป (ขั้น 0 → 1)
@@ -67,6 +69,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/ui/print.js          ← receiptHtml/kitchenHtml = slipHtml(…Blocks) · printSale เลือก USB ก่อน (รอ slipFontsReady แล้ววาด) + ปุ่มปริ้นเตอร์
   js/ui/builder.js        ← หน้าเลือกออเดอร์ (v3 Tee 2026-10-13): ขั้นที่เปิดแล้วเปิดค้าง (stepsShown) · ครบแล้ว = ถูกเขียว (stepDone) · ขั้นใหม่ .enter + เลื่อนจอ · ปุ่มหลักหน้าที่เดียว ยังขาด = class off + flashStep(missingStep()) · ช่องสรุปแก้วในแถบล่าง cupSummaryHtml (P จาก priceSel() ตัวเดียวกับปุ่ม) · แถบล่าง #actBar position fixed ความสูงคงที่ (--abh) วางตรงกล่องเลือกด้วย placeActBar() · หน้าต่างถามท็อปปิ้งตอนกดเพิ่ม · เทสต์ใช้ tests/flow-helper.js
   js/ui/cart.js, pay.js, summary.js
+  js/ui/tablock.js        ← ขายได้ทีละหน้า (Web Locks) จอ "แอปเปิดอยู่อีกหน้าแล้ว" · TAB_STATE free/wait/own/other · tabCanSell() · โหลดก่อน main.js
   js/ui/main.js           ← updateNext, ตัวจัดการคลิกใน modal, เริ่มต้นหน้าจอ (ต้องโหลดเป็นไฟล์สุดท้าย)
   js/promptpay.js         ← PP.payload(id, amount) EMVCo + CRC16 (ฟังก์ชันล้วน), เช็กเลข 13 หลัก, qrSvg วาด QR
   js/vendor/qrcode.js     ← qrcode-generator 1.4.4 (MIT) คัดลอกมาไว้ใช้ออฟไลน์ ห้ามแก้

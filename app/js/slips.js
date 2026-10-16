@@ -4,8 +4,17 @@
 
 /* ท็อปปิ้งของแก้วบนใบเสร็จ แยกกลุ่มละบรรทัด: เปลี่ยน · ที่ได้ (ท็อปปิ้ง/เพิ่ม) · ไม่รับ ปิดท้าย
    แต่ละกลุ่มมีป้ายของตัวเอง "ไม่รับ:" จึงไม่มีทางอ่านว่าครอบคลุมรายการกลุ่มอื่น */
+/* ชื่อ ×จำนวน + ค่าเพิ่ม บอกให้ชัดว่ากี่ชิ้นที่คิดเงิน (Tee 2026-10-16 · "กล้วย ×2 (+15)" อ่านเป็นชิ้นละ 15 ได้)
+   ฟรีทั้งหมด "กล้วย ×2" · คิดทุกชิ้น "กล้วย ×2 · +30" / "มะม่วง · +15" · คิดบางชิ้น (Greek เกินโควตา) "กล้วย ×2 · เพิ่ม 1 ชิ้น +15"
+   ราคาต่อชิ้นที่คิด = t.each (บิลเก่าที่ไม่มี each: Extra ใช้ราคาของมัน ของฟรีใช้ค่าเกินโควตา) · แสดงอย่างเดียว ไม่เปลี่ยนยอด */
+function topQtyText(t){
+  const name = topName(t.name) + (t.n > 1 ? ' ×' + t.n : '');
+  if(!t.extra) return name;
+  const per = t.each || (ITEM[t.name] && ITEM[t.name].price) || CONFIG.overToppingPrice, paid = Math.round(t.extra / per);
+  return paid >= t.n ? `${name} · +${t.extra}` : `${name} · เพิ่ม ${paid} ชิ้น +${t.extra}`;
+}
 function topGroups(i){
-  const tops = printTops(i), each = t => topName(t.name) + (t.n > 1 ? ' ×' + t.n : '') + (t.extra ? ` (+${t.extra})` : '');
+  const tops = printTops(i), each = topQtyText;
   const G = [
     ['เปลี่ยน:', tops.filter(t => t.from && !t.removed).map(t => `${topName(t.name)} แทน ${topName(t.from)}` + (t.extra ? ` (+${t.extra})` : ''))],
     ['ท็อปปิ้ง:', tops.filter(t => !t.from && !t.removed && !t.add).map(each)],
