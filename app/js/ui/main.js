@@ -55,7 +55,7 @@ $('modal').onclick = e => {
   else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(typeof b === 'function') b(); else if(b) renderSummary(); else closeModal(); }
   else if(id === 'csvAll') exportCsv();
   else if(id === 'payOk') confirmPay();
-  else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
+  else if(id === 'prBoth' && lastSale) reprint(lastSale, true);   // เฉพาะใบที่ยังไม่ออก หรือให้เลือก
   else if(id === 'prTest') printTest();
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();

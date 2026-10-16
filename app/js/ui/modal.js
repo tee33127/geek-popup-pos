@@ -4,18 +4,18 @@ const $ = id => document.getElementById(id);
 /* toast (Tee 2026-10-15 Redmi จริง)
    ไม่มีหน้าต่าง: ลอยเหนือแถบล่างของหน้าเลือกเมนู ตรงปุ่ม "เพิ่มลงออเดอร์" (ไม่ทับปุ่มหลัก ยอดเงิน · กล่องออเดอร์ที่ขยายอยู่)
    มีหน้าต่างเปิด: ห้ามทับหน้าต่าง → แสดงเป็นแถบข้อความในตัวหน้าต่างใต้หัว (.mtoast) กันทับยอดเงินทอน
-   แสดง 1.4 วินาที · แตะแล้วหายทันที · หน้าต่างวาดใหม่ระหว่างนั้น (openModal) ข้อความยังอยู่ */
+   แสดง 1.4 วินาที (ms = นานกว่านี้ เช่นปริ้นเตอร์ไม่ตอบ) · แตะแล้วหายทันที · หน้าต่างวาดใหม่ระหว่างนั้น (openModal) ข้อความยังอยู่ */
 let MTOAST = null;   // ข้อความที่แสดงในหน้าต่าง {html, until}
-function toast(msg, ic){
+function toast(msg, ic, ms = 1400){
   const html = (ic ? icon(ic, 18) + ' ' : '') + esc(msg), t = $('toast');
   clearTimeout(toast.h);
   if($('modal').classList.contains('show')){
-    t.style.display = 'none'; MTOAST = {html, until:Date.now() + 1400}; modalToast();
-    toast.h = setTimeout(() => { MTOAST = null; const m = document.querySelector('#modal .mtoast'); if(m) m.remove(); }, 1400);
+    t.style.display = 'none'; MTOAST = {html, until:Date.now() + ms}; modalToast();
+    toast.h = setTimeout(() => { MTOAST = null; const m = document.querySelector('#modal .mtoast'); if(m) m.remove(); }, ms);
     return;
   }
   t.innerHTML = html; t.style.display = 'block';
-  placeToast(t); toast.h = setTimeout(() => { t.style.display = 'none'; }, 1400);
+  placeToast(t); toast.h = setTimeout(() => { t.style.display = 'none'; }, ms);
 }
 function modalToast(){
   const box = document.querySelector('#modal .box'); if(!box || !MTOAST || Date.now() > MTOAST.until) return;

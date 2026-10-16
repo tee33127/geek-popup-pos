@@ -203,8 +203,9 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   eq('report counts few-topping cups', [R.fewCups, R.topCups, Object.keys(R.groups['ท็อปปิ้งฟรีไม่ครบ 3 อย่าง'].rows)], [1, 1, ['เลือก 2 อย่าง']]);
   eq('auto-printed both slips once', [printed, $$('#printArea .slip').length], [1, 2]);
   eq('success screen: no print choices, one next button', [!!$('#prRec'), !!$('#prKit'), $$('#modal button.pay').length, $('#modal button.pay').id], [false, false, 1, 'nextOrder']);
-  click('#prBoth'); await wait(150); eq('reprint link prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
-  click('#nextOrder'); eq('next order: back to menu step (nothing selected)', [ev('sel.menu'), $$('.base.on').length, $$('.sec').length, $('#btnAdd').textContent], [null, 0, 1, 'เลือกเมนูก่อน']);
+  click('#prBoth'); eq('reprint link (system print: app cannot know what came out) asks which slip', $$('#modal [data-rp]').map(b => b.textContent), ['ใบเสร็จ', 'ตั๋วครัว', 'ใบเสร็จ + ตั๋วครัว']);
+  click('#modal [data-rp="both"]'); await wait(150); eq('chose both: prints both again', [printed, $$('#printArea .slip').length], [2, 2]);
+  eq('next order: back to menu step (nothing selected)', [ev('sel.menu'), $$('.base.on').length, $$('.sec').length, $('#btnAdd').textContent], [null, 0, 1, 'เลือกเมนูก่อน']);
   click('#btnSummary'); eq('summary opens (signed in, no PIN)', [$('#pinIn'), $('#modal').textContent.includes('สรุปยอดขาย')], [null, true]);
   click('[data-tab="bills"]'); click('[data-v]'); eq('void confirm modal', $('#modal').textContent.includes('ยกเลิกบิล #001?'), true);
   click('#cfYes'); eq('voided & back to summary', [JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0].void, $('#modal').textContent.includes('สรุปยอดขาย')], [true, true]);

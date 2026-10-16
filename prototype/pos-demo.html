@@ -299,6 +299,11 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 /* หน้าเข้าใช้งาน: เต็มจอ ทับทุกอย่าง (รวม modal) */
 #login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #login.show{display:flex}
+/* พิมพ์ไม่สำเร็จ (print.js) · แถบบนสุดของหน้าจนกดพิมพ์ซ้ำ · อยู่ในลำดับปกติ ไม่ลอยทับปุ่มบนแถบหัว */
+#printFail{position:relative;z-index:5;background:#fff3e0;color:#7a3e00;border-bottom:2px solid var(--orange);display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;font-weight:700;line-height:1.4}
+#printFail>span{flex:1 1 320px}
+#printFail small{display:block;font-weight:400;color:#7a3e00}
+#printFail .pfbtn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--orange);color:#fff;font-weight:700}
 /* เปิดแอปซ้อนอีกหน้า (tablock.js) · อยู่บนทุกอย่าง รวมหน้าเข้าใช้งานและหน้าต่าง */
 #tabLock{position:fixed;inset:0;z-index:50;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #tabLock.show{display:flex}
@@ -561,7 +566,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'64f772f6bf6c', built:'2026-10-16T05:38:26.870Z'};
+const APP_VERSION = {v:'5937488a7820', built:'2026-10-16T17:08:17.138Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -1448,19 +1453,23 @@ class UsbPrinter {
     if(!f) throw new Error('ไม่พบช่องส่งข้อมูล (bulk OUT) ในอุปกรณ์นี้');
     await d.claimInterface(f.iface);
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
-    this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f;
+    this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
     return d;
   }
   async send(data, chunk = PRINTER.chunk){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
+    /* ปิด/เชื่อมใหม่ระหว่างส่ง (เช่นหมดเวลา) → หยุด ห้ามส่งส่วนที่เหลือของงานเก่าผ่านการเชื่อมใหม่
+       เทียบรอบการเชื่อม (session) ไม่ใช่ตัวอุปกรณ์ เพราะเชื่อมใหม่ได้ USBDevice ตัวเดิม */
+    const dev = this.dev, ep = this.ep, sid = this.session;
     for(let i = 0; i < data.length; i += chunk){
-      const r = await this.dev.transferOut(this.ep, data.subarray(i, i + chunk));
+      if(this.session !== sid || !this.dev) throw new Error('การเชื่อมเปลี่ยนระหว่างส่ง งานนี้ถูกยกเลิก');
+      const r = await dev.transferOut(ep, data.subarray(i, i + chunk));
       if(r.status !== 'ok') throw new Error(`ส่งข้อมูลไม่สำเร็จ (${r.status}) ที่ byte ${i}`);
     }
     return data.length;
   }
-  async close(){ const d = this.dev; this.dev = null; this.ep = null; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); } }
-  forget(){ this.dev = null; this.ep = null; }
+  async close(){ const d = this.dev; this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); } }
+  forget(){ this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; }
 }
 </script>
 <script>
@@ -3976,18 +3985,18 @@ const $ = id => document.getElementById(id);
 /* toast (Tee 2026-10-15 Redmi จริง)
    ไม่มีหน้าต่าง: ลอยเหนือแถบล่างของหน้าเลือกเมนู ตรงปุ่ม "เพิ่มลงออเดอร์" (ไม่ทับปุ่มหลัก ยอดเงิน · กล่องออเดอร์ที่ขยายอยู่)
    มีหน้าต่างเปิด: ห้ามทับหน้าต่าง → แสดงเป็นแถบข้อความในตัวหน้าต่างใต้หัว (.mtoast) กันทับยอดเงินทอน
-   แสดง 1.4 วินาที · แตะแล้วหายทันที · หน้าต่างวาดใหม่ระหว่างนั้น (openModal) ข้อความยังอยู่ */
+   แสดง 1.4 วินาที (ms = นานกว่านี้ เช่นปริ้นเตอร์ไม่ตอบ) · แตะแล้วหายทันที · หน้าต่างวาดใหม่ระหว่างนั้น (openModal) ข้อความยังอยู่ */
 let MTOAST = null;   // ข้อความที่แสดงในหน้าต่าง {html, until}
-function toast(msg, ic){
+function toast(msg, ic, ms = 1400){
   const html = (ic ? icon(ic, 18) + ' ' : '') + esc(msg), t = $('toast');
   clearTimeout(toast.h);
   if($('modal').classList.contains('show')){
-    t.style.display = 'none'; MTOAST = {html, until:Date.now() + 1400}; modalToast();
-    toast.h = setTimeout(() => { MTOAST = null; const m = document.querySelector('#modal .mtoast'); if(m) m.remove(); }, 1400);
+    t.style.display = 'none'; MTOAST = {html, until:Date.now() + ms}; modalToast();
+    toast.h = setTimeout(() => { MTOAST = null; const m = document.querySelector('#modal .mtoast'); if(m) m.remove(); }, ms);
     return;
   }
   t.innerHTML = html; t.style.display = 'block';
-  placeToast(t); toast.h = setTimeout(() => { t.style.display = 'none'; }, 1400);
+  placeToast(t); toast.h = setTimeout(() => { t.style.display = 'none'; }, ms);
 }
 function modalToast(){
   const box = document.querySelector('#modal .box'); if(!box || !MTOAST || Date.now() > MTOAST.until) return;
@@ -4204,26 +4213,109 @@ function slipBytes(blockSets){
   return bytes(...parts);
 }
 
-/* ---------- พิมพ์: ปริ้นเตอร์ USB ถ้าเชื่อมอยู่ ไม่งั้นใช้หน้าพิมพ์ของระบบ (window.print) ---------- */
+/* ---------- พิมพ์: ปริ้นเตอร์ USB ถ้าเชื่อมอยู่ ไม่งั้นใช้หน้าพิมพ์ของระบบ (window.print) ----------
+   ส่งทีละงาน (ใบเสร็จ 1 งาน · ตั๋วครัว 1 งาน) ผ่านคิวเดียว กันข้อมูลสองบิลปนกัน
+   ปริ้นเตอร์ไม่ตอบ (Tee 2026-10-16): งานละไม่เกิน jobTimeout() → ล้างคิว (งานที่รอทั้งหมดไม่ถูกส่ง) ปิดการเชื่อมเพื่อยกเลิกข้อมูลที่ค้างส่ง
+   แล้วเชื่อมใหม่เอง · แถบแจ้งพร้อมปุ่มพิมพ์ซ้ำเฉพาะใบที่ยังไม่ออก · ข้อมูลที่ปริ้นเตอร์รับไปแล้วบางส่วนแอปล้างไม่ได้ (อาจออกมาตอนเติมกระดาษ) */
 const usbPrinter = UsbPrinter.supported() ? new UsbPrinter() : null;
-let printQueue = Promise.resolve();   // ส่งทีละงาน กันข้อมูลสองบิลปนกันเมื่อกดพิมพ์ซ้ำเร็วๆ
-function printSale(s, which){
-  const sets = [];
-  if(which !== 'kitchen') sets.push(receiptBlocks(s));
-  if(which !== 'receipt') sets.push(kitchenBlocks(s));
-  return printSlips(sets, () => printHtml(s, which));
-}
-function printSlips(sets, fallback){
-  if(!usbPrinter || !usbPrinter.connected){ if(fallback) fallback(); return Promise.resolve(false); }
-  return printQueue = printQueue.then(() => slipFontsReady()).then(() => usbPrinter.send(slipBytes(sets))).then(() => true, e => {
-    console.warn('usb print', e);
-    usbPrinter.forget(); renderPrinterBtn();
-slipFontsReady();   // โหลดฟอนต์ตั๋วไว้ตั้งแต่เปิดแอป บิลแรกไม่ช้า
-    toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert');
-    if(fallback) fallback();
-    return false;
+let printQueue = Promise.resolve();
+/* เวลาหมดต่องาน: ไม่ต่ำกว่า 15 วิ · งานใหญ่คิดตามขนาด (อัตราที่วัดจริง 109,434 byte ≈ 2.1 วิ → ~52 KB/วิ) เผื่อ 3 เท่า
+   ตั๋วครัวบิลยาว 5 แก้ว ≈ 141 KB ≈ 2.7 วิ จึงได้ 15 วิ ไม่โดนตัดผิด */
+const PRINT_TIMEOUT = {min:15000, rate:52000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
+const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.rate * 1000 * PRINT_TIMEOUT.factor));
+const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
+let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
+const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล)
+const SLIP_NAME = {receipt:'ใบเสร็จ', kitchen:'ตั๋วครัว', both:'ใบเสร็จ + ตั๋วครัว'};
+const missingOf = st => st.receipt === 'fail' && st.kitchen === 'fail' ? 'both' : st.receipt === 'fail' ? 'receipt' : st.kitchen === 'fail' ? 'kitchen' : null;
+
+/* ส่ง 1 งาน · คืน true / 'timeout' / error */
+function sendJob(data){
+  return new Promise(done => {
+    let over = false;
+    const t = setTimeout(() => { if(!over){ over = true; done('timeout'); } }, jobTimeout(data.length));
+    usbPrinter.send(data).then(() => { if(!over){ over = true; clearTimeout(t); done(true); } }, e => { if(!over){ over = true; clearTimeout(t); done(e || new Error('send')); } });
   });
 }
+const within = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
+/* หมดเวลา: ล้างคิว → ปิดการเชื่อม (ยกเลิก transferOut ที่ค้าง ข้อมูลที่เหลือของงานนั้นไม่ถูกส่งอีก) → เชื่อมใหม่เอง
+   คืน false ถ้าปิดการเชื่อมไม่สำเร็จ (ล้างไม่ได้ ต้องถอดสาย) */
+async function printerStuck(){
+  printGen++;
+  let cleared = true;
+  try{ await within(usbPrinter.close(), PRINT_TIMEOUT.close); }catch(e){ console.warn('usb close', e); cleared = false; usbPrinter.forget(); }
+  if(cleared) try{ await within(usbPrinter.reconnect(), PRINT_TIMEOUT.close); }catch(e){ console.warn('usb reconnect', e); usbPrinter.forget(); }
+  renderPrinterBtn();
+  return cleared;
+}
+/* jobs = [[ชื่อใบ, บล็อก]] · st = สถานะของบิล (PRINTED) · คืน ok / timeout / error / dropped */
+function printJobs(jobs, st){
+  const gen = printGen;
+  jobs.forEach(([k]) => { st[k] = 'wait'; });
+  return printQueue = printQueue.then(async () => {
+    await slipFontsReady();
+    let res = 'ok';
+    for(const [k, bl] of jobs){
+      if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
+      const r = await sendJob(slipBytes([bl]));
+      if(r === true){ st[k] = 'ok'; continue; }
+      st[k] = 'fail'; res = r === 'timeout' ? 'timeout' : 'error';
+      if(res === 'error') console.warn('usb print', r);
+    }
+    if(res === 'timeout'){ const cleared = await printerStuck(); printFailBar(cleared); }
+    else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
+    return res;
+  }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
+}
+function printSale(s, which = 'both'){
+  const st = PRINTED.get(s.id) || {}; PRINTED.set(s.id, st);
+  const jobs = [];
+  if(which !== 'kitchen') jobs.push(['receipt', receiptBlocks(s)]);
+  if(which !== 'receipt') jobs.push(['kitchen', kitchenBlocks(s)]);
+  if(!usbPrinter || !usbPrinter.connected){ jobs.forEach(([k]) => { st[k] = 'unknown'; }); printHtml(s, which); return Promise.resolve(false); }
+  dropFail(s.id);
+  return printJobs(jobs, st).then(res => {
+    const miss = missingOf(st);
+    if(res === 'error' && miss) printHtml(s, miss);   // USB ล้ม (สายหลุด) → หน้าพิมพ์ของระบบ เฉพาะใบที่ยังไม่ออก
+    else if(miss) addFail(s);                          // หมดเวลา / ถูกล้างคิว → รอพนักงานกดพิมพ์ซ้ำ
+    reprintLabel(s);
+    return res === 'ok';
+  });
+}
+
+/* ---------- พิมพ์ซ้ำ ----------
+   รู้แน่ว่าใบไหนไม่ออก (ส่งครบ/ไม่ครบ ทั้งสองใบ) → พิมพ์เฉพาะใบนั้น · ไม่แน่ใจ (หน้าพิมพ์ของระบบ, ส่งครบแล้วแต่กระดาษไม่ออก, ยังส่งอยู่) → ให้เลือก */
+const known = v => v === 'ok' || v === 'fail';
+function reprint(s, fromDone){   // fromDone = กดจากหน้าสำเร็จหลังชำระเงิน · เลือกแล้วกลับหน้าเลือกเมนูเหมือน "ออเดอร์ถัดไป"
+  const st = PRINTED.get(s.id) || {}, miss = missingOf(st);
+  if(miss && known(st.receipt) && known(st.kitchen)) return printSale(s, miss);
+  openModal(`<p style="color:var(--mute);margin:0 0 10px">ออเดอร์ #${esc(pad(s.no, 3))} · เลือกใบที่ยังไม่ออก</p>
+    <div class="row wrap">${['receipt', 'kitchen', 'both'].map(k => `<button class="opt" data-rp="${k}" data-rpid="${s.id}"${fromDone ? ' data-rpdone="1"' : ''}>${SLIP_NAME[k]}</button>`).join('')}</div>`,
+    {title:`${icon('printer', 22)} พิมพ์ซ้ำ`, key:'reprint'});
+}
+function reprintLabel(s){
+  const b = $('prBoth'); if(!b || !lastSale || lastSale.id !== s.id) return;
+  const st = PRINTED.get(s.id) || {}, miss = missingOf(st);
+  b.innerHTML = icon('printer', 16) + (miss && known(st.receipt) && known(st.kitchen) ? ` ${STUCK_MSG.split(' — ')[0]} · พิมพ์ซ้ำ${SLIP_NAME[miss]}` : ' กระดาษไม่ออก? พิมพ์อีกครั้ง');
+}
+/* แถบแจ้งพิมพ์ไม่สำเร็จ: ค้างจนกดพิมพ์ซ้ำ (หมดเวลา 15 วิ พนักงานมักไปออเดอร์ถัดไปแล้ว ข้อความลอย 1.4 วิ ไม่พอ) */
+let PRINT_FAILS = [];   // [{id, no}] บิลที่ยังมีใบไม่ออก
+let printCleared = true;
+function addFail(s){ if(!PRINT_FAILS.some(f => f.id === s.id)) PRINT_FAILS.push({id:s.id, no:s.no}); renderFailBar(); }
+function dropFail(id){ PRINT_FAILS = PRINT_FAILS.filter(f => f.id !== id); renderFailBar(); }
+function printFailBar(cleared){ printCleared = cleared; toast(STUCK_MSG, 'alert', 6000); renderFailBar(); }   // แถบอยู่บนสุดของหน้า ตอนเลื่อนลงเลือกเมนูอาจไม่เห็น ข้อความลอยจึงค้าง 6 วิ
+function renderFailBar(){
+  let bar = $('printFail');
+  if(!PRINT_FAILS.length){ if(bar) bar.remove(); return; }
+  if(!bar){ bar = document.createElement('div'); bar.id = 'printFail'; bar.setAttribute('role', 'alert'); document.body.prepend(bar); }
+  bar.innerHTML = `<span>${icon('alert', 18)} ${esc(STUCK_MSG)}${printCleared ? '' : ' · ล้างงานค้างไม่ได้ ถอดสายปริ้นเตอร์แล้วเสียบใหม่ก่อนพิมพ์ซ้ำ'}<small>ถ้ามีกระดาษครึ่งใบออกมาตอนเติมกระดาษ ทิ้งได้</small></span>` +
+    PRINT_FAILS.map(f => { const st = PRINTED.get(f.id) || {}, m = missingOf(st); return `<button class="pfbtn" data-pfid="${f.id}">พิมพ์ซ้ำ #${esc(pad(f.no, 3))}${m ? ' ' + SLIP_NAME[m] : ''}</button>`; }).join('');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-pfid], [data-rp]'); if(!b) return;
+  if(b.dataset.pfid){ const s = loadSales().find(x => String(x.id) === b.dataset.pfid); if(s) reprint(s); else dropFail(Number(b.dataset.pfid)); return; }
+  const s = loadSales().find(x => String(x.id) === b.dataset.rpid); closeModal(); if(b.dataset.rpdone) backToMenu(); if(s) printSale(s, b.dataset.rp);
+});
 function printHtml(s, which){
   let h = '';
   if(which !== 'kitchen') h += receiptHtml(s);
@@ -4258,9 +4350,10 @@ function openPrinterInfo(){
 }
 function printTest(){
   closeModal();
-  printSlips([[{text:CONFIG.shopName, size:32, bold:true, align:'center'}, {box:'single', text:'ทดสอบปริ้นเตอร์', size:40, bold:true},
-    {text:fmtDT(new Date().toISOString()), align:'center'}, {rule:'dash'}, {text:'ภาษาไทย: กี่ ปู่ ญี่ปุ่น ปั๊ม น้ำ ๑๒๓', align:'center'}]])
-    .then(ok => { if(ok) toast('ส่งงานพิมพ์แล้ว', 'check'); });
+  if(!usbPrinter.connected) return;
+  printJobs([['test', [{text:CONFIG.shopName, size:32, bold:true, align:'center'}, {box:'single', text:'ทดสอบปริ้นเตอร์', size:40, bold:true},
+    {text:fmtDT(new Date().toISOString()), align:'center'}, {rule:'dash'}, {text:'ภาษาไทย: กี่ ปู่ ญี่ปุ่น ปั๊ม น้ำ ๑๒๓', align:'center'}]]], {})
+    .then(res => { if(res === 'ok') toast('ส่งงานพิมพ์แล้ว', 'check'); });
 }
 async function disconnectPrinter(){ closeModal(); try{ await usbPrinter.close(); }catch(e){ usbPrinter.forget(); } renderPrinterBtn(); }
 
@@ -5593,7 +5686,7 @@ $('modal').onclick = e => {
   else if(id === 'csvBack'){ const b = csvPending && csvPending.back; csvPending = null; if(typeof b === 'function') b(); else if(b) renderSummary(); else closeModal(); }
   else if(id === 'csvAll') exportCsv();
   else if(id === 'payOk') confirmPay();
-  else if(id === 'prBoth' && lastSale) printSale(lastSale, 'both');
+  else if(id === 'prBoth' && lastSale) reprint(lastSale, true);   // เฉพาะใบที่ยังไม่ออก หรือให้เลือก
   else if(id === 'prTest') printTest();
   else if(id === 'ppOpen') openPromptPay();
   else if(id === 'setSave') settingsSave();

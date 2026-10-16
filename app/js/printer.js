@@ -217,17 +217,21 @@ class UsbPrinter {
     if(!f) throw new Error('ไม่พบช่องส่งข้อมูล (bulk OUT) ในอุปกรณ์นี้');
     await d.claimInterface(f.iface);
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
-    this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f;
+    this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
     return d;
   }
   async send(data, chunk = PRINTER.chunk){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
+    /* ปิด/เชื่อมใหม่ระหว่างส่ง (เช่นหมดเวลา) → หยุด ห้ามส่งส่วนที่เหลือของงานเก่าผ่านการเชื่อมใหม่
+       เทียบรอบการเชื่อม (session) ไม่ใช่ตัวอุปกรณ์ เพราะเชื่อมใหม่ได้ USBDevice ตัวเดิม */
+    const dev = this.dev, ep = this.ep, sid = this.session;
     for(let i = 0; i < data.length; i += chunk){
-      const r = await this.dev.transferOut(this.ep, data.subarray(i, i + chunk));
+      if(this.session !== sid || !this.dev) throw new Error('การเชื่อมเปลี่ยนระหว่างส่ง งานนี้ถูกยกเลิก');
+      const r = await dev.transferOut(ep, data.subarray(i, i + chunk));
       if(r.status !== 'ok') throw new Error(`ส่งข้อมูลไม่สำเร็จ (${r.status}) ที่ byte ${i}`);
     }
     return data.length;
   }
-  async close(){ const d = this.dev; this.dev = null; this.ep = null; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); } }
-  forget(){ this.dev = null; this.ep = null; }
+  async close(){ const d = this.dev; this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); } }
+  forget(){ this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; }
 }

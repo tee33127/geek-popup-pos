@@ -280,6 +280,11 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 /* หน้าเข้าใช้งาน: เต็มจอ ทับทุกอย่าง (รวม modal) */
 #login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #login.show{display:flex}
+/* พิมพ์ไม่สำเร็จ (print.js) · แถบบนสุดของหน้าจนกดพิมพ์ซ้ำ · อยู่ในลำดับปกติ ไม่ลอยทับปุ่มบนแถบหัว */
+#printFail{position:relative;z-index:5;background:#fff3e0;color:#7a3e00;border-bottom:2px solid var(--orange);display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;font-weight:700;line-height:1.4}
+#printFail>span{flex:1 1 320px}
+#printFail small{display:block;font-weight:400;color:#7a3e00}
+#printFail .pfbtn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--orange);color:#fff;font-weight:700}
 /* เปิดแอปซ้อนอีกหน้า (tablock.js) · อยู่บนทุกอย่าง รวมหน้าเข้าใช้งานและหน้าต่าง */
 #tabLock{position:fixed;inset:0;z-index:50;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #tabLock.show{display:flex}
