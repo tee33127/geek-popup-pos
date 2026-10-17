@@ -147,7 +147,7 @@ const server = http.createServer((q, r) => {
       document.querySelectorAll(root ? `${root} button, ${root} .tn` : '#builder button, #builder .tn, #actBar button, #actBar .cupsum').forEach(b => {
         if(!vis(b)) return;
         const name = (b.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24);
-        if(b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) bad.push('overflow:' + name);
+        if(b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) bad.push(`overflow:${name} ${b.scrollWidth}/${b.clientWidth}×${b.scrollHeight}/${b.clientHeight}`);
         [b, ...b.querySelectorAll('*')].forEach(e => { if(getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1) bad.push('ellipsis:' + name); });
       });
       return bad;
@@ -268,7 +268,8 @@ const server = http.createServer((q, r) => {
       return out.every(Boolean);
     });
     const G = {}, X = {};
-    await page.click('#btnSettings'); await nap(); G.settings = await gesture(); X.settings = await xVisible();
+    /* หน้าตั้งค่าสั้นลงแล้ว (Tee 2026-10-17 ของหมดย้ายไปหน้าย่อย) · รายการยาวที่ต้องเลื่อนคือหน้าย่อย สินค้าหมด */
+    await page.click('#btnSettings'); await page.click('#stockOpen'); await nap(); G.settings = await gesture(); X.settings = await xVisible();
     await page.click('#closeX'); await nap(); const backS = [await page.evaluate(() => Math.round(scrollY)), await pageTop()];
     await page.click('#btnSummary'); await nap(); await page.click('[data-tab="bills"]'); await nap(); G.summary = await gesture(); X.summary = await xVisible();
     await page.click('#csvTab'); await nap(); X.export = await xVisible(); await page.click('#closeX');
@@ -752,6 +753,78 @@ const server = http.createServer((q, r) => {
     eq('H28 app/ ทุกบิล (ค่าเริ่มต้น) = 2 ใบ · ตั้ง "เมื่อลูกค้าขอ" → ตั๋วครัวอย่างเดียว ปุ่มพิมพ์ใบเสร็จเด่น · กดแล้วได้ใบเสร็จ 1 ใบ · ไม่เด้งหน้าพิมพ์',
       [a1.jobs, setOn, a2.jobs - a1.jobs, acc, a3.jobs - a2.jobs, await status(page), a3.printed], [2, [false, true], 1, true, 1, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', 0]);
     await ctx.close();
+  }
+
+  // ---------- UI30 กฎสไตล์กลาง (Tee 2026-10-17 · docs/qa/ui-audit-2026-10-18.md) ----------
+  // เส้นกรอบทุกอย่างบนจอ ≤ 1px · สิ่งที่กดได้มีกรอบ 0 หรือ 1px เท่านั้น · ตัวเลือกทุกแบบ 1px เท่ากัน · section/กล่องที่กดไม่ได้ไม่มีกรอบ
+  // กดเลือกแล้วขนาดและตำแหน่งตัวหนังสือไม่ขยับ (getBoundingClientRect ก่อน/หลัง)
+  for(const [label, vp, br] of SCREENS){
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:!label.startsWith('ipad'), reducedMotion:'reduce'});
+    await ctx.addInitScript(() => { window.print = () => {}; });
+    const page = await ctx.newPage(); watch(page, 'ui30-' + label);
+    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]');
+    const OPT = '.base,.size,.hon,.opt,.popt,.tab,.chip,.promo,.sep,.navrow,.tops .topw .top,.cpfs.multi .cpf';
+    const BOX = '.sec,.slist,.cashbox,.actbar,.comp,.card,.stat';
+    const audit = () => page.evaluate(([OPT, BOX]) => {
+      const vis = el => { const st = getComputedStyle(el), b = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+      const bw = el => { const st = getComputedStyle(el); return ['Top', 'Right', 'Bottom', 'Left'].map(k => st[`border${k}Style`] === 'none' ? 0 : parseFloat(st[`border${k}Width`])); };
+      const name = el => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${String(el.className).trim().replace(/\s+/g, '.')} "${(el.textContent || '').trim().slice(0, 16)}"`;
+      const all = [...document.querySelectorAll('body *')].filter(el => !el.closest('#printArea') && !el.closest('svg') && vis(el));
+      const thick = all.filter(el => bw(el).some(w => w > 1)).map(el => `${name(el)} ${bw(el).join('/')}`);
+      const ctl = all.filter(el => el.matches('button, input:not([type=checkbox]):not([type=radio]), textarea'));
+      const uneven = ctl.filter(el => { const w = bw(el); return !w.every(x => x === w[0]) && !el.matches('.tminus'); }).map(name);
+      const opts = all.filter(el => el.matches(OPT)), optW = [...new Set(opts.map(el => bw(el).join('/')))];
+      const boxes = all.filter(el => el.matches(BOX) && bw(el).some(w => w > 0)).map(name);
+      return {thick, uneven, optW, boxes, nOpt:opts.length};
+    }, [OPT, BOX]);
+    /* ตำแหน่งปุ่ม + ตัวหนังสือแรก (ท็อปปิ้ง = ชื่อ .tn) ปัดครึ่ง px · วัดเทียบกับเนื้อหาของหน้าต่าง/หน้าขาย
+       (หน้าต่างจัดกลางจอ เนื้อหาข้างล่างเพิ่ม/ข้อความแจ้งในหน้าต่าง ทำให้ทั้งกล่องขยับ ไม่ใช่ปุ่มขยับเอง) */
+    const snap = sel => page.evaluate(sel => {
+      const el = document.querySelector(sel); if(!el) return null;
+      const box = el.closest('.mbody') || document.getElementById('builder'), o = box.getBoundingClientRect(), dx = o.left - box.scrollLeft, dy = o.top - box.scrollTop;
+      const t = el.querySelector('.tn') || el, w = document.createTreeWalker(t, NodeFilter.SHOW_TEXT, {acceptNode: n => n.textContent.trim() ? 1 : 3});
+      const n = w.nextNode(), r = document.createRange(); if(n) r.selectNodeContents(n);
+      const R = x => Math.round(x * 2) / 2, b = el.getBoundingClientRect(), tb = n ? r.getBoundingClientRect() : {left:0, top:0};
+      return [R(b.left - dx), R(b.top - dy), R(b.width), R(b.height), R(tb.left - dx), R(tb.top - dy)];
+    }, sel);
+    const steady = {}, A = {};
+    const pick = async (k, sel, before) => { if(before) await page.click(before); const a = await snap(sel); await page.click(sel); await page.waitForTimeout(60); const b = await snap(sel); steady[k] = a && b ? JSON.stringify(a) === JSON.stringify(b) || `${a} → ${b}` : 'missing'; };
+    A.login = await audit();
+    await enter(page, '1234'); await skipFloat(page);
+    A.home = await audit();
+    await page.click('[data-menu="greek"]');
+    await pick('size', '[data-size="g2"]', '[data-size="g1"]');
+    await pick('topping', '[data-pick="Kiwi"]');
+    await pick('honey', '[data-honey="lots"]');
+    await pick('sep', '.sep');
+    await pick('menu', '[data-menu="acai"]');
+    A.acai = await audit();
+    await page.click('[data-addopen]'); A.adds = await audit(); await page.click('#addsDone');
+    await page.click('[data-swap="0"]'); A.swap = await audit(); await page.click('#closeX');
+    await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
+    await page.click('[data-menu="acai"]'); await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
+    await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]'); await page.click('[data-pick="Banana"]');
+    A.greek = await audit();
+    if(await page.isVisible('#cartMini')) await page.click('#cartMini');
+    A.cart = await audit();
+    await page.click('#promoOpen'); await pick('promo', '.popt[data-pid]:not([disabled])'); A.promo = await audit(); await page.click('#closeX');
+    if(await page.isVisible('#cartMini')) await page.click('#cartMini');
+    await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2'); if(await page.$('#pendDrop')) await page.click('#pendDrop');
+    await pick('dine', '[data-dine="takeaway"]'); await pick('method', '[data-method="cash"]');
+    A.pay = await audit(); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
+    await page.click('#btnSettings'); A.settings = await audit(); await pick('receipt', '[data-rcpt="ask"]');
+    await page.click('#stockOpen'); A.stock = await audit(); await page.click('#closeX');
+    await page.click('#btnSummary'); A.summary = await audit(); await pick('tab', '[data-tab="pay"]'); await pick('range', '[data-range="7d"]');
+    await page.click('#closeDay'); A.close = await audit(); await page.click('#closeX');
+    await page.click('#btnClear').catch(() => {}); if(await page.$('#cfYes')) A.confirm = await audit();
+    await ctx.close();
+    const pages = Object.keys(A);
+    eq(`UI30 ${label}: ไม่มีเส้นกรอบหนากว่า 1px ทุกหน้า (${pages.join(' ')})`, pages.map(k => A[k].thick), pages.map(() => []));
+    eq(`UI30 ${label}: ปุ่ม/ช่องกรอกทุกตัวกรอบเท่ากันทั้ง 4 ด้าน (0 หรือ 1px)`, pages.map(k => A[k].uneven), pages.map(() => []));
+    eq(`UI30 ${label}: ตัวเลือกทุกแบบกรอบ 1px เท่ากัน`, [...new Set(pages.flatMap(k => A[k].optW))], ['1/1/1/1']);
+    eq(`UI30 ${label}: section / กล่องที่กดไม่ได้ไม่มีเส้นกรอบ`, pages.map(k => A[k].boxes), pages.map(() => []));
+    eq(`UI30 ${label}: กดเลือกแล้วขนาดและตำแหน่งตัวหนังสือไม่เปลี่ยน (เมนู ขนาด ท็อปปิ้ง น้ำผึ้ง แยก โปร กินเลย/กลับบ้าน วิธีชำระ ใบเสร็จ แท็บ ช่วงวัน)`, steady,
+      Object.fromEntries(Object.keys(steady).map(k => [k, true])));
   }
 
   // ---------- S01 ตั๋วตัวอย่างในเบราว์เซอร์จริง (ฟอนต์จริง) → PNG ขาวดำแบบที่ส่งไปปริ้นเตอร์ ----------

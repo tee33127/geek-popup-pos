@@ -12,6 +12,7 @@ const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw 
 const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const openSet = () => click('#btnSettings');
+const openStock = () => { openSet(); click('#stockOpen'); };   // ของหมดอยู่หน้าย่อย (Tee 2026-10-17)
 const sw = (kind, key) => $(`[data-stock="${kind}"][data-key="${key}"]`);
 const row = (kind, key) => sw(kind, key).closest('.srow');
 const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}').out;
@@ -20,6 +21,11 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   await wait(50);
   eq('settings button in header, not in summary', [$('#btnSettings').textContent.trim(), (() => { click('#btnSummary'); const x = !!$('#setOpen') || !!$('#menuOpen'); click('#closeX'); return x; })()], ['ตั้งค่า', false]);
   openSet();
+  eq('settings: owner settings first, stock list is one row "สินค้าหมด ›" near the end (no switches on the main page)',
+    [$$('#modal .mbody > *').findIndex(e => e.id === 'stockOpen') > $$('#modal .mbody > *').findIndex(e => e.querySelector && e.querySelector('#ppOpen')), $$('[data-stock]').length, $('#stockOpen').textContent.replace(/\s+/g, ' ').trim()],
+    [true, 0, 'สินค้าหมดมีของครบทุกอย่าง']);
+  click('#stockOpen');
+  eq('stock subpage: title + back "ตั้งค่า" in the floating head + X', [$('#mdTitle').textContent.trim(), $('#mdBack').textContent.trim(), !!$('#closeX')], ['สินค้าหมด', 'ตั้งค่า', true]);
   eq('switches for 3 menus + 20 toppings, all on', [$$('[data-stock="menus"]').length, $$('[data-stock="items"]').length, $$('.sw.on').length], [3, 20, 23]);
   eq('no price inputs anywhere', $$('#modal input').length, 0);
 
@@ -28,6 +34,8 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   eq('row turns grey + label หมด + switch off', [row('items', 'Mango').classList.contains('out'), row('items', 'Mango').querySelector('.st').textContent, sw('items', 'Mango').getAttribute('aria-checked')], [true, 'หมด', 'false']);
   eq('saved immediately', stored(), {items:['Mango']});
   click(sw('items', 'Strawberries')); click(sw('menus', 'banana'));
+  eq('toggling keeps the stock page open', $('#mdTitle').textContent.trim(), 'สินค้าหมด');
+  click('#mdBack'); eq('back → settings shows how many are out', [!!$('#ppOpen'), $('#stockOpen small').textContent], [true, 'หมด 3 รายการ']);
   click('#closeX');
   click('[data-menu="greek"]'); click('[data-size="g1"]');
   const mango = $$('.topw.out').find(x => x.textContent.includes('มะม่วง'));
@@ -40,7 +48,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('[data-skip="1"]'); eq('removing the sold-out default clears flag', $$('.comp.out').length, 0);
 
   // ---- เปิดกลับ ----
-  openSet(); click(sw('items', 'Mango'));
+  openStock(); click(sw('items', 'Mango'));
   eq('back on: row normal', [row('items', 'Mango').classList.contains('out'), stored().items], [false, ['Strawberries']]);
   click('#closeX'); ev('resetSel(); renderBuilder()'); click('[data-menu="greek"]'); click('[data-size="g1"]');
   eq('greek: Mango selectable again', !!$('[data-pick="Mango"]'), true);
@@ -51,7 +59,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
   click('#closeX');
   // ---- PromptPay อยู่ในหน้าเดียวกัน ----
   openSet(); eq('PromptPay row present', [!!$('#ppOpen'), $('#modal').textContent.includes('ยังไม่ได้ตั้ง')], [true, true]);
-  click('#ppOpen'); click('#setBack'); eq('back returns to settings', !!$('[data-stock]'), true);
+  click('#ppOpen'); click('#setBack'); eq('back returns to settings', !!$('#stockOpen'), true);
 
   // ---- เปิดแอปใหม่: ใช้ค่าที่เก็บไว้ ----
   w.close(); w = open({promptpay:'0812345678', out:{items:['Kiwi'], menus:['acai']}}); d = w.document; A.signIn(w);

@@ -22,6 +22,18 @@
   --ui-scale:.88;
   --blue:#1A00B8; --blue-soft:#ECE9FF; --orange:#F7941D; --orange-soft:#FFF1DE;
   --ink:#1b1b2f; --mute:#6b6b80; --line:#e3e3ee; --bg:#f6f6fb; --ok:#14804a; --bad:#c62828;
+  /* กฎสไตล์กลาง (Tee 2026-10-17 · docs/qa/ui-audit-2026-10-18.md) · ห้ามเขียนค่าตายตัวที่อื่น
+     เส้นกรอบ: หนาเดียว 1px ทั้งแอป (ยกเว้นตั๋วใน #printArea) · มีเฉพาะสิ่งที่กดได้ · กล่อง section ไม่มีกรอบ ใช้พื้นอ่อนแยกส่วน */
+  --bw:1px; --border:#d9d9e6;
+  --sec-bg:var(--bg);
+  /* ตัวเลือก: ปกติ / เลือกแล้ว (กรอบน้ำเงิน + inset 1px ไม่เปลี่ยน border-width) / ปิดใช้ */
+  --sel-bg:var(--blue-soft); --sel-bd:var(--blue); --sel-ring:inset 0 0 0 1px var(--blue);
+  --off-bg:#eeeef3; --off-fg:#9a9aab;
+  /* ระยะห่าง: สเกลเดียว */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px;
+  /* มุมโค้ง: ปุ่ม/ชิป · การ์ด/section · หน้าต่าง */
+  --r-btn:8px; --r-card:12px; --r-modal:16px;
+  /* ความสูงต่ำสุดของทุกอย่างที่กดได้ = 44px (เขียนตรงๆ ให้ jsdom ในเทสต์อ่านได้) */
 }
 /* ไอคอนเส้น (icons.js) จัดให้อยู่กลางบรรทัดข้อความ */
 .ic{display:inline-block;vertical-align:-.2em;flex-shrink:0}
@@ -30,73 +42,68 @@ h3.warn .ic{color:var(--orange)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-variant-numeric:tabular-nums;font-size:max(12px, calc(17px * var(--ui-scale)))}   /* ฟอนต์ใน css/fonts.css · ตัวเลข Plex กว้างเท่ากันอยู่แล้ว tabular-nums กันไว้เผื่อฟอนต์สำรอง */
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
-header{background:var(--blue);color:#fff;padding:calc(12px * var(--ui-scale)) calc(18px * var(--ui-scale));display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--ui-scale));position:sticky;top:0;z-index:5}
+header{background:var(--blue);color:#fff;padding:var(--s2) var(--s4);display:flex;align-items:center;justify-content:space-between;gap:var(--s2);position:sticky;top:0;z-index:5}
 header h1{margin:0;font-size:max(12px, calc(19px * var(--ui-scale)));font-weight:700}
 header h1 span{color:var(--orange)}
 #nextNo{font-size:max(12px, calc(14px * var(--ui-scale)));margin-left:auto}
 #nextNo b{font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700;margin-left:2px}
-.hbtn{background:rgba(255,255,255,.15);color:#fff;padding:calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));border-radius:10px;font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)))}
+.hbtn{background:transparent;color:#fff;border:var(--bw) solid rgba(255,255,255,.55);padding:var(--s2) var(--s3);border-radius:var(--r-btn);font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)))}
 .hbtn .ic{vertical-align:-3px}
-.hbtn.off{background:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
-main{display:grid;grid-template-columns:1fr calc(390px * var(--ui-scale));gap:calc(16px * var(--ui-scale));padding:calc(16px * var(--ui-scale));max-width:1440px;margin:0 auto;align-items:start}
-.card{background:#fff;border-radius:18px;padding:calc(16px * var(--ui-scale));box-shadow:0 1px 3px rgba(20,0,120,.08)}
+.hbtn.off{background:var(--orange);border-color:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
+main{display:grid;grid-template-columns:1fr calc(390px * var(--ui-scale));gap:var(--s4);padding:var(--s3) var(--s4) var(--s4);max-width:1440px;margin:0 auto;align-items:start}
+.card{background:#fff;border-radius:var(--r-card);padding:var(--s3) var(--s4);box-shadow:0 1px 3px rgba(20,0,120,.08)}
 /* ขั้นของหน้าเลือกออเดอร์: กล่องเดียวกันทุกขั้น · วงกลมเลขขั้นอยู่แค่ในหัวขั้น · เนื้อหา (.sb) เต็มความกว้างกล่อง
    ครบแล้ว = วงกลมเป็นเครื่องหมายถูกสีเขียว · ขั้นใหม่ slide down + fade · กดปุ่มหลักตอนยังขาด = กรอบกะพริบ 1 ครั้ง */
-.sec{display:block;width:100%;margin:0 0 calc(10px * var(--ui-scale));padding:calc(12px * var(--ui-scale));border:2px solid var(--line);border-radius:14px;background:#fff}
-.sh{display:flex;align-items:center;gap:calc(10px * var(--ui-scale));min-height:calc(32px * var(--ui-scale))}
+.sec{display:block;width:100%;margin:0 0 var(--s4);padding:var(--s3);border:0;border-radius:var(--r-card);background:var(--sec-bg)}
+.sh{display:flex;align-items:center;gap:var(--s2);min-height:calc(32px * var(--ui-scale))}
 .sn{flex:none;width:calc(28px * var(--ui-scale));height:calc(28px * var(--ui-scale));border-radius:50%;display:grid;place-items:center;font-size:max(12px, calc(15px * var(--ui-scale)));font-weight:700;line-height:1;color:#fff;background:var(--blue)}
 .sec.done .sn{background:var(--ok)}
 .stitle{flex:1;min-width:0;font-size:max(12px, calc(17px * var(--ui-scale)));font-weight:700;line-height:1.4}
 .stitle small{font-weight:400;color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)))}
-.sb{margin-top:calc(12px * var(--ui-scale))}
+.sb{margin-top:var(--s3)}
 .sec.enter{animation:stepIn .24s ease-out}
 @keyframes stepIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
 .sec.flash{animation:stepFlash .9s ease-out 1}
-@keyframes stepFlash{0%,40%{border-color:var(--orange);box-shadow:0 0 0 4px var(--orange-soft)}100%{border-color:var(--line);box-shadow:none}}
-@media(prefers-reduced-motion:reduce){.sec.enter,.sec.flash{animation:none}.sec.flash{border-color:var(--orange)}}
-.hint{color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)));margin:calc(8px * var(--ui-scale)) 0 0}
-.gt{font-weight:700;color:var(--mute);font-size:max(12px, calc(15px * var(--ui-scale)));margin:calc(14px * var(--ui-scale)) 0 calc(8px * var(--ui-scale))}
-.bases{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(10px * var(--ui-scale))}
-.base{border:3px solid var(--line);border-radius:16px;padding:calc(8px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));text-align:center;background:#fff}
-.base .pic{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;display:block;pointer-events:none}
-.base .nm{font-weight:700;margin-top:calc(8px * var(--ui-scale))}
+@keyframes stepFlash{0%,40%{box-shadow:inset 0 0 0 var(--bw) var(--orange),0 0 0 4px var(--orange-soft)}100%{box-shadow:none}}
+@media(prefers-reduced-motion:reduce){.sec.enter,.sec.flash{animation:none}.sec.flash{box-shadow:inset 0 0 0 var(--bw) var(--orange)}}
+.hint{color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)));margin:var(--s2) 0 0}
+.gt{font-weight:700;color:var(--mute);font-size:max(12px, calc(15px * var(--ui-scale)));margin:var(--s3) 0 var(--s2)}
+.bases{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.base{border-radius:var(--r-card);padding:var(--s2);text-align:center}
+.base .pic{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r-btn);display:block;pointer-events:none}
+.base .nm{font-weight:700;margin-top:var(--s2)}
 .base small{display:block;color:var(--mute)}
-.base.on{border-color:var(--blue);background:var(--blue-soft)}
-.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(10px * var(--ui-scale))}
-.size{border:3px solid var(--line);border-radius:16px;padding:calc(12px * var(--ui-scale)) calc(6px * var(--ui-scale));text-align:center;font-weight:700;background:#fff}
+.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.size{border-radius:var(--r-btn);padding:var(--s3) var(--s2);text-align:center;font-weight:700}
 .size small{display:block;color:var(--mute);font-weight:400;margin-top:2px;font-size:max(12px, calc(13px * var(--ui-scale)))}
 .size small b{color:var(--ink);font-size:max(12px, calc(17px * var(--ui-scale)))}
-.size.on{border-color:var(--orange);background:var(--orange-soft)}
-.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(152px * var(--ui-scale)),1fr));gap:calc(8px * var(--ui-scale))}   /* 152px: ชื่อยาวสุด (เม็ดมะม่วงหิมพานต์ 131px ที่ 17px) อยู่ในบรรทัดเดียว */
-.top{border:2px solid var(--line);border-radius:12px;padding:calc(11px * var(--ui-scale)) calc(6px * var(--ui-scale));text-align:center;background:#fff;line-height:1.4}
+.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(152px * var(--ui-scale)),1fr));gap:var(--s2)}   /* 152px: ชื่อยาวสุด (เม็ดมะม่วงหิมพานต์ 131px ที่ 17px) อยู่ในบรรทัดเดียว */
+.top{text-align:center;line-height:1.4}
 .top small{display:block;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
-.comp{display:flex;align-items:center;gap:calc(8px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;padding:calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale));margin-top:calc(8px * var(--ui-scale))}
-.comp.changed{border-color:var(--orange);background:var(--orange-soft)}
+.comp{display:flex;align-items:center;gap:var(--s2);border:0;border-radius:var(--r-btn);background:#fff;padding:var(--s2) var(--s3);margin-top:var(--s2)}
+.comp.changed{background:var(--orange-soft)}
 .comp .nm{flex:1;font-weight:700}
 .comp .nm small{display:block;font-weight:400;color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)))}
 .comp .px{color:#b45f00}
-.comp button{background:var(--bg);padding:calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));border-radius:10px;font-weight:700;font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)));min-width:max(44px, calc(48px * var(--ui-scale)))}
-.comp button.skip{background:none;color:var(--mute);font-weight:400;font-size:max(12px, calc(13px * var(--ui-scale)));text-decoration:underline;padding:calc(8px * var(--ui-scale)) calc(6px * var(--ui-scale))}
-.comp.removed{background:var(--bg)}
+.comp button{padding:0 var(--s4);font-weight:700;font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)));min-width:max(44px, calc(48px * var(--ui-scale)))}
+.comp button.skip{font-weight:400;font-size:max(12px, calc(13px * var(--ui-scale)));padding:0 var(--s2);min-width:0}
+.comp.removed{background:transparent}
 .comp.removed .nm{color:var(--mute)}
 .comp.removed .nm{text-decoration:line-through}
 .comp.removed .nm small{text-decoration:none}
 /* ปุ่มท็อปปิ้ง Greek: สูงเท่ากันทุกปุ่มทุกสถานะ · ✓ เป็นวงกลมที่มุมซ้ายบนตำแหน่งเดียวกันทุกปุ่ม */
-.topw{position:relative;min-height:max(44px, calc(64px * var(--ui-scale)));border:2px solid var(--line);border-radius:12px;background:#fff}   /* ชื่อยาวขึ้น 2 บรรทัด แถวเดียวกันสูงเท่ากัน (grid stretch) */
+.topw{position:relative;min-height:max(44px, calc(64px * var(--ui-scale)))}   /* ชื่อยาวขึ้น 2 บรรทัด แถวเดียวกันสูงเท่ากัน (grid stretch) */
 .topw .top{border:0;background:none;width:100%;height:100%;min-height:max(44px, calc(60px * var(--ui-scale)));padding:calc(6px * var(--ui-scale)) calc(8px * var(--ui-scale));display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.4}
-.topw.on{border-color:var(--blue);background:var(--blue-soft)}
 .topw.on .top small{color:var(--blue)}
-.topw.on.over{border-color:var(--orange);background:var(--orange-soft)}
 .topw.on.over .top small{color:#b45f00}
-.honey{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(105px * var(--ui-scale)),1fr));gap:calc(8px * var(--ui-scale))}
-.hon{border:3px solid var(--line);border-radius:12px;padding:calc(12px * var(--ui-scale)) calc(6px * var(--ui-scale));text-align:center;font-weight:700;background:#fff}
-.hon.on{border-color:var(--orange);background:var(--orange-soft)}
-input.note{width:100%;padding:calc(12px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;font:inherit}
+.honey{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(105px * var(--ui-scale)),1fr));gap:var(--s2)}
+.hon{border-radius:var(--r-btn);text-align:center;font-weight:700}
+input.note{width:100%;padding:var(--s3);font:inherit}
 /* แถบล่าง (Tee 2026-10-13 v3): หน้าตาและความสูงเดียวตั้งแต่เปิดหน้า · ซ้าย = ช่องสรุปแก้ว · ขวา = ปุ่มหลัก
    position fixed (JS วางให้ตรงกับกล่องเลือก) · กล่องเลือกเว้นที่ท้าย = ความสูงแถบ + 16px ไม่ให้บังอะไร */
-:root{--abh:calc(84px * var(--ui-scale));--ab-bottom:calc(12px * var(--ui-scale))}
-.actbar{position:fixed;left:16px;right:auto;bottom:var(--ab-bottom);z-index:6;height:var(--abh);display:flex;align-items:center;gap:12px;
-  background:#fff;border:2px solid var(--line);border-radius:calc(18px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(16px * var(--ui-scale));box-shadow:0 calc(4px * var(--ui-scale)) calc(14px * var(--ui-scale)) rgba(20,0,120,.14)}
+:root{--abh:calc(84px * var(--ui-scale));--ab-bottom:var(--s2)}
+.actbar{position:fixed;left:16px;right:auto;bottom:var(--ab-bottom);z-index:6;height:var(--abh);display:flex;align-items:center;gap:var(--s3);
+  background:#fff;border:0;border-radius:var(--r-card);padding:var(--s2) var(--s2) var(--s2) var(--s4);box-shadow:0 calc(4px * var(--ui-scale)) calc(14px * var(--ui-scale)) rgba(20,0,120,.14)}
 main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + calc(16px * var(--ui-scale)))}
 #tally{flex:1;min-width:0}
 .cupsum{display:flex;flex-wrap:wrap;align-items:center;gap:2px calc(8px * var(--ui-scale));font-size:max(12px, calc(15px * var(--ui-scale)));line-height:normal;font-weight:700}   /* normal = 1.65 ของ Plex: กล่องบรรทัดสูงพอสำหรับสระบน/ล่าง ไม่ล้น (แถบล่างสูงคงที่อยู่แล้ว) */
@@ -105,18 +112,17 @@ main > .card:first-child{padding-bottom:calc(var(--abh) + var(--ab-bottom) + cal
 .cupsum .tq,.cupsum .cs-mid{white-space:nowrap;color:var(--blue)}
 .cupsum .cs-sep{white-space:nowrap;color:#a35400}
 .fdots{display:inline-flex;gap:calc(4px * var(--ui-scale));vertical-align:-2px;margin-left:2px}
-.fdots i{width:calc(15px * var(--ui-scale));height:calc(15px * var(--ui-scale));border-radius:50%;border:2px solid var(--blue);background:transparent}
+.fdots i{width:calc(15px * var(--ui-scale));height:calc(15px * var(--ui-scale));border-radius:50%;border:var(--bw) solid var(--blue);background:transparent}
 .fdots i.on{background:var(--blue)}
 .cupsum .xtra{white-space:nowrap;color:#a35400;background:var(--orange-soft);padding:1px calc(10px * var(--ui-scale));border-radius:20px}
 .cupsum .xtra.flash{animation:xflash .9s ease-out 1}
 @keyframes xflash{0%{background:var(--orange);color:#fff}100%{background:var(--orange-soft);color:#a35400}}
 @media(prefers-reduced-motion:reduce){.cupsum .xtra.flash{animation:none}}
-.add{flex:none;width:calc(320px * var(--ui-scale));height:max(44px, calc(64px * var(--ui-scale)));background:var(--orange);color:#fff;font-weight:700;font-size:max(12px, calc(19px * var(--ui-scale)));line-height:1.4;padding:0 calc(14px * var(--ui-scale));border-radius:14px;white-space:nowrap}
-.add.off{background:#d8d8e4;color:#6b6b80}
-.linkbtn.notelink{justify-content:flex-start;width:auto;margin-top:calc(6px * var(--ui-scale));padding:0 calc(4px * var(--ui-scale));color:var(--blue);font-size:max(12px, calc(15px * var(--ui-scale)))}
+.add{flex:none;width:calc(320px * var(--ui-scale));height:max(44px, calc(64px * var(--ui-scale)));font-size:max(12px, calc(19px * var(--ui-scale)));line-height:1.4;padding:0 var(--s4);white-space:nowrap}
+.linkbtn.notelink{justify-content:flex-start;width:auto;margin-top:var(--s2);padding:0 var(--s1);font-size:max(12px, calc(15px * var(--ui-scale)))}
 .cart h2{margin:0 0 calc(10px * var(--ui-scale));font-size:max(12px, calc(19px * var(--ui-scale)))}
 .empty{color:var(--mute);text-align:center;padding:calc(24px * var(--ui-scale)) 0}
-.line{border-bottom:1px solid var(--line);padding:calc(10px * var(--ui-scale)) 0}
+.line{border-bottom:var(--bw) solid var(--line);padding:var(--s3) 0}
 .line .t{display:flex;justify-content:space-between;gap:calc(8px * var(--ui-scale));font-weight:700}
 main > .cart{min-width:0}   /* แนวตั้ง: บรรทัดตะกร้าที่ไม่ตัดคำ (ยาวตัด …) ต้องไม่ดันคอลัมน์ 1fr จนจอเลื่อนแนวนอน */
 .line .d{min-width:0;color:var(--mute);font-size:max(12px, calc(14.5px * var(--ui-scale)));margin:2px 0 calc(6px * var(--ui-scale));cursor:pointer;display:flex;flex-wrap:wrap;column-gap:calc(16px * var(--ui-scale))}
@@ -125,43 +131,39 @@ main > .cart{min-width:0}   /* แนวตั้ง: บรรทัดตะ�
 .line .d .cg.no,.line .d .cg.no b{color:#a35400}   /* ไม่รับ: ส้มเข้ม (สีเดียวกับคิดเพิ่ม) ไม่ใช่สีแดงเตือน */
 .line .d .cg.no b{font-weight:700}
 .line.full .d .cg{white-space:normal;overflow:visible}
-.qty{display:flex;align-items:center;gap:calc(10px * var(--ui-scale))}
-.qty button{width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));border-radius:10px;background:var(--bg);font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700}
-.qty .rm{margin-left:auto;width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));display:grid;place-items:center;color:var(--bad);background:none;border-radius:10px}
-.qty .rm:active{background:#fdecea}
+.qty{display:flex;align-items:center;gap:var(--s2)}
+.qty button{width:44px;height:44px;padding:0;font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700}
+.qty .rm{margin-left:auto;display:grid;place-items:center;color:var(--bad)}
+.qty .rm:active{background:#fdecea;border-radius:var(--r-btn)}
 .total{display:flex;justify-content:space-between;font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;padding:calc(14px * var(--ui-scale)) 0 calc(10px * var(--ui-scale))}
-.pay{width:100%;background:var(--blue);color:#fff;font-weight:700;font-size:max(12px, calc(20px * var(--ui-scale)));padding:calc(16px * var(--ui-scale));border-radius:16px}
-.pay:disabled{background:#c9c9de}
-.clear{width:100%;margin-top:calc(8px * var(--ui-scale));color:var(--bad);padding:calc(11px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;font-weight:700}
-.clear:disabled{opacity:.4}
+.pay{width:100%;font-size:max(12px, calc(20px * var(--ui-scale)));padding:var(--s3) var(--s4)}
+.clear{width:100%;margin-top:var(--s2);padding:var(--s2) var(--s4)}
 .bar{display:none}
 /* จอกว้าง (แนวนอน): กล่องออเดอร์ติดจอใต้แถบหัว ปุ่มชำระเงินเห็นตลอดตอนเลื่อนหน้า · รายการเยอะเลื่อนในกล่อง */
 @media(min-width:901px){
-  .cart{position:sticky;top:calc(88px * var(--ui-scale));max-height:calc(100vh - calc(104px * var(--ui-scale)));display:flex;flex-direction:column}
+  .cart{position:sticky;top:calc(var(--hdrh, 60px) + var(--s3));max-height:calc(100vh - calc(104px * var(--ui-scale)));display:flex;flex-direction:column}
   .cart > *{flex-shrink:0}
   .cart #cart{flex:1 1 auto;min-height:0;overflow-y:auto}
 }
 /* Modal: overlay fixed เต็มจอ · กล่องสูงไม่เกินจอ · หัว (ชื่อ + X) และแถบปุ่มหลักติดกล่อง · เลื่อนเฉพาะ .mbody ไม่ส่งต่อไปหน้าหลัง */
 #modal{position:fixed;inset:0;background:rgba(10,10,40,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:calc(12px * var(--ui-scale));overscroll-behavior:contain}
 #modal.show{display:flex}
-.box{background:#fff;border-radius:20px;width:100%;max-width:540px;max-height:calc(100vh - calc(24px * var(--ui-scale)));max-height:calc(100dvh - calc(24px * var(--ui-scale)));display:flex;flex-direction:column;overflow:hidden}
-.mhead{flex:none;display:flex;align-items:center;gap:calc(8px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(20px * var(--ui-scale));border-bottom:1px solid var(--line)}
+.box{background:#fff;border-radius:var(--r-modal);width:100%;max-width:540px;max-height:calc(100vh - calc(24px * var(--ui-scale)));max-height:calc(100dvh - calc(24px * var(--ui-scale)));display:flex;flex-direction:column;overflow:hidden}
+.mhead{flex:none;display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s2) var(--s2) var(--s5);border-bottom:var(--bw) solid var(--line)}
 .box .mhead h3{flex:1;min-width:0;margin:0;font-size:max(12px, calc(21px * var(--ui-scale)))}
-.mx{flex:none;width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));border-radius:12px;display:grid;place-items:center;color:var(--ink)}
+.mx{flex:none;width:44px;height:44px;border-radius:var(--r-btn);display:grid;place-items:center;color:var(--ink)}
 .mx:active{background:var(--bg)}
-.mbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:calc(16px * var(--ui-scale)) calc(20px * var(--ui-scale)) calc(20px * var(--ui-scale))}
-.mfoot{flex:none;padding:calc(10px * var(--ui-scale)) calc(20px * var(--ui-scale)) calc(12px * var(--ui-scale));border-top:1px solid var(--line);background:#fff}
+.mbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:var(--s4) var(--s5) var(--s5)}
+.mfoot{flex:none;padding:var(--s3) var(--s5);border-top:var(--bw) solid var(--line);background:#fff}
 .mfoot .row{margin:0}
 .box.wide{max-width:940px}
-.tabs{display:flex;gap:calc(6px * var(--ui-scale));flex-wrap:wrap;margin:calc(14px * var(--ui-scale)) 0 calc(6px * var(--ui-scale))}
-.tab{padding:calc(10px * var(--ui-scale)) calc(14px * var(--ui-scale));min-height:max(44px, calc(48px * var(--ui-scale)));border-radius:12px;background:var(--bg);font-weight:700;font-size:max(12px, calc(15px * var(--ui-scale)))}
-.tab.on{background:var(--blue);color:#fff}
-.rangebar{display:flex;gap:calc(8px * var(--ui-scale));flex-wrap:wrap;align-items:center}
-.rangebar input{font:inherit;padding:calc(8px * var(--ui-scale));border:2px solid var(--line);border-radius:10px}
-.chip{background:var(--bg);padding:calc(8px * var(--ui-scale)) calc(12px * var(--ui-scale));border-radius:20px;font-size:max(12px, calc(14px * var(--ui-scale)));font-weight:700;border:2px solid transparent}
-.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tabs{display:flex;gap:var(--s2);flex-wrap:wrap;margin:var(--s4) 0 var(--s2)}
+.tab{padding:var(--s2) var(--s3);border-radius:var(--r-btn);font-weight:700;font-size:max(12px, calc(15px * var(--ui-scale)))}
+.rangebar{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center}
+.rangebar input{font:inherit;padding:var(--s2);min-height:44px}
+.chip{padding:var(--s2) var(--s3);border-radius:var(--r-btn);font-size:max(12px, calc(14px * var(--ui-scale)));font-weight:700}
 th.n,td.n{text-align:right;white-space:nowrap}
-tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+tr.tot td{font-weight:700;border-top:var(--bw) solid var(--ink)}
 .sec2{font-weight:700;margin:calc(18px * var(--ui-scale)) 0 calc(6px * var(--ui-scale));font-size:max(12px, calc(17px * var(--ui-scale)))}
 .sec2 small{font-weight:400;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
 .note2{color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)));margin:calc(6px * var(--ui-scale)) 0}
@@ -169,40 +171,37 @@ tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 .share i{display:block;height:100%;background:var(--blue)}
 .box h3{margin:0 0 calc(12px * var(--ui-scale));font-size:max(12px, calc(21px * var(--ui-scale)))}
 .q2{font-weight:700;margin:calc(14px * var(--ui-scale)) 0 calc(4px * var(--ui-scale));color:var(--mute);font-size:max(12px, calc(15px * var(--ui-scale)))}
-.row{display:flex;gap:calc(10px * var(--ui-scale));margin:calc(8px * var(--ui-scale)) 0}
+.row{display:flex;gap:var(--s2);margin:var(--s2) 0}
 .row>*{flex:1}
 .row.wrap{flex-wrap:wrap}
 .row.wrap>*{flex:1 1 calc(140px * var(--ui-scale))}
-.opt{border:3px solid var(--line);border-radius:14px;padding:calc(14px * var(--ui-scale)) calc(8px * var(--ui-scale));font-weight:700;text-align:center}
-.opt.on{border-color:var(--blue);background:var(--blue-soft)}
-.opt:disabled{opacity:.4;cursor:not-allowed}
+.opt{border-radius:var(--r-btn);padding:var(--s3) var(--s2);font-weight:700;text-align:center}
 /* ปุ่มวิธีชำระเงิน: โลโก้หรือไอคอนสูงเท่ากัน + ชื่อด้านล่าง */
-.opt[data-method]{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(6px * var(--ui-scale));padding:calc(12px * var(--ui-scale)) calc(8px * var(--ui-scale))}
+.opt[data-method]{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s1);padding:var(--s3) var(--s2)}
 .opt .mlogo{height:max(44px, calc(44px * var(--ui-scale)));max-width:100%;object-fit:contain;display:grid;place-items:center}
 .opt[data-method] span:last-child{font-size:max(12px, calc(15px * var(--ui-scale)))}
-.payrow .ghost{flex:0 0 calc(120px * var(--ui-scale))}
+.payrow .ghost,.payrow .tbtn{flex:0 0 calc(120px * var(--ui-scale))}
 .payrow .pay{flex:1}
 .q2 small{font-weight:400;color:var(--mute)}
-.quick{display:flex;flex-wrap:wrap;gap:calc(8px * var(--ui-scale));margin:calc(10px * var(--ui-scale)) 0}
-.quick button{background:var(--bg);padding:calc(10px * var(--ui-scale)) calc(16px * var(--ui-scale));min-height:max(44px, calc(48px * var(--ui-scale)));border-radius:10px;font-weight:700}
-input.num{width:100%;font-size:max(12px, calc(26px * var(--ui-scale)));padding:calc(12px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;text-align:right;font-family:inherit}
+.quick{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s3) 0}
+.quick button{padding:0 var(--s4)}
+input.num{width:100%;font-size:max(12px, calc(26px * var(--ui-scale)));padding:var(--s2) var(--s3);text-align:right;font-family:inherit}
 .change{font-size:max(12px, calc(30px * var(--ui-scale)));font-weight:700;color:var(--ok);text-align:center;margin:calc(12px * var(--ui-scale)) 0}
 .big{font-size:max(12px, calc(56px * var(--ui-scale)));text-align:center}
-.ghost{background:var(--bg);padding:calc(12px * var(--ui-scale)) calc(18px * var(--ui-scale));border-radius:12px;font-weight:700}
-.linkbtn{display:flex;align-items:center;justify-content:center;gap:calc(6px * var(--ui-scale));width:100%;min-height:max(44px, calc(48px * var(--ui-scale)));margin-top:calc(6px * var(--ui-scale));color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)));text-decoration:underline}
-.ghost.wide{display:block;width:100%;margin-top:calc(10px * var(--ui-scale));min-height:max(44px, calc(52px * var(--ui-scale)));font-size:max(12px, calc(17px * var(--ui-scale)))}
+.ghost{padding:var(--s2) var(--s4)}
+.linkbtn{display:flex;align-items:center;justify-content:center;gap:var(--s2);width:100%;margin-top:var(--s2);font-size:max(12px, calc(14px * var(--ui-scale)))}
+.ghost.wide{display:block;width:100%;margin-top:var(--s2);font-size:max(12px, calc(17px * var(--ui-scale)))}
 table{width:100%;border-collapse:collapse;font-size:max(12px, calc(15px * var(--ui-scale)))}
-th,td{padding:calc(8px * var(--ui-scale)) calc(6px * var(--ui-scale));text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th,td{padding:calc(8px * var(--ui-scale)) calc(6px * var(--ui-scale));text-align:left;border-bottom:var(--bw) solid var(--line);vertical-align:top}
 tr.void td{color:#aaa;text-decoration:line-through}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(150px * var(--ui-scale)),1fr));gap:calc(10px * var(--ui-scale));margin:calc(12px * var(--ui-scale)) 0}
-.stat{background:var(--blue-soft);border-radius:14px;padding:calc(12px * var(--ui-scale))}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(150px * var(--ui-scale)),1fr));gap:var(--s2);margin:var(--s3) 0}
+.stat{background:var(--blue-soft);border-radius:var(--r-card);padding:var(--s3)}
 .stat small{color:var(--mute);display:block}
 .stat b{font-size:max(12px, calc(22px * var(--ui-scale)))}
-.sbtn{color:var(--blue);font-size:max(12px, calc(14px * var(--ui-scale)));padding:calc(4px * var(--ui-scale)) calc(8px * var(--ui-scale));font-weight:700}
-.vbtn{color:var(--bad);font-size:max(12px, calc(14px * var(--ui-scale)));padding:calc(4px * var(--ui-scale)) calc(8px * var(--ui-scale))}
-.rbtn{color:var(--ok);font-size:max(12px, calc(14px * var(--ui-scale)));padding:calc(4px * var(--ui-scale)) calc(8px * var(--ui-scale));font-weight:700}
+/* ปุ่มในตารางบิล: ใบเสร็จ/ตั๋วครัว/นำกลับ = รอง · ยกเลิกบิล = อันตราย · ระยะห่างระหว่างปุ่ม 4 */
+.sbtn,.vbtn,.rbtn{font-size:max(12px, calc(14px * var(--ui-scale)));padding:0 var(--s3);margin:var(--s1) var(--s1) 0 0}
 tr.void td:last-child{text-decoration:none;color:inherit}
-textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px * var(--ui-scale))/1.45 ui-monospace,Menlo,var(--font);border:2px solid var(--line);border-radius:10px;padding:calc(8px * var(--ui-scale))}
+textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px * var(--ui-scale))/1.45 ui-monospace,Menlo,var(--font);padding:var(--s2)}
 #toast{position:fixed;left:50%;bottom:calc(var(--abh) + var(--ab-bottom) + calc(14px * var(--ui-scale)));transform:translateX(-50%);background:#222;color:#fff;padding:calc(10px * var(--ui-scale)) calc(18px * var(--ui-scale));border-radius:12px;display:none;z-index:30}
 #printArea{display:none}
 #printArea .slip{font-family:var(--font);color:#000;line-height:1.5}   /* ขนาดตัวอักษรอยู่ในบล็อก (มม. = จุด/8) เหมือนพิมพ์ USB · slipHtml ใน slips.js */
@@ -225,15 +224,14 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
   :root{--abh:calc(136px * var(--ui-scale));--ab-bottom:calc(86px * var(--ui-scale))}   /* แนวตั้ง: ช่องสรุปบรรทัดบน ปุ่มบรรทัดล่าง · อยู่เหนือแถบชำระเงิน */
   /* แนวตั้ง: ตะกร้าอยู่ใต้กล่องเลือก ที่ว่างจึงไปอยู่ท้ายหน้า (แถบล่าง + แถบชำระเงิน + 16px) ไม่ให้บังปุ่มในตะกร้า · กล่องเลือกไม่ต้องเว้นกลางหน้า */
   main > .card:first-child{padding-bottom:calc(16px * var(--ui-scale))}
-  .actbar{flex-direction:column;align-items:stretch;gap:calc(6px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale)) calc(10px * var(--ui-scale))}
+  .actbar{flex-direction:column;align-items:stretch;gap:var(--s2);padding:var(--s2) var(--s3) var(--s3)}
   #tally{flex:1;display:flex;align-items:center}
   .add{width:100%;height:max(44px, calc(60px * var(--ui-scale)))}
   #toast{bottom:calc(var(--abh) + var(--ab-bottom) + calc(14px * var(--ui-scale)))}
-  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale));gap:calc(10px * var(--ui-scale));align-items:center;z-index:6}
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:var(--bw) solid var(--line);padding:var(--s3);gap:var(--s3);align-items:center;z-index:6}
   .bar .sum{flex:1;font-weight:700;font-size:max(12px, calc(20px * var(--ui-scale)))}
   .bar .sum small{display:block;font-weight:400;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
-  .bar button{background:var(--blue);color:#fff;font-weight:700;padding:calc(14px * var(--ui-scale)) calc(22px * var(--ui-scale));border-radius:14px;font-size:max(12px, calc(18px * var(--ui-scale)))}
-  .bar button:disabled{background:#c9c9de}
+  .bar button{padding:var(--s3) var(--s5);font-size:max(12px, calc(18px * var(--ui-scale)))}
 }
 @media print{
   html,body{background:#fff!important}
@@ -248,49 +246,45 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 .ppamt{font-size:max(12px, calc(28px * var(--ui-scale)));font-weight:700;color:var(--blue);margin-top:calc(4px * var(--ui-scale))}
 .ppmsg{min-height:calc(24px * var(--ui-scale));margin:calc(8px * var(--ui-scale)) 0 0;font-size:max(12px, calc(15px * var(--ui-scale)))}
 .ppmsg .ic{vertical-align:-3px}
-.ppwarn{background:#fff4e5;color:#8a4b00;border-radius:12px;padding:calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale));margin:calc(12px * var(--ui-scale)) 0 0;font-size:max(12px, calc(15px * var(--ui-scale)))}
+.ppwarn{background:#fff4e5;color:#8a4b00;border-radius:var(--r-card);padding:var(--s3);margin:var(--s3) 0 0;font-size:max(12px, calc(15px * var(--ui-scale)))}
 .ppwarn .ic{vertical-align:-4px}
 /* แยกท็อปปิ้ง: แถว + สวิตช์ (แบบหน้าตั้งค่า) · ปิด = เรียบ · เปิด = พื้นส้มอ่อน */
-.sep{display:flex;align-items:center;gap:calc(12px * var(--ui-scale));width:100%;min-height:max(44px, calc(56px * var(--ui-scale)));margin:calc(14px * var(--ui-scale)) 0 calc(6px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(12px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(16px * var(--ui-scale));border:2px solid var(--line);border-radius:14px;background:#fff;font-weight:700;text-align:left}
+.sep{display:flex;align-items:center;gap:var(--s3);width:100%;border-radius:var(--r-btn);font-weight:700;text-align:left}
 .sep .nm{flex:1}
 .sep .nm b{color:#a35400;white-space:nowrap}
-.sep.on{border-color:var(--orange);background:var(--orange-soft)}
 .cnt.need{background:#fde8e8;color:var(--bad);font-weight:700}
 /* โปรโมชัน: ปุ่มในกล่องออเดอร์ + หน้าต่างเลือกโปร */
-.promo{display:flex;align-items:center;gap:calc(10px * var(--ui-scale));width:100%;min-height:max(44px, calc(52px * var(--ui-scale)));margin:calc(10px * var(--ui-scale)) 0 0;padding:calc(8px * var(--ui-scale)) calc(14px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);text-align:left}
+.promo{display:flex;align-items:center;gap:var(--s2);width:100%;margin:var(--s3) 0 0;padding:var(--s2) var(--s3);border-radius:var(--r-btn);text-align:left}
 .promo > .ic{color:var(--blue)}
 .promo small{display:block;font-weight:400;font-size:max(12px, calc(13px * var(--ui-scale)));color:var(--mute)}
-.promo.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
-.promo:disabled{border-color:var(--line);background:#f3f3f7;color:#9a9aab;cursor:not-allowed}
-.promo:disabled > .ic,.promo:disabled small{color:#9a9aab}
+.promo.on{color:var(--blue)}
+.promo:disabled > .ic,.promo:disabled small{color:var(--off-fg)}
 .promo .px{margin-left:auto;color:var(--ok);font-size:max(12px, calc(18px * var(--ui-scale)));white-space:nowrap}
-.popts{display:grid;gap:calc(8px * var(--ui-scale))}
-.popt{display:flex;align-items:center;gap:calc(10px * var(--ui-scale));border:3px solid var(--line);border-radius:14px;padding:calc(12px * var(--ui-scale)) calc(14px * var(--ui-scale));text-align:left;min-height:max(44px, calc(64px * var(--ui-scale)));background:#fff}
+.popts{display:grid;gap:var(--s2)}
+.popt{display:flex;align-items:center;gap:var(--s2);border-radius:var(--r-btn);padding:var(--s3) var(--s4);text-align:left}
 .popt small{display:block;font-weight:400;font-size:max(12px, calc(13px * var(--ui-scale)));color:var(--mute)}
 .popt .why{color:#8a4b00;margin-top:2px}
 .popt .why .ic{vertical-align:-2px}
 .popt .px{margin-left:auto;color:var(--ok);font-size:max(12px, calc(18px * var(--ui-scale)));white-space:nowrap}
-.popt.on{border-color:var(--blue);background:var(--blue-soft)}
-.popt:disabled{opacity:.6;cursor:not-allowed}
-.ptargets{display:grid;gap:calc(8px * var(--ui-scale))}
+.popt:disabled .px{color:var(--off-fg)}
+.ptargets{display:grid;gap:var(--s2)}
 .ptargets .opt{text-align:left;font-weight:600;font-size:max(12px, calc(15px * var(--ui-scale)))}
 .promotag{color:var(--ok);font-weight:700}
 .promotag .ic{vertical-align:-2px}
 /* ของหมด (ตั้งค่า → สวิตช์ มี/หมด): ทั้งปุ่มเป็นสีเทาอ่อน กดไม่ได้ */
-.topw.out,.top.out,.base.out{background:#eeeef3;border-color:#e3e3ea}
-.topw.out .top,.top.out,.base.out{color:#a6a6b5;cursor:not-allowed}
+.topw.out .top,.top.out,.base.out{cursor:not-allowed}
 .topw.out small,.top.out small,.base.out small{color:var(--bad);font-weight:700}
 .base.out .pic{opacity:.35;filter:grayscale(1)}
-.comp.out{border-color:var(--bad);background:#fdecec}
+.comp.out{background:#fdecec}
 .outtag{color:var(--bad)}
 /* หน้าตั้งค่า: แถวละ 1 อย่าง + สวิตช์ · หมด = ทั้งแถวเทาอ่อน */
-.slist{border:2px solid var(--line);border-radius:12px;overflow:hidden}
-.srow{display:flex;align-items:center;gap:calc(10px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(12px * var(--ui-scale));min-height:max(44px, calc(56px * var(--ui-scale)));background:#fff}
-.srow + .srow{border-top:1px solid var(--line)}
+.slist{background:var(--sec-bg);border-radius:var(--r-card);overflow:hidden}
+.srow{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s3);min-height:calc(44px + var(--s3))}
+.srow + .srow{border-top:var(--bw) solid var(--line)}
 .srow .nm{flex:1;min-width:0;font-weight:700}
 .srow .st{font-size:max(12px, calc(14px * var(--ui-scale)));font-weight:700;color:var(--ok);min-width:calc(30px * var(--ui-scale));text-align:right}
-.srow.out{background:#eeeef3}
-.srow.out .nm{color:#a6a6b5}
+.srow.out{background:var(--off-bg)}
+.srow.out .nm{color:var(--off-fg)}
 .srow.out .st{color:var(--bad)}
 .sw{position:relative;width:max(44px, calc(60px * var(--ui-scale)));height:calc(34px * var(--ui-scale));border-radius:17px;background:#c9c9d6;border:0;padding:0;flex:none;transition:background .15s}
 .sw span{position:absolute;top:3px;left:3px;width:calc(28px * var(--ui-scale));height:calc(28px * var(--ui-scale));border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
@@ -300,18 +294,18 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 #login{position:fixed;inset:0;z-index:30;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #login.show{display:flex}
 /* พิมพ์ไม่สำเร็จ (print.js) · แถบบนสุดของหน้าจนกดพิมพ์ซ้ำ · อยู่ในลำดับปกติ ไม่ลอยทับปุ่มบนแถบหัว */
-#printFail{position:relative;z-index:5;background:#fff3e0;color:#7a3e00;border-bottom:2px solid var(--orange);display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;font-weight:700;line-height:1.4}
+#printFail{position:relative;z-index:5;background:#fff3e0;color:#7a3e00;border-bottom:var(--bw) solid var(--orange);display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);padding:var(--s2) var(--s3);font-weight:700;line-height:1.4}
 #printFail>span{flex:1 1 320px}
 #printFail small{display:block;font-weight:400;color:#7a3e00}
-#printFail .pfbtn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--orange);color:#fff;font-weight:700}
+#printFail .pfbtn{padding:0 var(--s4)}
 /* เปิดแอปซ้อนอีกหน้า (tablock.js) · อยู่บนทุกอย่าง รวมหน้าเข้าใช้งานและหน้าต่าง */
 #tabLock{position:fixed;inset:0;z-index:50;background:var(--blue);display:none;align-items:center;justify-content:center;padding:calc(16px * var(--ui-scale));overflow:auto}
 #tabLock.show{display:flex}
-#tabLock .lgtitle{display:flex;align-items:center;justify-content:center;gap:8px;line-height:1.4}
+#tabLock .lgtitle{display:flex;align-items:center;justify-content:center;gap:var(--s2);line-height:1.4}
 #tabLock .lgtitle .ic{color:var(--orange)}
 #tabLock .lgsub{line-height:1.5}
 #tabLock .pay{width:100%}
-.lgbox{background:#fff;border-radius:24px;padding:calc(28px * var(--ui-scale)) calc(24px * var(--ui-scale));width:100%;max-width:400px;text-align:center}
+.lgbox{background:#fff;border-radius:var(--r-modal);padding:var(--s5);width:100%;max-width:400px;text-align:center}
 .lgtitle{font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;color:var(--blue)}
 .lgtitle span{color:var(--orange)}
 .lgsub{color:var(--mute);margin:calc(6px * var(--ui-scale)) 0 calc(16px * var(--ui-scale))}
@@ -319,101 +313,97 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 .lgsub.lgbad{color:var(--bad);font-size:max(12px, calc(20px * var(--ui-scale)))}
 .lgsub.lgbad .ic{color:var(--bad)}
 .dots{display:flex;justify-content:center;gap:calc(16px * var(--ui-scale));margin:calc(6px * var(--ui-scale)) 0 calc(4px * var(--ui-scale))}
-.dots i{width:calc(18px * var(--ui-scale));height:calc(18px * var(--ui-scale));border-radius:50%;border:2px solid var(--blue)}
+.dots i{width:calc(18px * var(--ui-scale));height:calc(18px * var(--ui-scale));border-radius:50%;border:var(--bw) solid var(--blue)}
 .dots i.on{background:var(--blue)}
 .dots.long{gap:calc(9px * var(--ui-scale))}
 .dots.long i{width:calc(14px * var(--ui-scale));height:calc(14px * var(--ui-scale))}
 .lgmsg{color:var(--bad);font-weight:700;min-height:calc(24px * var(--ui-scale));margin:calc(6px * var(--ui-scale)) 0}
-.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(10px * var(--ui-scale));margin:calc(4px * var(--ui-scale)) 0 calc(12px * var(--ui-scale))}
-#lgGo:disabled{background:#c9c9d6;cursor:not-allowed}
-.keypad button{height:max(44px, calc(64px * var(--ui-scale)));border-radius:16px;background:var(--bg);font-size:max(12px, calc(26px * var(--ui-scale)));font-weight:700}
-.keypad button:active{background:var(--blue-soft)}
-.keypad .kfn{font-size:max(12px, calc(17px * var(--ui-scale)));color:var(--mute)}
-.lgform{display:flex;flex-direction:column;gap:calc(10px * var(--ui-scale));text-align:left}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:var(--s1) 0 var(--s3)}
+.keypad button{height:max(44px, calc(64px * var(--ui-scale)));font-size:max(12px, calc(26px * var(--ui-scale)));font-weight:700}
+.keypad .kfn{font-size:max(12px, calc(17px * var(--ui-scale)))}
+.lgform{display:flex;flex-direction:column;gap:var(--s3);text-align:left}
 .lgform label{display:flex;flex-direction:column;gap:calc(4px * var(--ui-scale));font-weight:700;color:var(--mute);font-size:max(12px, calc(15px * var(--ui-scale)))}
-.lgform input{font:inherit;font-size:max(12px, calc(20px * var(--ui-scale)));padding:calc(12px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;color:var(--ink)}
-.recov{font-size:max(12px, calc(30px * var(--ui-scale)));font-weight:700;letter-spacing:3px;text-align:center;background:var(--orange-soft);color:var(--ink);border-radius:14px;padding:calc(16px * var(--ui-scale));margin:calc(8px * var(--ui-scale)) 0}
+.lgform input{font:inherit;font-size:max(12px, calc(20px * var(--ui-scale)));padding:var(--s2) var(--s3);color:var(--ink)}
+.recov{font-size:max(12px, calc(30px * var(--ui-scale)));font-weight:700;letter-spacing:3px;text-align:center;background:var(--orange-soft);color:var(--ink);border-radius:var(--r-card);padding:var(--s4);margin:var(--s2) 0}
 /* ตั้งค่า: รายชื่อพนักงาน */
 .srow .nm small.role{display:inline-block;margin-left:calc(8px * var(--ui-scale));padding:1px calc(8px * var(--ui-scale));border-radius:10px;font-size:max(12px, calc(12px * var(--ui-scale)));font-weight:700;background:var(--blue-soft);color:var(--blue)}
 .srow .nm small.role.owner{background:var(--orange-soft);color:#b45f00}
 .srow .nm small.me{color:var(--mute);font-weight:400}
 .srow .nm > small:not(.role):not(.me){display:block;font-weight:400;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
-.srow .ghost{padding:calc(8px * var(--ui-scale)) calc(12px * var(--ui-scale))}
-.ghost.danger{color:var(--bad)}
+.srow .ghost{padding:0 var(--s3)}
 #btnUser small{opacity:.8;font-size:max(12px, calc(12px * var(--ui-scale)))}
 /* เปิด/ปิดร้าน · นับเงิน · นำข้อมูลกลับ */
-.cashbox{border:2px solid var(--line);border-radius:12px;overflow:hidden;margin:calc(8px * var(--ui-scale)) 0}
-.crow{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--ui-scale));padding:calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale));min-height:max(44px, calc(52px * var(--ui-scale)))}
-.crow + .crow{border-top:1px solid var(--line)}
+.cashbox{background:var(--sec-bg);border-radius:var(--r-card);overflow:hidden;margin:var(--s2) 0}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);padding:var(--s2) var(--s3);min-height:max(44px, calc(52px * var(--ui-scale)))}
+.crow + .crow{border-top:var(--bw) solid var(--line)}
 .crow small{color:var(--mute);font-weight:400;font-size:max(12px, calc(13px * var(--ui-scale)))}
 .crow small.need{color:var(--bad);font-weight:700}
 .crow.tot{background:var(--blue-soft);font-weight:700}
 .crow.tot b{font-size:max(12px, calc(20px * var(--ui-scale)))}
-.cnum{width:calc(150px * var(--ui-scale));font:inherit;font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700;padding:calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));border:2px solid var(--line);border-radius:10px;text-align:right}
+.cnum{width:calc(150px * var(--ui-scale));font:inherit;font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700;padding:var(--s2) var(--s3);text-align:right}
 .cldiff{text-align:center;font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700;min-height:calc(34px * var(--ui-scale));margin:calc(4px * var(--ui-scale)) 0 calc(8px * var(--ui-scale));color:var(--mute)}
 .cldiff.ok{color:var(--ok)}
 .cldiff.bad{color:var(--bad)}
 .cldiff.over{color:#b45f00}
 .big.warn .ic{color:var(--bad)}
-.rsfile{display:block;width:100%;padding:calc(12px * var(--ui-scale));border:2px dashed var(--line);border-radius:12px;font:inherit;margin:calc(6px * var(--ui-scale)) 0}
+.rsfile{display:block;width:100%;padding:var(--s3);border:var(--bw) dashed var(--border);border-radius:var(--r-btn);font:inherit;margin:calc(6px * var(--ui-scale)) 0}
 .rscheck{display:flex;gap:calc(10px * var(--ui-scale));align-items:flex-start;margin:calc(10px * var(--ui-scale)) 0;font-size:max(12px, calc(15px * var(--ui-scale)))}
 .rscheck input{width:calc(22px * var(--ui-scale));height:calc(22px * var(--ui-scale));flex:none;margin-top:2px}
 .rscheck small{display:block;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
 .lgbox.lgwide{max-width:540px;text-align:left}
 /* แป้นรหัสของแอป (codepad.js): ช่องจุด + แป้นตัวเลข · 2 ช่อง (ตั้งรหัส + ใส่อีกครั้ง) วางข้างกัน ช่องที่กำลังใส่ขอบน้ำเงิน */
 .cpad{text-align:center}
-.cpfs{display:flex;justify-content:center;gap:calc(10px * var(--ui-scale))}
+.cpfs{display:flex;justify-content:center;gap:var(--s2)}
 .cpf{display:flex;flex-direction:column;align-items:center;gap:calc(6px * var(--ui-scale));padding:calc(8px * var(--ui-scale)) calc(6px * var(--ui-scale));min-height:max(44px, calc(48px * var(--ui-scale)))}
-.cpfs.multi .cpf{flex:1;border:2px solid var(--line);border-radius:14px;background:#fff}
-.cpfs.multi .cpf.cur{border-color:var(--blue);background:var(--blue-soft)}
+.cpfs.multi .cpf{flex:1;border-radius:var(--r-btn)}
 .cpl{font-size:max(12px, calc(14px * var(--ui-scale)));font-weight:700;color:var(--mute)}
 .cpf .dots{margin:0}
 .appver{text-align:center;color:var(--mute);font-size:max(12px, calc(12px * var(--ui-scale)));margin:calc(10px * var(--ui-scale)) 0 0;font-variant-numeric:tabular-nums}
 /* ช่องกรอกรหัส (codeField): ตัวหนังสือธรรมดา ซ่อนเป็นจุดด้วย CSS (ไม่ใช่ type=password ที่ iPad ขึ้นแป้นตัวอักษร) + ปุ่มตากดค้างเพื่อดู */
 .codein{position:relative;display:block}
-.codein input{width:100%;font:inherit;font-size:max(12px, calc(24px * var(--ui-scale)));letter-spacing:6px;padding:calc(12px * var(--ui-scale)) calc(60px * var(--ui-scale)) calc(12px * var(--ui-scale)) calc(14px * var(--ui-scale));border:2px solid var(--line);border-radius:12px;color:var(--ink);background:#fff}
-.codein input:focus{outline:none;border-color:var(--blue)}
+.codein input{width:100%;font:inherit;font-size:max(12px, calc(24px * var(--ui-scale)));letter-spacing:6px;padding:var(--s2) calc(44px + var(--s3)) var(--s2) var(--s3);color:var(--ink)}
 .codein input.secret{-webkit-text-security:disc;text-security:disc}
-.codein .eye{position:absolute;top:50%;right:calc(4px * var(--ui-scale));transform:translateY(-50%);width:max(44px, calc(48px * var(--ui-scale)));height:max(44px, calc(48px * var(--ui-scale)));display:grid;place-items:center;border-radius:10px;color:var(--mute);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.codein .eye{position:absolute;top:50%;right:var(--s1);transform:translateY(-50%);width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-btn);color:var(--mute);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
 .codein .eye.on{color:var(--blue);background:var(--blue-soft)}
 .pinerr{color:var(--bad);margin:calc(8px * var(--ui-scale)) 0 0;font-weight:700}
 /* ---------- หน้าขายกระชับ (Tee 2026-10-14): เห็นครบในจอเดียวบน Redmi แนวนอน ----------
    ขั้นที่เลือกแล้ว (เมนู ขนาด) และน้ำผึ้ง = แถวเดียว: หัวขั้นซ้าย ตัวเลือกขวา · ตัวเลือกยังอยู่ครบ กดเปลี่ยนได้ทันที */
-.sec{padding:calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));margin-bottom:calc(8px * var(--ui-scale))}
-.sb{margin-top:calc(8px * var(--ui-scale))}
-.sec.inline{display:flex;align-items:center;flex-wrap:wrap;gap:calc(6px * var(--ui-scale)) calc(12px * var(--ui-scale))}
+.sb{margin-top:var(--s2)}
+.sec.inline{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2) var(--s3)}
 .sec.inline .sh{flex:none;min-width:calc(110px * var(--ui-scale))}
 .sec.inline .stitle{flex:none}
-.sec.inline .sb{flex:1;min-width:0;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:calc(6px * var(--ui-scale))}
+.sec.inline .sb{flex:1;min-width:0;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
 .sec.inline .sb > .bases,.sec.inline .sb > .sizes,.sec.inline .sb > .honey{flex:1}
-.stitle small{margin-left:calc(6px * var(--ui-scale))}
+.stitle small{margin-left:var(--s2)}
 /* เมนูแบบย่อ: รูปเล็ก + ชื่อ เรียงแถวเดียว */
 .base .pic{transition:width .2s,height .2s}
-.bases.compact .base{display:flex;align-items:center;gap:calc(8px * var(--ui-scale));padding:calc(4px * var(--ui-scale)) calc(10px * var(--ui-scale));min-height:44px;text-align:left;border-width:2px}
-.bases.compact .base .pic{width:calc(40px * var(--ui-scale));height:calc(40px * var(--ui-scale));flex:none;border-radius:8px}
+.bases.compact .base{display:flex;align-items:center;gap:var(--s2);padding:var(--s1) var(--s2) var(--s1) var(--s1);min-height:44px;text-align:left;border-radius:var(--r-btn)}
+.bases.compact .base .pic{width:calc(40px * var(--ui-scale));height:calc(40px * var(--ui-scale));flex:none;border-radius:var(--r-btn)}
 .bases.compact .base .nm{margin:0;line-height:1.4}
 .bases.compact .base small{margin-left:auto;white-space:nowrap}
 /* ขนาดแบบย่อ: บรรทัดเดียว */
-.sizes.compact .size{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 calc(6px * var(--ui-scale));padding:calc(4px * var(--ui-scale)) calc(8px * var(--ui-scale));min-height:44px;border-width:2px;line-height:1.4}
+.sizes.compact .size{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 var(--s2);padding:var(--s1) var(--s2);min-height:44px;line-height:1.4}
 .sizes.compact .size small{display:inline;margin:0}
 .sizes.compact .size small b{font-size:inherit}
 /* น้ำผึ้ง: แถวเดียว ปุ่มเตี้ย */
-.honey{grid-template-columns:repeat(5,1fr);gap:calc(6px * var(--ui-scale))}
-.hon{padding:calc(6px * var(--ui-scale)) calc(4px * var(--ui-scale));min-height:44px;border-width:2px;line-height:1.4}
+.honey{grid-template-columns:repeat(5,1fr);gap:var(--s2)}
+.hon{padding:var(--s1) 0;min-height:44px;line-height:1.4}
 .sec.inline .linkbtn.notelink{margin:0;min-height:44px}
-.topw{min-height:44px;border-radius:10px}
+.topw{min-height:44px}
 .topw .top{min-height:40px;padding:calc(3px * var(--ui-scale)) calc(4px * var(--ui-scale));line-height:1.4;font-size:max(12px, calc(16px * var(--ui-scale)))}
 .topw .top small{font-size:max(12px, calc(13px * var(--ui-scale)));line-height:1.4}
-.addrow > .ghost{min-height:44px;padding:calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale))}
-.addrow > small.gt{font-weight:400}
+/* + เพิ่มท็อปปิ้ง (Acai / Banana Choco): ห่างแถวตามสูตรด้านบน 12 · ห่างข้อความข้างๆ 12 (Tee 2026-10-17 เดิมชิดบนและชิดตัวหนังสือ) */
+.addrow{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2) var(--s3);margin-top:var(--s3)}
+.addrow > .ghost{padding:0 var(--s4)}
+.addrow > small.gt{margin:0;font-weight:400}
 /* ตามสูตร (Acai / Banana Choco): แถวเตี้ย 2 คอลัมน์ · "เปลี่ยน" ยังเด่นกว่า "ไม่รับ" */
-.comps{display:grid;grid-template-columns:1fr 1fr;gap:calc(6px * var(--ui-scale))}
-.comps .comp{margin:0;padding:calc(2px * var(--ui-scale)) calc(4px * var(--ui-scale)) calc(2px * var(--ui-scale)) calc(10px * var(--ui-scale));min-height:48px}
+.comps{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.comps .comp{margin:0;padding:var(--s1) var(--s1) var(--s1) var(--s3);min-height:calc(44px + var(--s2))}
 .comps .comp .nm{line-height:1.4}
 .comps .comp .nm small{font-size:max(12px, calc(13px * var(--ui-scale)))}
-.comps .comp button{min-height:44px;min-width:44px;padding:calc(4px * var(--ui-scale)) calc(12px * var(--ui-scale))}
-.comps .comp button.skip{padding:calc(4px * var(--ui-scale)) calc(4px * var(--ui-scale))}
-.sep{min-height:44px;margin:calc(8px * var(--ui-scale)) 0 0;padding:calc(4px * var(--ui-scale)) calc(10px * var(--ui-scale)) calc(4px * var(--ui-scale)) calc(14px * var(--ui-scale))}
+.comps .comp button{padding:0 var(--s3)}
+.comps .comp button.skip{padding:0 var(--s2)}
+.sep{min-height:44px;margin:var(--s3) 0 0;padding:var(--s1) var(--s3) var(--s1) var(--s4)}
 /* แนวตั้ง: ชื่อหมวดอยู่บน ตารางเต็มกว้าง · ตามสูตร 1 คอลัมน์ */
 @media(max-width:900px){
   .comps{grid-template-columns:1fr}
@@ -421,7 +411,7 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 @media(prefers-reduced-motion:reduce){.base .pic{transition:none}}
 .sh{min-height:calc(30px * var(--ui-scale))}
 /* ช่องตัวเลขในหน้าต่าง: ชื่อซ้าย ช่องขวา บรรทัดเดียว (placeholder สั้น "0" ไม่ล้น) */
-.recvrow{display:flex;align-items:center;gap:calc(12px * var(--ui-scale));font-weight:700;margin:calc(4px * var(--ui-scale)) 0}
+.recvrow{display:flex;align-items:center;gap:var(--s3);font-weight:700;margin:calc(4px * var(--ui-scale)) 0}
 .recvrow > span{flex:none}
 .recvrow > span small{font-weight:400;color:var(--mute)}
 .recvrow input.num{flex:1;min-width:0}
@@ -433,25 +423,24 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 .box{max-height:calc(var(--vvh,100dvh) - var(--hdrh, 64px) - 18px)}
 /* แป้นตัวเลขเงินของแอป (codepad.js moneyPadHtml): วางข้างช่องแบบเครื่องคิดเลข · ปุ่ม ≥ 44px */
 .box.mid{max-width:calc(760px * var(--ui-scale))}
-.cashgrid{display:grid;grid-template-columns:1fr auto;gap:calc(14px * var(--ui-scale));align-items:start;margin-top:calc(8px * var(--ui-scale))}
+.cashgrid{display:grid;grid-template-columns:1fr auto;gap:var(--s4);align-items:start;margin-top:var(--s2)}
 .cashl{min-width:0}
 .cashgrid .quick{margin-top:0}
-.mpad{display:grid;grid-template-columns:repeat(3,max(44px, calc(60px * var(--ui-scale))));gap:calc(6px * var(--ui-scale))}
-.mpad button{height:max(44px, calc(48px * var(--ui-scale)));border-radius:10px;background:var(--bg);font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700;font-variant-numeric:tabular-nums}
-.mpad button:active{background:var(--blue-soft)}
-.mpad .mclear{grid-column:1 / -1;font-size:max(12px, calc(16px * var(--ui-scale)));color:var(--mute)}
+.mpad{display:grid;grid-template-columns:repeat(3,max(44px, calc(60px * var(--ui-scale))));gap:var(--s2)}
+.mpad button{height:44px;padding:0;font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700;font-variant-numeric:tabular-nums}
+.mpad .mclear{grid-column:1 / -1;font-size:max(12px, calc(16px * var(--ui-scale)))}
 input.moneyin{caret-color:transparent;cursor:pointer}
-input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft);outline:none}
+input.moneyin.cur{border-color:var(--sel-bd);background:var(--sel-bg);box-shadow:var(--sel-ring);outline:none}
 .cashgrid .cashbox{margin-top:0}
 .cashgrid .cnum{width:calc(130px * var(--ui-scale))}
 @media(max-width:600px){ .cashgrid{grid-template-columns:1fr} }
 .mhead h3 small{font-weight:400;color:var(--mute);font-size:max(12px, calc(15px * var(--ui-scale)));margin-left:6px}
 /* ท็อปปิ้งที่เพิ่มแล้ว (Acai / Banana): บรรทัดสรุปบรรทัดเดียว ไม่มีพื้นสี แตะ = แก้ไข */
-.addsum{display:flex;align-items:center;gap:calc(10px * var(--ui-scale));width:100%;min-height:44px;margin-top:calc(6px * var(--ui-scale));padding:calc(4px * var(--ui-scale)) calc(8px * var(--ui-scale));border:0;background:none;text-align:left;font-weight:400}
+.addsum{display:flex;align-items:center;gap:var(--s3);width:100%;margin-top:var(--s3);padding:var(--s1) var(--s4) var(--s1) var(--s3);text-align:left;font-weight:400;color:var(--ink)}
 .addsum .as-t{flex:1;min-width:0}
 .addsum .as-l{color:var(--mute)}
 .addsum b{color:#a35400}
-.addsum .chg{color:#1A00B8;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.addsum .chg{color:var(--blue);font-weight:700}
 .mtoast{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;background:#222;color:#fff;font-size:max(12px, calc(15px * var(--ui-scale)));line-height:1.4;padding:calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale));text-align:center;cursor:pointer}
 /* ---------- กล่องออเดอร์ยุบ/ขยาย (Tee 2026-10-15) แนวนอนเท่านั้น · แนวตั้งคงแบบเดิม ---------- */
 .cartmini,#cartBack,#cartShade{display:none}
@@ -474,7 +463,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
   .cartmini .cm-ln{display:flex;justify-content:space-between;gap:calc(6px * var(--ui-scale));font-size:max(12px, calc(14px * var(--ui-scale)));line-height:1.4}
   .cartmini .cm-ln b{white-space:nowrap}
   .cartmini .cm-empty{flex:1;color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)))}
-  .cartmini .cm-tot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:calc(8px * var(--ui-scale));font-size:max(12px, calc(15px * var(--ui-scale)))}
+  .cartmini .cm-tot{display:flex;justify-content:space-between;align-items:baseline;border-top:var(--bw) solid var(--line);padding-top:calc(8px * var(--ui-scale));font-size:max(12px, calc(15px * var(--ui-scale)))}
   .cartmini .cm-tot b{font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700}
   .cartmini:active{background:var(--blue-soft)}
   /* ขยาย: กล่องเต็มลอยทับหน้าเลือกเมนูจากด้านขวา · คอลัมน์ของ main ไม่เปลี่ยน */
@@ -492,27 +481,24 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
    คอลัมน์: หน้าเลือกตอนกล่องออเดอร์ยุบ 6 · ไม่ยุบ 5 · หน้าต่าง 5 · แนวตั้งเต็มกว้าง (≥ 150px ต่อปุ่ม) · คอลัมน์ไม่ถ่างตามชื่อ (fitNames ลดตัวอักษรแทน)
    ปุ่ม (แบบ A): ขนาดคงที่ทุกสถานะ · ข้อความชิดซ้าย ชื่อบน ราคา/"n ชิ้น" ล่าง · ปุ่ม − เป็นแถบขวาในปุ่ม 44px มีเส้นคั่น · ห้ามมีอะไรยื่นออกนอกขอบ */
 .tcat{display:block;margin:0}
-.tcat + .tcat{margin-top:calc(10.5px * var(--ui-scale))}   /* ≥ 2 เท่าระยะระหว่างแถว (UI22) · หัวข้อหมวด line-height 1.4 เว้นเหนือตัวอักษรให้อีก */
-.tcat .gt{display:block;margin:0;padding:0;font-weight:700;color:var(--ink);font-size:max(12px, calc(13.5px * var(--ui-scale)));line-height:1.4;white-space:normal}   /* line-height 1.4 มีที่ว่างใต้ตัวอักษรอยู่แล้ว ไม่ต้องมี margin (Greek ยังพอดีจอ Redmi) */
-.tcat .tops{grid-template-columns:repeat(5, minmax(0, 1fr));gap:calc(5px * var(--ui-scale))}
-.mbody .tcat .tops{grid-template-columns:repeat(5, minmax(0, 1fr));gap:calc(5px * var(--ui-scale)) calc(8px * var(--ui-scale))}
+.tcat + .tcat{margin-top:var(--s4)}   /* ≥ 2 เท่าระยะระหว่างแถว (UI22) · หัวข้อหมวด line-height 1.4 เว้นเหนือตัวอักษรให้อีก */
+.tcat .gt{display:block;margin:0 0 var(--s1);padding:0;font-weight:700;color:var(--ink);font-size:max(12px, calc(13.5px * var(--ui-scale)));line-height:1.4;white-space:normal}   /* line-height 1.4 มีที่ว่างใต้ตัวอักษรอยู่แล้ว ไม่ต้องมี margin (Greek ยังพอดีจอ Redmi) */
+.tcat .tops{grid-template-columns:repeat(5, minmax(0, 1fr));gap:var(--s2)}
+.mbody .tcat .tops{grid-template-columns:repeat(5, minmax(0, 1fr));gap:var(--s2)}
 @media(min-width:901px){ body.picking #builder .tcat .tops{grid-template-columns:repeat(6, minmax(0, 1fr))} }
 @media(max-width:900px){ #builder .tcat .tops, .mbody .tcat .tops{grid-template-columns:repeat(auto-fill, minmax(calc(190px * var(--ui-scale)), 1fr))} }   /* แนวตั้ง 4 คอลัมน์: ฟอนต์ Plex กว้างกว่าเดิม ชื่อยาวสุด (เม็ดมะม่วงหิมพานต์) ต้องกว้าง ≥ 104px ที่ 12px (2026-10-15) */
 @media(min-width:901px) and (max-width:1240px){ body.picking main{grid-template-columns:1fr calc(150px * var(--ui-scale))} }   /* iPad แนวนอน: แถบออเดอร์ที่ยุบแคบลง ตาราง Greek ยัง 6 คอลัมน์ ชื่อยาวสุดอยู่บรรทัดเดียว */
 .mbody .swapgrid{display:block;margin:0;padding:0;background:none}
 .tops .topw{min-width:0}
 .tops .topw,.tops .topw.on,.tops .topw.on.over,.tops .topw.out{border:0;background:none}   /* กรอบอยู่ที่ตัวปุ่ม พื้นที่กดเต็มปุ่ม */
-.tops .topw .top{height:max(44px, calc(50px * var(--ui-scale)));min-height:0;border:2px solid var(--line);border-radius:10px;background:#fff;
+.tops .topw .top{height:max(44px, calc(50px * var(--ui-scale)));min-height:0;border-radius:var(--r-btn);
   justify-content:center;align-items:flex-start;gap:0;text-align:left;padding:0 46px 0 calc(10px * var(--ui-scale))}   /* เว้นขวา 46px เท่ากันทุกสถานะ ชื่อจึงไม่ขยับตอนเลือก */
-.tops .topw.on .top{border-color:var(--blue);background:var(--blue-soft)}
-.tops .topw.on.over .top{border-color:var(--orange);background:var(--orange-soft)}
-.tops .topw.out .top{border-color:#e3e3ea;background:#eeeef3}
-.topw .tn{display:block;align-self:stretch;max-width:100%;white-space:nowrap;overflow:visible;overflow-wrap:normal;word-break:keep-all;line-height:1.4;text-align:left}   /* ไม่ซ่อน: สระบน/ล่างไทยโดนตัดตอนลดตัวอักษร */
-.topw .top small{align-self:stretch;min-height:1.2em;text-align:left}
-.topw .top small:empty{display:none}
+.topw .tn{display:block;align-self:stretch;max-width:100%;white-space:nowrap;overflow:visible;overflow-wrap:normal;word-break:keep-all;line-height:1.5;text-align:left}   /* ไม่ซ่อน: สระบน/ล่างไทยโดนตัดตอนลดตัวอักษร */
+.topw .top small{align-self:stretch;min-height:1.4em;text-align:left}
+/* บรรทัดราคา/จำนวนมีที่ไว้เสมอ (ว่างก็ตาม) ชื่อจึงอยู่ตำแหน่งเดิมตอนกดเลือก (Tee 2026-10-17) */
 .tops .topw.out .top small{color:var(--bad)}
 .tops .topw.extra .top small{color:#a35400;font-weight:700}   /* ของคิดเงินตามราคา: ป้ายส้มเสมอ */
-.tops .topw .tminus{position:absolute;top:0;right:0;bottom:0;z-index:2;width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--line);border-radius:0 10px 10px 0}
+.tops .topw .tminus{position:absolute;top:0;right:0;bottom:0;z-index:2;width:44px;padding:0;display:flex;align-items:center;justify-content:center;border-left:var(--bw) solid var(--border);border-radius:0 var(--r-btn) var(--r-btn) 0}
 .tops .topw.on .tminus{border-left-color:#c9c2f5}
 .tops .topw.over .tminus{border-left-color:#f6c98e}
 .tops .topw .tminus span{color:var(--blue);font-weight:700;font-size:24px;line-height:1;font-family:var(--font)}
@@ -521,23 +507,82 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 /* toast: JS วาง (placeToast) ลอยเหนือแถบล่างตรงปุ่มเพิ่มลงออเดอร์ · มีหน้าต่างเปิด = .mtoast ในหน้าต่าง (Tee 2026-10-15) */
 #toast{width:max-content;text-align:center;font-size:max(12px, calc(15px * var(--ui-scale)));line-height:1.4;padding:calc(6px * var(--ui-scale)) calc(14px * var(--ui-scale));border-radius:20px;z-index:40;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 /* หน้าสำเร็จหลังชำระเงิน: สถานะพิมพ์ + ปุ่มพิมพ์ (Tee 2026-10-17) · ปุ่มอยู่ใต้ "ออเดอร์ถัดไป" */
-.prstatus{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-height:max(44px, calc(48px * var(--ui-scale)));margin:0 0 calc(10px * var(--ui-scale));padding:6px 12px;border-radius:12px;color:var(--mute);font-weight:700;line-height:1.4;text-align:center}
+.prstatus{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:var(--s2);min-height:44px;margin:0 0 var(--s3);padding:var(--s1) var(--s3);border-radius:var(--r-card);color:var(--mute);font-weight:700;line-height:1.4;text-align:center}
 .prstatus:empty{display:none}
 .prstatus .ic{vertical-align:-4px}
 .prstatus.ok{color:var(--ok);background:#e8f5ee}
-.prstatus.warn{background:#fff3e0;color:#7a3e00;border:2px solid var(--orange)}
-.prstatus .pfbtn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--blue);color:#fff;font-weight:700}
-.donebtns{margin-top:calc(10px * var(--ui-scale));gap:calc(10px * var(--ui-scale))}
+.prstatus.warn{background:#fff3e0;color:#7a3e00;border:var(--bw) solid var(--orange)}
+.prstatus .pfbtn{padding:0 var(--s4)}
+.donebtns{margin-top:var(--s3);gap:var(--s2)}
 .donebtns button{flex:1 1 0;min-height:max(44px, calc(52px * var(--ui-scale)));font-size:max(12px, calc(16px * var(--ui-scale)))}
 .donebtns button .ic{vertical-align:-4px}
-.donebtns button:disabled{opacity:.5}
-.ghost.accent{background:var(--orange-soft);color:#7a3e00;border:2px solid var(--orange)}
+
 /* แถบเขียวสั้นๆ: ใบที่ค้างพิมพ์ออกครบแล้ว (Tee 2026-10-17) */
-#printOk{position:relative;z-index:5;background:#e8f5ee;color:var(--ok);border-bottom:2px solid var(--ok);padding:8px 12px;font-weight:700;line-height:1.4;text-align:center}
+#printOk{position:relative;z-index:5;background:#e8f5ee;color:var(--ok);border-bottom:var(--bw) solid var(--ok);padding:var(--s2) var(--s3);font-weight:700;line-height:1.4;text-align:center}
 /* บันทึกการพิมพ์ในหน้าต่างปริ้นเตอร์ (ไว้ไล่ปัญหาบนเครื่องจริง) */
 .plog{margin-top:12px}
 .plog summary{cursor:pointer;color:var(--mute);min-height:44px;display:flex;align-items:center}
 .plog pre{max-height:240px;overflow:auto;font-size:12px;line-height:1.5;background:var(--bg);padding:8px;border-radius:8px;white-space:pre-wrap;user-select:text}
+/* ================= กฎสไตล์กลาง (Tee 2026-10-17) · ทุกหน้าใช้ชุดนี้ ห้ามตั้งกรอบ/พื้น/มุมของตัวเลือกและปุ่มที่อื่น =================
+   เส้นกรอบมีเฉพาะสิ่งที่กดได้ (ตัวเลือก ปุ่มรอง ช่องกรอก) หนา --bw เท่ากันหมด · section ใช้พื้นอ่อน --sec-bg ไม่มีกรอบ */
+/* 1) ตัวเลือก (การ์ดเมนู ขนาด ท็อปปิ้ง น้ำผึ้ง กินเลย/กลับบ้าน ช่องทางชำระ รายการโปร ใช้กับ แท็บ ช่วงวันที่ แยกท็อปปิ้ง ปุ่มโปร ช่องรหัส) */
+.base,.size,.hon,.opt,.popt,.tab,.chip,.promo,.sep,.cpfs.multi .cpf,.tops .topw .top{
+  background:#fff;border:var(--bw) solid var(--border);color:var(--ink);min-height:44px;box-shadow:none}
+/* เลือกแล้ว: พื้นน้ำเงินอ่อน + กรอบน้ำเงิน + inset 1px (border-width ไม่เปลี่ยน → ขนาด/ตำแหน่งตัวหนังสือไม่ขยับ) */
+.base.on,.size.on,.hon.on,.opt.on,.popt.on,.tab.on,.chip.on,.promo.on,.sep.on,.cpfs.multi .cpf.cur,.tops .topw.on .top{
+  background:var(--sel-bg);border-color:var(--sel-bd);box-shadow:var(--sel-ring)}
+/* ท็อปปิ้งที่คิดเงินเพิ่ม: กลไกเดียวกัน สีส้ม (ส้ม = เงินเพิ่ม ทั้งแอป) */
+.tops .topw.on.over .top{background:var(--orange-soft);border-color:var(--orange);box-shadow:inset 0 0 0 var(--bw) var(--orange)}
+/* ปิดใช้ (หมด / เงื่อนไขไม่ครบ): พื้นเทา ตัวเทา กรอบเหมือนปกติ */
+.base.out,.opt:disabled,.popt:disabled,.promo:disabled,.tab:disabled,.chip:disabled,.tops .topw.out .top,.tops .topw .top:disabled{
+  background:var(--off-bg);color:var(--off-fg);border-color:var(--border);box-shadow:none;cursor:not-allowed}
+/* 2) ปุ่ม 3 แบบ (ทุกแบบสูง ≥ 44px) · หลัก = พื้นทึบน้ำเงิน ไม่มีกรอบ · อันตราย = หลักสีแดง */
+.pay,.add,.bar button,.pfbtn,.clear,.vbtn,.ghost.danger,.ghost.accent{
+  background:var(--blue);color:#fff;border:0;border-radius:var(--r-btn);font-weight:700;min-height:44px}
+.clear,.vbtn,.ghost.danger,.pay.danger{background:var(--bad);color:#fff}
+.pay.okay{background:var(--ok)}
+.pay:disabled,.add.off,.bar button:disabled,.clear:disabled,.ghost:disabled,.donebtns button:disabled{background:var(--off-bg);color:var(--off-fg);border-color:var(--border);cursor:not-allowed}
+.clear:disabled{background:var(--off-bg)}
+/* รอง = พื้นขาว กรอบ 1px ตัวน้ำเงิน */
+.ghost,.quick button,.qty button,.comp button,.keypad button,.mpad button,.sbtn,.rbtn,.addsum{
+  background:#fff;border:var(--bw) solid var(--border);color:var(--blue);border-radius:var(--r-btn);font-weight:700;min-height:44px}
+.ghost.danger,.ghost.accent{border:0;color:#fff}
+.ghost.danger{background:var(--bad)}
+.ghost.accent{background:var(--blue)}
+.keypad button:active,.mpad button:active,.quick button:active,.qty button:active,.ghost:active,.sbtn:active,.rbtn:active,.comp button:not(.skip):active{background:var(--sel-bg)}
+/* ข้อความ = ไม่มีพื้น ไม่มีกรอบ ตัวน้ำเงิน */
+.tbtn,.linkbtn,.comp button.skip,.mx,.qty .rm,.codein .eye{background:none;border:0;color:var(--blue);min-height:44px;box-shadow:none}
+.tbtn{padding:0 var(--s4);font-weight:700;border-radius:var(--r-btn)}
+.tbtn:active,.linkbtn:active,.comp button.skip:active{background:var(--sel-bg)}
+.qty .rm{color:var(--bad)}
+.mx,.codein .eye{color:var(--mute)}
+.codein .eye.on{color:var(--blue);background:var(--sel-bg)}
+/* แถบหัว (พื้นน้ำเงิน): ปุ่มรองแบบกลับสี กรอบ 1px สีขาวโปร่ง */
+.hbtn{min-height:44px}
+/* 3) ช่องกรอก: กรอบ 1px · กำลังพิมพ์ = กรอบน้ำเงิน + inset 1px */
+input.note,input.num,.cnum,.lgform input,.codein input,.rangebar input,textarea.csvbox{
+  background:#fff;border:var(--bw) solid var(--border);border-radius:var(--r-btn);min-height:44px}
+input.note:focus,input.num:focus,.cnum:focus,.lgform input:focus,.codein input:focus,.rangebar input:focus,textarea.csvbox:focus{
+  outline:none;border-color:var(--sel-bd);box-shadow:var(--sel-ring)}
+/* แถวไปหน้าย่อย (ตั้งค่า → สินค้าหมด ›): กดได้ทั้งแถว = ตัวเลือกแบบปกติ */
+.navrow{display:flex;align-items:center;gap:var(--s2);width:100%;min-height:calc(44px + var(--s3));padding:var(--s2) var(--s3);border-radius:var(--r-btn);text-align:left;
+  background:#fff;border:var(--bw) solid var(--border);color:var(--ink)}
+.navrow .nm{flex:1;min-width:0;font-weight:700}
+.navrow small{display:block;font-weight:400;color:var(--mute);font-size:max(12px, calc(13px * var(--ui-scale)))}
+.navrow small.need{color:var(--bad);font-weight:700}
+.navrow > .ic{color:var(--blue)}
+.navrow:active{background:var(--sel-bg)}
+/* หัวหน้าต่าง: ปุ่ม ‹ กลับ (หน้าย่อย) ซ้าย · ปุ่มเครื่องมือ (สรุปยอด) ก่อน X */
+.mhead .mback{flex:none;display:inline-flex;align-items:center;padding:0 var(--s2) 0 0;margin-left:calc(-1 * var(--s3));font-size:max(12px, calc(15px * var(--ui-scale)))}
+.mtools{flex:none;display:flex;align-items:center;gap:var(--s2)}
+.mtools .ghost{padding:0 var(--s3);font-size:max(12px, calc(15px * var(--ui-scale)));white-space:nowrap}
+.mtools .ghost .ic{vertical-align:-3px}
+/* หน้าขาย (Tee 2026-10-17 · กฎ C ห้ามเลื่อนจอเพิ่ม): Greek บน Redmi แนวนอนต้องจบในจอเดียว เหลือที่ ≥ 60px
+   → เฉพาะใน #builder: ระหว่าง section 8 · padding section 8 แนวตั้ง 12 แนวนอน (ที่อื่นใช้ 16 / 12) · พื้นอ่อนแยก section แทนระยะห่าง */
+main > .card:first-child{padding-top:var(--s2)}
+#builder .sec{padding:var(--s2) var(--s3);margin-bottom:var(--s2)}
+#builder .tcat .gt{margin:0}
+#builder .sep{margin-top:var(--s2)}
 </style>
 </head>
 <body>
@@ -560,7 +605,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 
   <aside class="card cart">
     <button class="cartmini" id="cartMini" aria-label="ดูออเดอร์ปัจจุบัน"></button>
-    <div class="cart-h"><h2>ออเดอร์ปัจจุบัน</h2><button class="ghost" id="cartBack">กลับไปเลือกต่อ</button></div>
+    <div class="cart-h"><h2>ออเดอร์ปัจจุบัน</h2><button class="tbtn" id="cartBack">กลับไปเลือกต่อ</button></div>
     <div id="cart"></div>
     <div id="promoBox"></div>
     <div class="total"><span>รวม</span><span id="total">฿0</span></div>
@@ -584,7 +629,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'8363633ec590', built:'2026-10-17T15:02:12.858Z'};
+const APP_VERSION = {v:'2669de0eb65e', built:'2026-10-17T17:30:31.935Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -902,6 +947,8 @@ function signOut(){
 const ICONS = {
   cash:     '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
   check:    '<path d="M20 6 9 17l-5-5"/>',
+  chevL:    '<path d="m15 18-6-6 6-6"/>',
+  chevR:    '<path d="m9 18 6-6-6-6"/>',
   x:        '<path d="M18 6 6 18M6 6l12 12"/>',
   eye:      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>',
@@ -4174,6 +4221,7 @@ window.addEventListener('resize', setHdrH); setHdrH();
    - foot → แถบล่างติดกล่อง (ปุ่มหลัก) · เนื้อหาเลื่อนเฉพาะใน .mbody (overscroll-behavior: contain)
    - key → เปิดหน้าต่างเดิมซ้ำ (เช่น กดสวิตช์ในตั้งค่า เปลี่ยนแท็บสรุปยอด) คงตำแหน่งเลื่อน · หน้าต่างใหม่เริ่มบนสุด
    - backdrop → แตะพื้นหลังนอกกล่องเพื่อปิด (เฉพาะตั้งค่าและสรุปยอด กันข้อมูลที่กรอกหาย)
+   - back = {label, fn} → ปุ่ม "‹ label" ซ้ายสุดของหัว (หน้าย่อย เช่น ตั้งค่า → สินค้าหมด) · head = ปุ่มที่ติดหัวหน้าต่าง เห็นตลอดแม้เลื่อน (เช่น สรุปยอด: CSV ปิดร้าน)
    ระหว่างเปิด ล็อกหน้าหลัง: iOS ไม่สน overflow:hidden จึงใช้ body position:fixed + จำ scrollY แล้วคืนตอนปิด */
 let MD = null, mdLockY = null;
 function lockPage(){
@@ -4190,9 +4238,9 @@ function unlockPage(){
 function openModal(body, o = {}){
   if(o === true || o === false) o = {wide:o};
   const prev = MD, body0 = $('modal').querySelector('.mbody'), keep = prev && o.key && prev.key === o.key && body0 ? body0.scrollTop : 0;
-  MD = {key:o.key || null, backdrop:!!o.backdrop, onClose:o.onClose || null};
+  MD = {key:o.key || null, backdrop:!!o.backdrop, onClose:o.onClose || null, back:o.back ? o.back.fn : null};
   $('modal').innerHTML = `<div class="box ${o.wide ? 'wide' : ''} ${o.cls || ''}" role="dialog" aria-modal="true"${o.title ? ' aria-labelledby="mdTitle"' : ''}>` +
-    (o.title ? `<div class="mhead"><h3 id="mdTitle">${o.title}</h3><button class="mx" id="closeX" aria-label="ปิด">${icon('x', 26)}</button></div>` : '') +
+    (o.title ? `<div class="mhead">${o.back ? `<button class="tbtn mback" id="mdBack" aria-label="กลับไป${esc(o.back.label)}">${icon('chevL', 22)}${esc(o.back.label)}</button>` : ''}<h3 id="mdTitle">${o.title}</h3>${o.head ? `<div class="mtools">${o.head}</div>` : ''}<button class="mx" id="closeX" aria-label="ปิด">${icon('x', 26)}</button></div>` : '') +
     `<div class="mbody">${body}</div>` + (o.foot ? `<div class="mfoot">${o.foot}</div>` : '') + `</div>`;
   $('modal').classList.add('show'); lockPage();
   if(keep) $('modal').querySelector('.mbody').scrollTop = keep;
@@ -4216,12 +4264,13 @@ function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML
 /* ปุ่ม X / แตะพื้นหลัง: ใช้ onClose ของหน้าต่างนั้น (ล้างข้อมูลที่ค้าง) ถ้ามี */
 function modalClose(){ const f = MD && MD.onClose; if(f) f(); else closeModal(); }
 $('modal').addEventListener('click', e => { if(e.target === $('modal') && MD && MD.backdrop) modalClose(); });
+$('modal').addEventListener('click', e => { if(e.target.closest('#mdBack') && MD && MD.back) MD.back(); });
 /* หน้าต่างยืนยัน/PIN ของระบบเอง (ไม่ใช้ confirm/prompt ของเบราว์เซอร์ เพราะบางโหมดเปิดไฟล์จะถูกบล็อก) */
 let confirmCb = null, confirmNo = null, pinCb = null, pinMsg = '';
 function askConfirm(o){
   confirmCb = o.onYes || null; confirmNo = o.onNo || null;
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
-    <div class="row"><button class="ghost" id="cfNo">กลับ</button><button class="pay" id="cfYes" style="background:${o.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(o.yes || 'ยืนยัน')}</button></div>`);
+    <div class="row"><button class="tbtn" id="cfNo">กลับ</button><button class="pay ${o.ok ? '' : 'danger'}" id="cfYes">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
 /* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ช่องกรอก codeField (codepad.js) */
 function askOwner(onOk, msg, err){
@@ -4229,7 +4278,7 @@ function askOwner(onOk, msg, err){
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
     ${codeField('pinIn', 'pinOk')}
     ${err ? `<p class="pinerr" role="alert">${esc(err)}</p>` : ''}
-    <div class="row"><button class="ghost" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
+    <div class="row"><button class="tbtn" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
   $('pinIn').focus();
 }
 function checkPin(){
@@ -5268,7 +5317,7 @@ function renderPromo(){
     h += `<div class="q2">ใช้กับ</div><div class="ptargets">` + rd.targets.map((t, i) =>
       `<button class="opt ${t.key === rd.target.key && (t.top || null) === (rd.target.top || null) ? 'on' : ''}" data-ptarget="${i}">${esc(t.label)}</button>`).join('') + '</div>';
   }
-  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
+  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="tbtn" id="promoCancel">กลับ</button>'}` +
     `<button class="pay" id="promoOk" ${rd && rd.ok ? '' : 'disabled'}>${rd && rd.ok ? `ใช้โปรนี้ · -${baht(rd.discount)}` : 'เลือกโปรก่อน'}</button></div>`;
   openModal(h, {title:`${icon('tag', 22)} โปรโมชัน`, key:'promo', foot, onClose: () => { promoDraft = null; closeModal(); }});
 }
@@ -5328,7 +5377,7 @@ function renderPay(){
     if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
-  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+  const foot = `<div class="row payrow"><button class="tbtn" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
   openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'mid'});   // X = ยกเลิก
   const r = $('recv');
@@ -5409,7 +5458,7 @@ function cashTable(){
         (multi ? thDate(c.date) + '<br>' : '') + `<small>${fmtDT(c.at).slice(-5)}</small>`, baht(c.float), baht(c.cashSales), baht(c.expected), baht(c.counted),
         `<b style="color:${c.diff === 0 ? 'var(--ok)' : 'var(--bad)'}">${c.diff === 0 ? 'ตรง' : (c.diff > 0 ? '+' : '-') + baht(Math.abs(c.diff))}</b>`,
         esc(c.by) + (c.note ? `<br><small>${esc(c.note)}</small>` : '')]))
-    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ด้านล่าง</p>`);
+    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ที่หัวหน้าต่าง</p>`);
 }
 function tabPay(R){
   if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
@@ -5526,11 +5575,10 @@ function renderSummary(){
     ${R.fewCups ? `<div class="note2" style="color:#b45f00">${icon('alert', 16)} Greek Yogurt ท็อปปิ้งฟรีไม่ครบ ${CONFIG.freeToppingCount} อย่าง <b>${R.fewCups} จาก ${R.topCups} แก้ว (${Math.round(R.fewCups / R.topCups * 100)}%)</b> · ดูรายละเอียดที่แท็บตัวเลือก</div>` : ''}
     <div class="tabs">${tabs.map(([k, ic, l]) => `<button class="tab ${REP.tab === k ? 'on' : ''}" data-tab="${k}">${icon(ic, 18)} ${l}</button>`).join('')}</div>
     ${T.html}
-    <div class="row" style="margin-top:16px">
-      ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
-      <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
-    </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true});
+    ${T.extra ? `<div class="row" style="margin-top:var(--s4)">${T.extra}</div>` : ''}
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true,
+    /* ปุ่มติดหัวหน้าต่าง (Tee 2026-10-17): เห็นและกดได้ตลอดแม้เลื่อนดูข้อมูล · ปุ่มรอง 44px · CSV = แท็บที่เปิดอยู่ */
+    head:`${T.csv.length ? `<button class="ghost" id="csvTab" aria-label="ดาวน์โหลด CSV (แท็บนี้)">${icon('download', 18)} ดาวน์โหลด CSV</button>` : ''}<button class="ghost" id="closeDay">${icon('cash', 18)} ปิดร้าน / นับเงิน</button>`});
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };
@@ -5599,7 +5647,7 @@ function exportCsv(){ downloadCsv(`geek-popup-sales-all-${dateKey(new Date())}.c
 </script>
 <script>
 /* ===== js/ui/settings-ui.js ===== */
-/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, พนักงาน/รหัส, รหัสกู้คืน ---------- */
+/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด (หน้าย่อย) · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, พนักงาน/รหัส, รหัสกู้คืน ---------- */
 $('btnSettings').onclick = () => { if(needUser()) openSettings(); };
 
 /* สวิตช์ มี/หมด · กดแล้วใช้ทันที ไม่ต้องกดบันทึก · หมด = ทั้งแถวเป็นสีเทาอ่อน */
@@ -5607,16 +5655,13 @@ function stockRow(kind, key, label, out){
   return `<div class="srow ${out ? 'out' : ''}"><span class="nm">${esc(label)}</span><span class="st">${out ? 'หมด' : 'มี'}</span>` +
     `<button class="sw ${out ? '' : 'on'}" role="switch" aria-checked="${!out}" aria-label="${esc(label)} ${out ? 'หมด' : 'มี'}" data-stock="${kind}" data-key="${esc(key)}"><span></span></button></div>`;
 }
+/* จำนวนที่หมดอยู่ (เมนู + ท็อปปิ้ง) แสดงบนแถว "สินค้าหมด ›" ในหน้าตั้งค่า */
+const outCount = () => CONFIG.menus.filter(m => m.out).length + CONFIG.items.filter(it => it.out).length;
+/* หน้าตั้งค่า (Tee 2026-10-17): ตั้งค่าต่างๆ อยู่บนสุด · รายการ มี/หมด ย้ายไปหน้าย่อย openStock (แถว "สินค้าหมด ›") · สิทธิ์เหมือนเดิม */
 function openSettings(){
-  const pp = SETTINGS.promptpay;
-  let h = `<div id="stockList">
-    <div class="q2">เมนู</div><div class="slist">` + CONFIG.menus.map(m => stockRow('menus', m.id, m.name, m.out)).join('') + '</div>';
-  CONFIG.cats.forEach(c => {
-    h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
-      CONFIG.items.filter(it => it.cat === c.id).map(it => stockRow('items', it.name, it.th || it.name, it.out)).join('') + '</div>';
-  });
-  h += `</div><p class="note2">ปิดสวิตช์เมื่อของหมด ปุ่มบนหน้าขายจะเป็นสีเทาและกดไม่ได้ · มีของแล้วเปิดสวิตช์กลับ</p>`;
-  if(can('promptpay')) h += `<div class="q2">เลข PromptPay</div>
+  const pp = SETTINGS.promptpay, n = outCount();
+  let h = '';
+  if(can('promptpay')) h += `<div class="q2" style="margin-top:0">เลข PromptPay</div>
     <div class="slist"><div class="srow"><span class="nm">${pp ? esc(PP.format(pp)) : '<span style="color:var(--bad)">ยังไม่ได้ตั้ง</span>'}</span><button class="ghost" id="ppOpen">${pp ? 'เปลี่ยน' : 'ตั้งเลข'}</button></div></div>`;
   if(can('printMode')) h += `<div class="q2">พิมพ์ใบเสร็จ <small>(ตั๋วครัวพิมพ์เองทุกบิลเสมอ)</small></div>
     <div class="row">${[['all', 'ทุกบิล'], ['ask', 'เมื่อลูกค้าขอ']].map(([m, t]) => `<button class="opt ${receiptMode() === m ? 'on' : ''}" data-rcpt="${m}" aria-pressed="${receiptMode() === m}">${t}</button>`).join('')}</div>
@@ -5626,15 +5671,30 @@ function openSettings(){
         <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
     <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${recoveryHash() ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
-  else h += `<p class="note2">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
+  else h += `<p class="note2" style="margin-top:0">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
     ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;
+  /* ของหมด: แถวเดียว บอกจำนวนที่หมดอยู่ · กดแล้วเข้าหน้าย่อย (ทุกคนกดได้เหมือนเดิม) */
+  h += `<div class="q2">สินค้า</div>
+    <button class="navrow" id="stockOpen"><span class="nm">สินค้าหมด<small class="${n ? 'need' : ''}">${n ? `หมด ${n} รายการ` : 'มีของครบทุกอย่าง'}</small></span>${icon('chevR', 22)}</button>`;
   /* เวอร์ชันที่เครื่องนี้ใช้อยู่จริง (โหลดจาก cache เดียวกับโค้ด) · เทียบกับที่ Tee บอก ถ้ายังเก่า ปัดปิดแอปแล้วเปิดใหม่ */
   h += `<p class="appver">เวอร์ชัน ${typeof APP_VERSION === 'object' ? `${esc(APP_VERSION.v)} · build ${fmtDT(APP_VERSION.built)}` : 'ไม่ทราบ'}</p>`;
-  openModal(h, {title:`${icon('settings', 22)} ตั้งค่า`, key:'settings', backdrop:true});   // key เดิม = กดสวิตช์แล้วไม่เด้งกลับขึ้นบน
+  openModal(h, {title:`${icon('settings', 22)} ตั้งค่า`, key:'settings', backdrop:true});   // key เดิม = กดปุ่มแล้วไม่เด้งกลับขึ้นบน
+}
+/* หน้าย่อย สินค้าหมด: สวิตช์ มี/หมด ของเมนูและท็อปปิ้ง · กดแล้วใช้ทันที · ‹ ตั้งค่า = กลับ · X = ปิด */
+function openStock(){
+  let h = `<div id="stockList">
+    <div class="q2" style="margin-top:0">เมนู</div><div class="slist">` + CONFIG.menus.map(m => stockRow('menus', m.id, m.name, m.out)).join('') + '</div>';
+  CONFIG.cats.forEach(c => {
+    h += `<div class="q2">${esc(c.th || c.name)}</div><div class="slist">` +
+      CONFIG.items.filter(it => it.cat === c.id).map(it => stockRow('items', it.name, it.th || it.name, it.out)).join('') + '</div>';
+  });
+  h += `</div><p class="note2">ปิดสวิตช์เมื่อของหมด ปุ่มบนหน้าขายจะเป็นสีเทาและกดไม่ได้ · มีของแล้วเปิดสวิตช์กลับ</p>`;
+  openModal(h, {title:'สินค้าหมด', key:'stock', backdrop:true, back:{label:'ตั้งค่า', fn:openSettings}});
 }
 $('modal').addEventListener('click', e => {
+  if(e.target.closest('#stockOpen')) return openStock();
   const rm = e.target.closest('[data-rcpt]'); if(rm) return setReceiptMode(rm.dataset.rcpt);
   const ue = e.target.closest('[data-uedit]'); if(ue && can('users')) return openUserForm(ue.dataset.uedit);
   const ud = e.target.closest('[data-udel]');
@@ -5647,7 +5707,7 @@ $('modal').addEventListener('click', e => {
   const kind = b.dataset.stock, key = b.dataset.key;
   const now = kind === 'menus' ? MENU[key].out : ITEM[key].out;
   if(!setOut(kind, key, !now)){ toast('บันทึกไม่สำเร็จ', 'alert'); return; }
-  openSettings(); renderBuilder();
+  openStock(); renderBuilder();
 });
 
 /* พิมพ์ใบเสร็จ ทุกบิล / เมื่อลูกค้าขอ (เจ้าของเท่านั้น · กดแล้วใช้ทันที) */
@@ -5679,7 +5739,7 @@ function renderUserForm(name){
     ${codeField('usrCode2', 'usrSave', CODE_LEN, keep[1])}
     <div class="ppmsg">${f.msg ? `<span style="color:var(--bad)">${icon('alert', 16)} ${esc(f.msg)}</span>` : ''}</div>`,
     {title:`${icon('user', 22)} ${f.id ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน'}`, key:'user', onClose: () => { userForm = null; closeModal(); },
-     foot:`<div class="row payrow"><button class="ghost" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`});
+     foot:`<div class="row payrow"><button class="tbtn" id="usrCancel">กลับ</button><button class="pay" id="usrSave">บันทึก</button></div>`});
 }
 $('modal').addEventListener('click', e => {
   const r = e.target.closest('[data-urole]'); if(!r || !userForm) return;
@@ -5708,7 +5768,7 @@ function openPromptPay(){
     <input class="num" id="ppIn" inputmode="numeric" pattern="[0-9]*" data-digits autocomplete="off" maxlength="15" placeholder="08xxxxxxxx" value="${esc(SETTINGS.promptpay || '')}">
     <div id="ppMsg" class="ppmsg"></div>
     <div id="ppPrev"></div>`, {title:`${icon('settings', 22)} เลข PromptPay ของร้าน`, key:'pp',
-    foot:`<div class="row payrow"><button class="ghost" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`});
+    foot:`<div class="row payrow"><button class="tbtn" id="setBack">กลับ</button><button class="pay" id="setSave">บันทึก</button></div>`});
   const i = $('ppIn'); i.oninput = settingsCheck; settingsCheck();
 }
 /* เช็กเลขระหว่างพิมพ์ · ใช้ได้ → แสดง QR ทดสอบ 1 บาท ให้สแกนดูชื่อบัญชีก่อน */
@@ -5862,7 +5922,7 @@ function askFloat(){
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
     <div class="cashgrid"><div class="cashl"><div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
     <label class="recvrow"><span>เงินทอนตั้งต้น <small>บาท</small></span>${moneyField('floatIn', '', true)}</label></div>${moneyPadHtml()}</div>
-    <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
+    <div class="row payrow"><button class="tbtn" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
   $('floatIn').oninput = floatInput;
 }
 function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
@@ -5893,7 +5953,7 @@ function renderClose(){
     <div class="cldiff" id="clDiff">&nbsp;</div></div>${moneyPadHtml()}</div>
     <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ ถ้าเงินไม่ตรง เช่น ทอนผิด">`,
     {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', cls:'mid', onClose: () => { closeDraft = null; closeModal(); },
-     foot:`<div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
+     foot:`<div class="row payrow"><button class="tbtn" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
   $('clFloat').oninput = $('clCount').oninput = closeInput;
 }
 /* พิมพ์ตัวเลข: อัปเดตยอดโดยไม่วาดใหม่ (คีย์บอร์ดไม่หาย) */
@@ -5950,7 +6010,7 @@ function restoreHtml(){
     (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
       : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  const foot = `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  const foot = `<div class="row payrow"><button class="tbtn" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
   return {body:h, foot};
 }
 function openRestore(inLogin){

@@ -15,7 +15,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   const perms = code => {
     p.signIn(code); const o = {};
     o.can = ev("['void', 'pastReports', 'promptpay', 'users'].map(can)");
-    click('#btnSettings'); o.settings = ['[data-stock]', '#ppOpen', '#usrAdd', '#rcNew', '#bkSet', '#rsOpen'].map(s => !!$(s)); click('#closeX');
+    click('#btnSettings'); o.settings = ['#stockOpen', '#ppOpen', '#usrAdd', '#rcNew', '#bkSet', '#rsOpen'].map(s => !!$(s)); click('#closeX');
     add({menu:'acai'}); add({menu:'banana'}); click('#promoOpen'); o.promo = !!$('[data-pid="b1g1"]') && !$('[data-pid="b1g1"]').disabled; click('#promoCancel');
     const s = pay('tcp'); o.sale = !!s && s.staff;
     click('#btnSummary'); o.summary = ['[data-range]', '#repFrom', '#csvTab', '#closeDay'].map(x => !!$(x));

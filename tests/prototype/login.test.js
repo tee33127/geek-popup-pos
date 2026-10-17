@@ -115,7 +115,10 @@ const sell = async menu => { F.menu(w, menu); F.finish(w); click('#btnPay'); cli
   eq('CSV has staff column', ev('billsCsvRows(loadSales().filter(s => s.id !== 9e12))').map(r => r[11]), ['พนักงาน', 'ตี๋', 'แพร']);
   click('#closeX');
   click('#btnSettings');
-  eq('staff settings: stock only', [!!$('[data-stock]'), !!$('#ppOpen'), !!$('#usrAdd'), !!$('#rcNew'), $('#modal').textContent.includes('เจ้าของเป็นคนตั้ง')], [true, false, false, false, true]);
+  eq('staff settings: stock only', [!!$('#stockOpen'), !!$('#ppOpen'), !!$('#usrAdd'), !!$('#rcNew'), $('#modal').textContent.includes('เจ้าของเป็นคนตั้ง')], [true, false, false, false, true]);
+  click('#stockOpen'); click('[data-stock="items"][data-key="Kiwi"]');
+  eq('staff can still mark sold-out on the stock subpage (same as before)', [ev('ITEM.Kiwi.out'), $('[data-stock="items"][data-key="Kiwi"]').getAttribute('aria-checked')], [true, 'false']);
+  click('[data-stock="items"][data-key="Kiwi"]'); click('#mdBack');
   ev('openPromptPay(); openUserForm(null)'); eq('owner screens blocked for staff', [!!$('#ppIn'), !!$('#usrName')], [false, false]);
   click('#closeX');
 

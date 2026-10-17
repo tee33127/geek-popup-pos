@@ -28,7 +28,7 @@ function renderPromo(){
     h += `<div class="q2">ใช้กับ</div><div class="ptargets">` + rd.targets.map((t, i) =>
       `<button class="opt ${t.key === rd.target.key && (t.top || null) === (rd.target.top || null) ? 'on' : ''}" data-ptarget="${i}">${esc(t.label)}</button>`).join('') + '</div>';
   }
-  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="ghost" id="promoCancel">กลับ</button>'}` +
+  const foot = `<div class="row payrow">${promo ? '<button class="ghost" id="promoNone">ไม่ใช้โปร</button>' : '<button class="tbtn" id="promoCancel">กลับ</button>'}` +
     `<button class="pay" id="promoOk" ${rd && rd.ok ? '' : 'disabled'}>${rd && rd.ok ? `ใช้โปรนี้ · -${baht(rd.discount)}` : 'เลือกโปรก่อน'}</button></div>`;
   openModal(h, {title:`${icon('tag', 22)} โปรโมชัน`, key:'promo', foot, onClose: () => { promoDraft = null; closeModal(); }});
 }

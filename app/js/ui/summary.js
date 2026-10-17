@@ -40,7 +40,7 @@ function cashTable(){
         (multi ? thDate(c.date) + '<br>' : '') + `<small>${fmtDT(c.at).slice(-5)}</small>`, baht(c.float), baht(c.cashSales), baht(c.expected), baht(c.counted),
         `<b style="color:${c.diff === 0 ? 'var(--ok)' : 'var(--bad)'}">${c.diff === 0 ? 'ตรง' : (c.diff > 0 ? '+' : '-') + baht(Math.abs(c.diff))}</b>`,
         esc(c.by) + (c.note ? `<br><small>${esc(c.note)}</small>` : '')]))
-    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ด้านล่าง</p>`);
+    : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ที่หัวหน้าต่าง</p>`);
 }
 function tabPay(R){
   if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
@@ -157,11 +157,10 @@ function renderSummary(){
     ${R.fewCups ? `<div class="note2" style="color:#b45f00">${icon('alert', 16)} Greek Yogurt ท็อปปิ้งฟรีไม่ครบ ${CONFIG.freeToppingCount} อย่าง <b>${R.fewCups} จาก ${R.topCups} แก้ว (${Math.round(R.fewCups / R.topCups * 100)}%)</b> · ดูรายละเอียดที่แท็บตัวเลือก</div>` : ''}
     <div class="tabs">${tabs.map(([k, ic, l]) => `<button class="tab ${REP.tab === k ? 'on' : ''}" data-tab="${k}">${icon(ic, 18)} ${l}</button>`).join('')}</div>
     ${T.html}
-    <div class="row" style="margin-top:16px">
-      ${T.csv.length ? `<button class="ghost" id="csvTab">${icon('download')} ดาวน์โหลด CSV (แท็บนี้)</button>` : ''}${T.extra || ''}
-      <button class="ghost" id="closeDay">${icon('cash')} ปิดร้าน / นับเงิน</button>
-    </div>
-    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true});
+    ${T.extra ? `<div class="row" style="margin-top:var(--s4)">${T.extra}</div>` : ''}
+    <p class="note2">ข้อมูลเก็บในเครื่องนี้เท่านั้น · ปิดร้านทุกวันให้กด "ปิดร้าน / นับเงิน" แล้วสำรองข้อมูล · <span style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</span></p>`, {wide:true, title:`${icon('chart', 22)} สรุปยอดขาย`, key:'summary', backdrop:true,
+    /* ปุ่มติดหัวหน้าต่าง (Tee 2026-10-17): เห็นและกดได้ตลอดแม้เลื่อนดูข้อมูล · ปุ่มรอง 44px · CSV = แท็บที่เปิดอยู่ */
+    head:`${T.csv.length ? `<button class="ghost" id="csvTab" aria-label="ดาวน์โหลด CSV (แท็บนี้)">${icon('download', 18)} ดาวน์โหลด CSV</button>` : ''}<button class="ghost" id="closeDay">${icon('cash', 18)} ปิดร้าน / นับเงิน</button>`});
   if(!$('repFrom')) return;
   $('repFrom').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.from = e.target.value; if(REP.to < REP.from) REP.to = REP.from; renderSummary(); } };
   $('repTo').onchange = e => { if(e.target.value){ REP.fb = false; REP.range = null; REP.to = e.target.value; if(REP.from > REP.to) REP.from = REP.to; renderSummary(); } };

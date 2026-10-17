@@ -7,7 +7,7 @@ function askFloat(){
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
     <div class="cashgrid"><div class="cashl"><div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
     <label class="recvrow"><span>เงินทอนตั้งต้น <small>บาท</small></span>${moneyField('floatIn', '', true)}</label></div>${moneyPadHtml()}</div>
-    <div class="row payrow"><button class="ghost" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
+    <div class="row payrow"><button class="tbtn" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
   $('floatIn').oninput = floatInput;
 }
 function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
@@ -38,7 +38,7 @@ function renderClose(){
     <div class="cldiff" id="clDiff">&nbsp;</div></div>${moneyPadHtml()}</div>
     <input class="note" id="clNote" maxlength="100" placeholder="หมายเหตุ ถ้าเงินไม่ตรง เช่น ทอนผิด">`,
     {title:`${icon('cash', 22)} ปิดร้าน · นับเงิน`, key:'close', cls:'mid', onClose: () => { closeDraft = null; closeModal(); },
-     foot:`<div class="row payrow"><button class="ghost" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
+     foot:`<div class="row payrow"><button class="tbtn" id="clBack">กลับ</button><button class="pay" id="clSave" disabled>บันทึกการนับเงิน</button></div>`});
   $('clFloat').oninput = $('clCount').oninput = closeInput;
 }
 /* พิมพ์ตัวเลข: อัปเดตยอดโดยไม่วาดใหม่ (คีย์บอร์ดไม่หาย) */
@@ -95,7 +95,7 @@ function restoreHtml(){
     (noOwner ? `<p class="note2" style="color:var(--bad)">${icon('alert', 16)} ไฟล์นี้ไม่มีรายชื่อเจ้าของ ใช้แก้ข้อมูลตั้งค่าเสียไม่ได้ · เลือกไฟล์สำรองอื่น</p>`
       : r.inLogin ? `<p class="note2">${i.users ? 'จะใช้รายชื่อพนักงานและรหัสจากไฟล์ เข้าระบบด้วยรหัสเดิมได้เลย' : 'ไฟล์นี้ไม่มีรายชื่อพนักงาน ต้องตั้งเจ้าของใหม่หลังนำข้อมูลกลับ'}</p>`
       : `<label class="rscheck"><input type="checkbox" id="rsSettings"><span>ใช้รายชื่อพนักงาน รหัส เลข PromptPay และของหมด จากไฟล์นี้แทนของเครื่อง <small>รหัสของเครื่องนี้จะใช้ไม่ได้ ต้องเข้าด้วยรหัสในไฟล์</small></span></label>`);
-  const foot = `<div class="row payrow"><button class="ghost" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
+  const foot = `<div class="row payrow"><button class="tbtn" id="rsCancel">กลับ</button><button class="pay" id="rsApply" ${i && !noOwner ? '' : 'disabled'}>${i ? `นำข้อมูลกลับ · ${i.newBills} บิลใหม่` : 'เลือกไฟล์ก่อน'}</button></div>`;
   return {body:h, foot};
 }
 function openRestore(inLogin){

@@ -3,6 +3,8 @@
 const ICONS = {
   cash:     '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
   check:    '<path d="M20 6 9 17l-5-5"/>',
+  chevL:    '<path d="m15 18-6-6 6-6"/>',
+  chevR:    '<path d="m9 18 6-6-6-6"/>',
   x:        '<path d="M18 6 6 18M6 6l12 12"/>',
   eye:      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>',

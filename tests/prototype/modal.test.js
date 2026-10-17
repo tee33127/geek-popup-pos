@@ -59,11 +59,11 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
   click('#nextOrder'); eq('closed after next order, unlocked', [shown(), locked()], [false, false]);
 
   // ---------- เปิดหน้าต่างเดิมซ้ำคงตำแหน่ง (กดสวิตช์ในตั้งค่า) · หน้าต่างใหม่เริ่มบนสุด ----------
-  click('#btnSettings'); $('#modal .mbody').scrollTop = 300;   // jsdom ไม่มี layout: ตรวจว่ากำหนดค่าคืนให้
+  click('#btnSettings'); click('#stockOpen'); $('#modal .mbody').scrollTop = 300;   // jsdom ไม่มี layout: ตรวจว่ากำหนดค่าคืนให้
   const kept = (() => { let v = null; const d = Object.getOwnPropertyDescriptor(w.HTMLElement.prototype, 'scrollTop');
     Object.defineProperty(w.HTMLElement.prototype, 'scrollTop', {configurable:true, get(){ return this.__st || 0; }, set(x){ this.__st = x; }});
     $('#modal .mbody').scrollTop = 300; click('[data-stock="items"][data-key="Kiwi"]'); v = $('#modal .mbody').scrollTop;
-    click('#ppOpen'); const fresh = $('#modal .mbody').scrollTop; click('#closeX'); click('#btnSettings'); click('[data-stock="items"][data-key="Kiwi"]'); click('#closeX');
+    click('#mdBack'); const fresh = $('#modal .mbody').scrollTop; click('#closeX'); click('#btnSettings'); click('#stockOpen'); click('[data-stock="items"][data-key="Kiwi"]'); click('#closeX');
     if(d) Object.defineProperty(w.HTMLElement.prototype, 'scrollTop', d); else delete w.HTMLElement.prototype.scrollTop;
     return [v, fresh]; })();
   eq('settings switch keeps scroll position · a different window starts at top', kept, [300, 0]);

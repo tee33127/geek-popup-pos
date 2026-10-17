@@ -39,7 +39,7 @@ function renderPay(){
     if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
     h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
   }
-  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+  const foot = `<div class="row payrow"><button class="tbtn" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
   openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'mid'});   // X = ยกเลิก
   const r = $('recv');
