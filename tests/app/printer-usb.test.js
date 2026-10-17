@@ -47,7 +47,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const sell = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };
   w.addEventListener('load', async () => {
-    A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9');   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
+    A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9; PRINT_CONFIRM.ms = 10');   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
     await wait(100);
     eq('auto reconnect to allowed printer', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
     sell();
@@ -64,7 +64,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     const S0 = R0 + 6;
     eq('2 slips: 2 cuts', count(sent, [0x1D, 0x56, 0x42, 0x00]), 2);
     eq('slip starts with ESC @ · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(S0, S0 + 2), sent.slice(S0 + 2, S0 + 8), sent[S0 + 8], sent[S0 + 9]], [[0x1B, 0x40], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
-    eq('ends with cut', sent.slice(-4), [0x1D, 0x56, 0x42, 0x00]);
+    const tail = (() => { let e = sent.length; while(e >= 3 && sent[e - 3] === 0x10 && sent[e - 2] === 0x04) e -= 3; return sent.slice(e - 4, e); })();   // ท้ายสุดอาจเป็นคำถามสถานะยืนยันหลังพิมพ์
+    eq('ends with cut (then only status questions)', tail, [0x1D, 0x56, 0x42, 0x00]);
     eq('blocks: kitchen ticket content', w.eval('kitchenBlocks(lastSale)').slice(0, 2).map(b => b.text), ['#001', 'กินเลย']);
     eq('blocks: dine-in is a framed box, no solid black band', w.eval('kitchenBlocks(lastSale)').slice(1, 2).map(b => [b.box, !!b.invert]), [['single', false]]);
     eq('blocks: receipt total + change', w.eval('receiptBlocks(lastSale)').filter(b => b.left === 'รวม' || b.left === 'เงินทอน').map(b => b.right), ['฿189', '฿311']);
@@ -129,7 +130,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     const sentAtHang = hangAt;
     eq('after timeout: both bills saved', nBills() - n0, 2);
     eq('after timeout: kitchen of bill 1 out (printed first), receipt not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), sent.length === sentAtHang],
-      [{kitchen:'ok', receipt:'fail'}, {kitchen:'fail', receipt:'fail'}, true]);
+      [{kitchen:'ok', receipt:'fail', redo:{receipt:true}}, {kitchen:'fail', receipt:'fail'}, true]);   // ใบเสร็จสะดุดกลางใบ = ใบแทน · บิล 2 ยังไม่ได้เริ่ม = พิมพ์ปกติ
     eq('after timeout: connection closed (pending transfer cancelled) and reconnected by itself', [dev.opened, $('#btnPrinter').textContent.trim()], [true, 'ปริ้นเตอร์พร้อม']);
     const bar = $('#printFail');
     eq('fail bar: message + one reprint button per bill, only the missing slip', [!!bar && bar.textContent.includes('ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ'), bar && bar.textContent.includes('ล้างงานค้างไม่ได้'), [...d.querySelectorAll('#printFail .pfbtn')].map(b => b.textContent)],
@@ -159,7 +160,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('H29 hypothesis (ข) ruled out: nothing of the old job sent after the timeout (app side)', [sent.length === hangAt, lateSent], [true, 0]);
     hangPart = 0;
     d.querySelector('#printFail .pfbtn').click(); await wait(400);
-    const want = k => EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([${k}Blocks(loadSales().find(s => s.id === ${sH}))])`)).pages[0]).join();
+    const want = k => EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([slipBlocks(loadSales().find(s => s.id === ${sH}), '${k}', PRINTED.get(${sH}))])`)).pages[0]).join();   // ตั๋วครัวที่สะดุด = ใบแทน (มีกรอบบนสุด)
     const pages = emu.pages, last2 = pages.slice(-2).map(p => EscPosEmu.ink(p).join());
     eq('H29 reprint after mid-image stop: no garbage text anywhere · kitchen then receipt complete and exact · old fragment cut off as its own piece',
       [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('kitchen'), last2[1] === want('receipt'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);

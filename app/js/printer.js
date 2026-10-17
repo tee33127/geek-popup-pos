@@ -281,6 +281,7 @@ class UsbPrinter {
       if(this.session !== sid || !this.dev) throw new Error('การเชื่อมเปลี่ยนระหว่างส่ง งานนี้ถูกยกเลิก');
       const r = await dev.transferOut(ep, data.subarray(i, i + chunk));
       if(r.status !== 'ok') throw new Error(`ส่งข้อมูลไม่สำเร็จ (${r.status}) ที่ byte ${i}`);
+      this.lastAck = Date.now();   // เครื่องรับก้อนล่าสุดเมื่อไร (หมดเวลา = สะดุดตั้งแต่ตอนนี้ · ใช้ตัดสินว่าใบก่อนหน้าอาจยังค้างในบัฟเฟอร์)
     }
     return data.length;
   }

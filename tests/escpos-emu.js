@@ -6,6 +6,7 @@ class EscPosEmu {
   newPage(){ return {rows:[], text:'', inits:0, images:0}; }
   /* DLE EOT n เป็นคำสั่ง real-time: เครื่องตอบทันทีที่รับ ไม่ว่ากำลังอยู่กลางคำสั่งอะไร (ตามสเปก ESC/POS) · byte ยังไหลเข้าตัวแปลคำสั่งตามปกติ (กลางภาพ = เป็นข้อมูลภาพ) */
   feed(data){ for(const b of data){ this.realtime(b); this.byte(b); } return this; }
+  feedParser(data){ for(const b of data) this.byte(b); return this; }   // ไม่ผ่านตัวตอบ real-time (ใช้กับปริ้นเตอร์มีบัฟเฟอร์ที่ตอบสถานะไปแล้วตอนรับ)
   realtime(b){
     const [p2, p1] = this.rt || [];
     if(p2 === 0x10 && p1 === 0x04 && b >= 1 && b <= 4) this.reply(b);
