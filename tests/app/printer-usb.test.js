@@ -11,12 +11,13 @@ const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 let errors = [], printed = 0, sent = [], failNext = false, usbListeners = {};
 /* ค้าง: hangJob = งานที่เท่าไร (นับจาก ESC @ ต้นงาน) ที่ transferOut ไม่ตอบ · ปิดการเชื่อมแล้ว transferOut ที่ค้างถูกยกเลิก (แบบ WebUSB) · closeHang = close ไม่ตอบ */
-let emu = new EscPosEmu(), hangPart = 0;   // hangPart = ปริ้นเตอร์รับก้อนที่ค้างไปแล้วกี่ byte (ค้างกลางรูป)
+let emu = new EscPosEmu(), hangPart = 0, statusHang = false, statusOverride = null;   // statusOverride = ตอบสถานะค่านี้แทนเครื่องจำลอง (ค่าผิดรูป)   // hangPart = ปริ้นเตอร์รับก้อนที่ค้างไปแล้วกี่ byte (ค้างกลางรูป)
 let jobs = 0, hangJob = 0, pending = null, closeHang = false, lateSent = 0, hangAt = -1, lateOk = false;   // lateOk = งานค้างตอบ ok หลังเชื่อมใหม่ (แทนที่จะถูกยกเลิก)   // hangAt = byte ที่ส่งแล้วตอนเริ่มค้าง
 /* ฟอนต์ตั๋วจำลอง: โหลดเสร็จหลังเปิดหน้า 200 ms · timeline เช็กว่าวาดตั๋ว (getContext) หลังฟอนต์พร้อมเท่านั้น */
 const timeline = []; let fontLoaded = false;
 const dev = {opened:false, productName:'XP-Q807K', configuration:null,
-  configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'out', type:'bulk', packetSize:64}]}]}]}],
+  configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'out', type:'bulk', packetSize:64}, {endpointNumber:2, direction:'in', type:'bulk', packetSize:64}]}]}]}],   // ตรงกับ XP-Q807K จริง (log printer-test 15 ต.ค.)
+  async transferIn(){ if(statusHang) return new Promise(() => {}); const e = emu.replies.shift(), v = statusOverride !== null ? statusOverride : e; return {status:'ok', data:new DataView(new Uint8Array(v === undefined ? [] : [].concat(v)).buffer)}; },
   async open(){ this.opened = true; }, async selectConfiguration(){ this.configuration = this.configurations[0]; this.configuration.interfaces.forEach(i => i.alternate = i.alternates[0]); },
   async claimInterface(){}, async releaseInterface(){},
   close(){ if(closeHang) return new Promise(() => {}); this.opened = false; if(pending){ const p = pending; pending = null; if(lateOk) setTimeout(() => p.ok({status:'ok'}), 150); else p.no(new Error('transfer cancelled')); } return Promise.resolve(); },
@@ -24,7 +25,8 @@ const dev = {opened:false, productName:'XP-Q807K', configuration:null,
     if(!this.opened){ lateSent += data.length; throw new Error('device closed'); }
     if(data[0] === 0x1B && data[1] === 0x40) jobs++;
     if(hangJob && jobs === hangJob){ hangJob = 0; hangAt = sent.length; if(hangPart) emu.feed(data.subarray(0, hangPart)); return new Promise((ok, no) => { pending = {ok, no}; }); }
-    if(failNext){ failNext = false; return {status:'stall'}; } sent.push(...data); emu.feed(data); return {status:'ok'}; }};
+    if(failNext && data[0] !== 0x10){ failNext = false; return {status:'stall'}; }   // ล้มที่งานพิมพ์ ไม่ใช่คำถามสถานะ
+    sent.push(...data); emu.feed(data); return {status:'ok'}; }};
 const fakeCtx = c => ({font:'', fillStyle:'', textAlign:'', textBaseline:'', measureText: s => ({width: String(s).length * 12}),
   fillRect(){}, fillText(){}, getImageData: (x, y, w, h) => { const d = new Uint8ClampedArray(w * h * 4).fill(255);   // ลายจุดคงที่ (ข้อมูลภาพมี byte หลากหลาย เหมือนตั๋วจริง)
     for(let j = 0; j < h; j++) for(let i = 0; i < w; i++) if((i * 7 + j * 13) % 11 < 4){ const k = (j * w + i) * 4; d[k] = d[k + 1] = d[k + 2] = 0; }
@@ -58,8 +60,10 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('fonts: first slip drawn only after fonts loaded', timeline.indexOf('loaded') >= 0 && timeline.indexOf('loaded') < timeline.indexOf('draw'), true);
     const R0 = w.eval('ESCPOS.recover(false).length'), z = R0 - 2;
     eq('first job after connecting: clears any half-received image command first (zeros ≥ one band, then ESC @), no extra cut', [sent.slice(0, z).every(b => b === 0), sent.slice(z, R0), z >= 8 + 72 * w.eval('PRINTER.band')], [true, [0x1B, 0x40], true]);
+    eq('then asks status via ep2 IN (DLE EOT 2, DLE EOT 4)', [w.eval('usbPrinter.epIn'), sent.slice(R0, R0 + 6)], [2, [0x10, 0x04, 0x02, 0x10, 0x04, 0x04]]);
+    const S0 = R0 + 6;
     eq('2 slips: 2 cuts', count(sent, [0x1D, 0x56, 0x42, 0x00]), 2);
-    eq('slip starts with ESC @ · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(R0, R0 + 2), sent.slice(R0 + 2, R0 + 8), sent[R0 + 8], sent[R0 + 9]], [[0x1B, 0x40], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
+    eq('slip starts with ESC @ · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(S0, S0 + 2), sent.slice(S0 + 2, S0 + 8), sent[S0 + 8], sent[S0 + 9]], [[0x1B, 0x40], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
     eq('ends with cut', sent.slice(-4), [0x1D, 0x56, 0x42, 0x00]);
     eq('blocks: kitchen ticket content', w.eval('kitchenBlocks(lastSale)').slice(0, 2).map(b => b.text), ['#001', 'กินเลย']);
     eq('blocks: dine-in is a framed box, no solid black band', w.eval('kitchenBlocks(lastSale)').slice(1, 2).map(b => [b.box, !!b.invert]), [['single', false]]);
@@ -69,7 +73,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('rapid taps (4× each): one kitchen + one receipt only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40])], [2, 2]);
     // พิมพ์ซ้ำทีละใบหลังใบก่อนเสร็จ → ส่งต่อกันเป็นลำดับ ไม่ปนกัน
     sent = []; w.eval('printSale(lastSale, "receipt", true)'); await wait(150); w.eval('printSale(lastSale, "kitchen", true)'); await wait(150);
-    eq('one job per slip: receipt and kitchen each start with ESC @ and end with a cut', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40]), sent[0] === 0x1B && sent[1] === 0x40], [2, 2, true]);
+    eq('one job per slip (status asked first): receipt and kitchen each start with ESC @ and end with a cut', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40]), sent.slice(0, 8)], [2, 2, [0x10, 0x04, 0x02, 0x10, 0x04, 0x04, 0x1B, 0x40]]);
     // ส่งไม่สำเร็จ → แถบส้ม ห้ามเด้งหน้าพิมพ์ของระบบเอง
     failNext = true; w.eval('printSale(lastSale)'); await wait(250);
     eq('send failure: no browser print popped, fail bar + status say not out', [printed, !!$('#printFail'), $('#prStatus').className.includes('warn')], [0, true, true]);
@@ -160,22 +164,28 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('H29 reprint after mid-image stop: no garbage text anywhere · receipt + kitchen complete and exact · old fragment cut off as its own piece',
       [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('receipt'), last2[1] === want('kitchen'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);
     // ---------- H30 สถานะก่อนพิมพ์ (DLE EOT 2/4) เฉพาะเครื่องที่มี bulk IN · XP-Q807K ที่วัดจริงมีแต่ ep1 OUT จึงข้ามข้อนี้บนเครื่องจริง ----------
-    eq('H30 no bulk IN (like the real XP-Q807K record): status not asked, prints as usual', w.eval('[usbPrinter.epIn, usbPrinter.status === undefined]'), [null, false]);
-    let statusHang = false;
-    dev.configurations[0].interfaces[0].alternates[0].endpoints.push({endpointNumber:2, direction:'in', type:'bulk', packetSize:64});
-    dev.transferIn = async () => { if(statusHang) return new Promise(() => {}); const v = emu.replies.shift(); return {status:'ok', data:new DataView(new Uint8Array(v === undefined ? [] : [v]).buffer)}; };
+    eq('H30 parse: normal 0x12 · lid 0x16 · paper stop 0x32 / sensor 0x72 · near end 0x1E · bad shapes invalid', w.eval(`[[0x12, 0x12], [0x16, 0x12], [0x32, 0x12], [0x12, 0x72], [0x12, 0x1E], [0xFF, 0x12], [0x12, null]].map(([a, b]) => { const p = UsbPrinter.parseStatus(a, b); return [p.valid, p.cover, p.paper, p.near]; })`),
+      [[true, false, false, false], [true, true, false, false], [true, false, true, false], [true, false, true, false], [true, false, false, true], [false, false, false, false], [false, false, false, false]]);
     w.eval('usbPrinter.forget(); renderPrinterBtn()'); $('#btnPrinter').click(); await wait(100);
-    eq('H30 printer with bulk IN found', w.eval('usbPrinter.epIn'), 2);
+    eq('H30 printer with bulk IN found (ep2)', w.eval('usbPrinter.epIn'), 2);
     $('#nextOrder') && $('#nextOrder').click(); w.eval('PRINT_FAILS = []; renderFailBar()');
     emu.cover = true; sent = []; sell(); const sC = w.eval('lastSale.id'); await wait(300);
     eq('H30 lid open: slips not sent · bar says lid open · success screen says so', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ'), $('#prStatus').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่'), w.eval(`PRINTED.get(${sC})`)],
-      [0, true, true, {receipt:'fail', kitchen:'fail'}]);
-    emu.cover = false; sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(300);
+      [0, true, true, {receipt:'fail', kitchen:'fail', blocked:true}]);
+    sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(300);
+    eq('H30 status still says lid open but staff presses reprint: send anyway (a misread must never block printing)', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail')], [2, false]);
+    emu.cover = false; $('#nextOrder').click(); emu.cover = true; sell(); await wait(300); emu.cover = false; sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(300);
     eq('H30 lid closed → reprint: both slips · bar gone', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail')], [2, false]);
+    $('#nextOrder').click(); statusOverride = 0xFF; const warns = []; w.console.warn = (...a) => warns.push(a.join(' ')); sent = []; sell(); await wait(300);
+    eq('H30 answer looks wrong (0xFF): print anyway + log · keeps asking next time', [count(sent, [0x1D, 0x56, 0x42, 0x00]), warns.some(x => x.includes('looks wrong')), w.eval('usbPrinter.noStatus')], [2, true, false]);
+    statusOverride = null; w.console.warn = () => {};
+    $('#nextOrder').click(); emu.near = true; sent = []; sell(); await wait(300);
+    eq('H30 paper near end: still prints (not blocked) + heads-up message', [count(sent, [0x1D, 0x56, 0x42, 0x00]), d.body.textContent.includes('กระดาษใกล้หมด')], [2, true]);
+    emu.near = false;
     $('#nextOrder').click(); emu.paper = false; sent = []; sell(); await wait(300);
     eq('H30 out of paper: not sent · bar says out of paper', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ')], [0, true]);
     emu.paper = true; d.querySelector('#printFail .pfbtn').click(); await wait(300); $('#nextOrder').click();
-    statusHang = true; sent = []; sell(); await wait(1100);
+    emu.near = false; statusHang = true; sent = []; sell(); await wait(1100);
     eq('H30 printer does not answer status within 500 ms: prints anyway · stops asking until reconnect', [count(sent, [0x1D, 0x56, 0x42, 0x00]), w.eval('usbPrinter.noStatus')], [2, true]);
     statusHang = false;
     // ปิดการเชื่อมไม่ได้ → บอกในข้อความ

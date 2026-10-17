@@ -49,6 +49,7 @@ class EscPosEmu {
       const n = c[2]; let v = 0x12;
       if(n === 2){ if(this.cover) v |= 0x04; if(!this.paper) v |= 0x20; }
       if(n === 4 && !this.paper) v |= 0x60;
+      if(n === 4 && this.near) v |= 0x0C;
       this.replies.push(v);
     }
   }

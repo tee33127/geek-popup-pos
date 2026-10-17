@@ -2,12 +2,13 @@
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '../..');
 class Files extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(ROOT, new URL(u).pathname))); } }
-let errors = [], sent = [], permitted = [], usbEvents = new EventTarget();
+let errors = [], sent = [], permitted = [], usbEvents = new EventTarget(), stat = {2:0x12, 4:0x12}, lastAsk = 0, statHang = false;   // stat = ค่าที่เครื่องปลอมตอบ DLE EOT n
 const fakeDevice = () => ({vendorId:0x0483, productId:0x5743, manufacturerName:'Xprinter', productName:'XP-Q807K', opened:false, configuration:null,
   configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'in', type:'bulk', packetSize:64}, {endpointNumber:2, direction:'out', type:'bulk', packetSize:64}]}]}]}],
   async open(){ this.opened = true; }, async close(){ this.opened = false; },
   async selectConfiguration(){ this.configuration = this.configurations[0]; }, async claimInterface(){}, async releaseInterface(){},
-  async transferOut(ep, data){ sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; }});
+  async transferOut(ep, data){ if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; return {status:'ok', bytesWritten:3}; } sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
+  async transferIn(ep){ if(statHang) return new Promise(() => {}); return {status:'ok', data:new DataView(new Uint8Array([stat[lastAsk]]).buffer)}; }});
 const dev = fakeDevice();
 JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerously', resources:new Files(), url:'http://localhost/printer-test/index.html', pretendToBeVisual:true,
   beforeParse(w){
@@ -27,7 +28,18 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     $('#btnConnect').click(); await wait(50);
     eq('connected status', $('#status').textContent, 'เชื่อมแล้ว · XP-Q807K');
     eq('tests enabled', $('[data-test="text"]').disabled, false);
-    eq('device described in log', logText().includes('vendor 0x0483 product 0x5743') && logText().includes('class 7 (Printer)'), true);
+    eq('device described in log · status comes back on the IN endpoint', [logText().includes('vendor 0x0483 product 0x5743') && logText().includes('class 7 (Printer)'), logText().includes('รับสถานะกลับทาง ep1')], [true, true]);
+    // อ่านสถานะเครื่อง: byte ดิบ + บิต + ความหมาย
+    $('[data-test="status"]').click(); await wait(50);
+    eq('status normal: raw bytes with bits + meaning', [logText().includes('DLE EOT 2 (สาเหตุหยุด): 0x12 (00010010)'), logText().includes('DLE EOT 4 (กระดาษ): 0x12 (00010010)'), logText().includes('แปลว่า: ปกติ')], [true, true, true]);
+    stat = {2:0x16, 4:0x72}; $('[data-test="status"]').click(); await wait(50);
+    eq('lid open + paper out', logText().includes('แปลว่า: ฝาเปิด · กระดาษหมด'), true);
+    stat = {2:0x12, 4:0x1E}; $('[data-test="status"]').click(); await wait(50);
+    eq('paper near end', logText().includes('แปลว่า: กระดาษใกล้หมด'), true);
+    stat = {2:0xFF, 4:0x12}; $('[data-test="status"]').click(); await wait(50);
+    eq('odd value: says cannot read, app keeps printing', logText().includes('อ่านค่าไม่ออก (รูปแบบไม่ตรงมาตรฐาน · แอปจะพิมพ์ต่อตามปกติ)'), true);
+    statHang = true; $('[data-test="status"]').click(); await wait(1150); statHang = false; stat = {2:0x12, 4:0x12};
+    eq('no answer: says so after timeout, page not stuck', [logText().includes('อ่านสถานะไม่ได้ · ไม่ตอบใน 1000 ms'), $('[data-test="text"]').disabled], [true, false]);
     $('[data-test="text"]').click(); await wait(50);
     eq('text sent to OUT ep2, starts with ESC @', [sent[0].ep, sent[0].data.slice(0, 2)], [2, [0x1B, 0x40]]);
     eq('text content', String.fromCharCode(...sent[0].data).includes('Geek Pop-up POS - printer test'), true);

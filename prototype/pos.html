@@ -577,7 +577,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'d255159c2534', built:'2026-10-17T06:17:32.139Z'};
+const APP_VERSION = {v:'6ccc0c710383', built:'2026-10-17T06:28:42.965Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -1480,22 +1480,36 @@ class UsbPrinter {
     this.dirty = this.dirty || 'open';   // เชื่อมใหม่ทุกครั้ง: ไม่รู้ว่าเครื่องค้างกลางคำสั่งอยู่ไหม ล้างก่อนงานแรก (ล้มกลางงาน = 'fail' ตั้งจากฝั่งแอป)
     return d;
   }
-  /* สถานะก่อนพิมพ์ (DLE EOT 2 / 4): {cover, paper} · อ่านไม่ได้ / ไม่ตอบภายใน ms / คำตอบผิดรูป = null (ข้ามไปพิมพ์ตามปกติ ห้ามทำให้พิมพ์ไม่ได้)
-     ไม่ตอบครั้งเดียว = ไม่ถามอีกจนเชื่อมใหม่ (transferIn ที่ค้างอาจได้คำตอบเก่ามาปน) */
-  async status(ms = PRINTER.statusMs){
-    if(!this.connected || this.epIn == null || this.noStatus) return null;
+  /* สถานะเครื่อง DLE EOT 2 (สาเหตุออฟไลน์) และ 4 (เซนเซอร์กระดาษ) ผ่าน bulk IN · XP-Q807K มี ep2 IN (log printer-test 15 ต.ค.)
+     แปลความหมาย: รูปแบบถูกต้อง = bit 1, 4 เป็น 1 · bit 0, 7 เป็น 0 (v & 0x93 = 0x12)
+     2: bit 2 ฝาเปิด · bit 5 หยุดเพราะกระดาษหมด · bit 6 ผิดพลาด   4: bit 2-3 กระดาษใกล้หมด · bit 5-6 กระดาษหมด */
+  static parseStatus(s2, s4){
+    const ok = v => v !== null && v !== undefined && (v & 0x93) === 0x12, v2 = ok(s2), v4 = ok(s4);
+    return {valid: v2 && v4, cover: v2 && !!(s2 & 0x04), paper: (v2 && !!(s2 & 0x20)) || (v4 && (s4 & 0x60) === 0x60), near: v4 && (s4 & 0x0C) === 0x0C, error: v2 && !!(s2 & 0x40)};
+  }
+  /* อ่าน byte ดิบ (ใช้ทั้งแอปและ printer-test) · ข้อละไม่เกิน ms · ไม่ตอบ = throw · คืน {s2, s4, raw2, raw4} (raw = byte ทั้งหมดที่ได้ ใช้ byte สุดท้าย) */
+  async readStatus(ms = PRINTER.statusMs){
+    if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
+    if(this.epIn == null) throw new Error('เครื่องนี้ไม่มีช่องรับข้อมูลกลับ (bulk IN)');
     const dev = this.dev, ep = this.ep, epIn = this.epIn;
+    const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('ไม่ตอบใน ' + ms + ' ms')), ms))]);
     const ask = async n => {
       await dev.transferOut(ep, new Uint8Array([0x10, 0x04, n]));
-      const r = await dev.transferIn(epIn, 64), v = r.data && r.data.byteLength ? r.data.getUint8(r.data.byteLength - 1) : -1;
-      if(v < 0 || (v & 0x93) !== 0x12) throw new Error('bad status');   // รูปแบบคำตอบ: bit 1, 4 = 1 · bit 0, 7 = 0
-      return v;
+      const r = await dev.transferIn(epIn, 64), d = r.data;
+      return d ? Array.from({length:d.byteLength}, (_, i) => d.getUint8(i)) : [];
     };
-    const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('status timeout')), ms))]);
-    try{
-      const s2 = await within(ask(2)), s4 = await within(ask(4));
-      return {cover: !!(s2 & 0x04), paper: !!(s2 & 0x20) || (s4 & 0x60) === 0x60};
-    }catch(e){ this.noStatus = true; return null; }
+    const raw2 = await within(ask(2)), raw4 = await within(ask(4));
+    return {raw2, raw4, s2: raw2.length ? raw2[raw2.length - 1] : null, s4: raw4.length ? raw4[raw4.length - 1] : null};
+  }
+  /* ก่อนพิมพ์: {cover, paper, near} · ห้ามทำให้พิมพ์ไม่ได้: ไม่มี IN / ไม่ตอบ / ค่าผิดรูป = null (พิมพ์ตามปกติ)
+     ไม่ตอบ = ไม่ถามอีกจนเชื่อมใหม่ (transferIn ที่ค้างอาจได้คำตอบเก่ามาปน) · ค่าผิดรูป = log แล้วพิมพ์ต่อ (ถามใหม่ครั้งหน้า) */
+  async status(ms = PRINTER.statusMs){
+    if(!this.connected || this.epIn == null || this.noStatus) return null;
+    let r;
+    try{ r = await this.readStatus(ms); }catch(e){ this.noStatus = true; console.warn('printer status: no answer, printing anyway', e && e.message); return null; }
+    const p = UsbPrinter.parseStatus(r.s2, r.s4);
+    if(!p.valid){ console.warn('printer status looks wrong, printing anyway', JSON.stringify(r)); return null; }
+    return {cover:p.cover, paper:p.paper, near:p.near};
   }
   async send(data, chunk = PRINTER.chunk){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
@@ -4268,7 +4282,7 @@ const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช�
 /* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ก่อนส่ง (เฉพาะเครื่องที่มี bulk IN) จึงไม่ส่งงาน (Tee 2026-10-17) */
 const FAIL_MSG = {stuck:STUCK_MSG, cover:'ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
 const FAIL_HINT = {stuck:'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:'ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
-let printWhy = 'stuck';
+let printWhy = 'stuck', nearWarned = false;   // nearWarned = เตือนกระดาษใกล้หมดแล้ว (ครั้งเดียวต่อการเปิดแอป)
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
 const SLIP_NAME = {receipt:'ใบเสร็จ', kitchen:'ตั๋วครัว', both:'ใบเสร็จ + ตั๋วครัว'};
@@ -4308,7 +4322,14 @@ function printJobs(jobs, st){
     let res = 'ok';
     if(usbPrinter.connected && gen === printGen){
       if(usbPrinter.dirty){ const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
-      if(res === 'ok'){ const ps = await usbPrinter.status(); if(ps && (ps.cover || ps.paper)) res = ps.cover ? 'cover' : 'paper'; }
+      if(res === 'ok'){
+        const ps = await usbPrinter.status();
+        if(ps && (ps.cover || ps.paper)){
+          if(st.blocked) console.warn('printer status still says', ps.cover ? 'cover open' : 'paper out', '· staff pressed reprint, sending anyway');   // บอกปัญหาไปแล้วครั้งหนึ่ง พนักงานกดซ้ำ = ส่งเลย (อ่านค่าผิดต้องไม่ทำให้พิมพ์ไม่ได้)
+          else res = ps.cover ? 'cover' : 'paper';
+        }
+        if(ps && ps.near && !nearWarned){ nearWarned = true; toast('กระดาษใกล้หมด เตรียมม้วนใหม่ไว้', 'alert', 4000); }
+      }
     }
     for(const [k, bl] of jobs){
       if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
@@ -4318,7 +4339,8 @@ function printJobs(jobs, st){
       if(res === 'error') console.warn('usb print', r);
     }
     if(res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
-    if(res === 'cover' || res === 'paper'){ printWhy = res; toast(FAIL_MSG[res], 'alert', 6000); }
+    if(res === 'cover' || res === 'paper'){ printWhy = res; st.blocked = true; toast(FAIL_MSG[res], 'alert', 6000); }
+    else if(res === 'ok') delete st.blocked;
     if(res === 'timeout'){ printWhy = 'stuck'; const cleared = await printerStuck(); printFailBar(cleared); }
     else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
     return res;

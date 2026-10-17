@@ -71,6 +71,7 @@
         <button data-test="ruler" disabled>📏 ความกว้างกระดาษ<small>ต้องเห็นกรอบครบ 2 ข้าง</small></button>
         <button data-test="cut" disabled>✂️ ตัดกระดาษ</button>
         <button data-test="drawer" disabled>💰 เปิดลิ้นชัก<small>ไม่มีลิ้นชักก็กดได้ ไม่เสียหาย</small></button>
+        <button data-test="status" disabled>📡 อ่านสถานะเครื่อง<small>ลองเปิดฝา / ถอดกระดาษ แล้วกดดูค่า</small></button>
         <button data-test="disconnect" disabled>⏏️ ตัดการเชื่อม</button>
       </div>
       <details>
@@ -164,7 +165,7 @@ function explain(e){
 async function connected(how){
   log(`เชื่อมสำเร็จ (${how})`, 'ok');
   log(UsbPrinter.describe(P.dev));
-  log(`ใช้ interface ${P.found.iface} class ${P.found.cls}${P.found.cls === 7 ? ' (Printer)' : ''} · ส่งทาง ep${P.found.ep} packet ${P.found.packet}B`);
+  log(`ใช้ interface ${P.found.iface} class ${P.found.cls}${P.found.cls === 7 ? ' (Printer)' : ''} · ส่งทาง ep${P.found.ep} packet ${P.found.packet}B · ${P.epIn != null ? 'รับสถานะกลับทาง ep' + P.epIn : 'ไม่มีช่องรับกลับ (อ่านสถานะไม่ได้)'}`);
   setConnected();
 }
 $('btnConnect').onclick = async () => {
@@ -253,6 +254,16 @@ const TESTS = {
   ruler: async () => { await slipFontsReady(); const o = opt(), c = rulerCanvas(o.dots); showPreview([c]); return send(`ความกว้าง ${o.dots} จุด`, bytes(ESCPOS.init(), canvasCmds(c, o.thr), ESCPOS.feed(4))); },
   cut: () => send('ตัดกระดาษ', bytes(ESCPOS.feed(1), opt().cut)),
   drawer: () => send(`เปิดลิ้นชัก (ขา ${opt().pin ? 5 : 2})`, bytes(ESCPOS.drawer(opt().pin))),
+  /* อ่านสถานะ DLE EOT 2 / 4 (ตัวเดียวกับที่แอปเช็กก่อนพิมพ์) · แสดง byte ดิบ + บิต + ความหมาย ให้เทียบกับของจริง (เปิดฝา / ถอดกระดาษ) */
+  status: async () => {
+    const hx = a => a.length ? a.map(v => `0x${v.toString(16).padStart(2, '0').toUpperCase()} (${v.toString(2).padStart(8, '0')})`).join(' ') : 'ไม่มีข้อมูล';
+    try{
+      const r = await P.readStatus(1000), p = UsbPrinter.parseStatus(r.s2, r.s4);
+      log(`สถานะดิบ · DLE EOT 2 (สาเหตุหยุด): ${hx(r.raw2)} · DLE EOT 4 (กระดาษ): ${hx(r.raw4)}`);
+      const m = [p.cover && 'ฝาเปิด', p.paper && 'กระดาษหมด', p.near && 'กระดาษใกล้หมด', p.error && 'เครื่องแจ้งผิดพลาด'].filter(Boolean).join(' · ');
+      log(`แปลว่า: ${!p.valid ? 'อ่านค่าไม่ออก (รูปแบบไม่ตรงมาตรฐาน · แอปจะพิมพ์ต่อตามปกติ)' : m || 'ปกติ'}`, !p.valid || p.cover || p.paper || p.error ? 'bad' : 'ok');
+    }catch(e){ log(`อ่านสถานะไม่ได้ · ${e.message}${/ไม่ตอบ/.test(e.message) ? ' (กดอีกครั้งอาจได้ค่าเก่าค้าง ถ้าแปลกให้ถอดสายแล้วเสียบใหม่)' : ''}`, 'bad'); }
+  },
   disconnect: async () => { await P.close(); log('ตัดการเชื่อมแล้ว (เครื่องยังจำการอนุญาตไว้)'); setConnected(); },
 };
 let busy = false;
@@ -274,6 +285,7 @@ const CHECKS = [
   'ตัดกระดาษอัตโนมัติ และตัดแยกใบเสร็จกับตั๋วครัว',
   'ถอดสาย/ปิด-เปิดหน้า แล้วยังพิมพ์ได้โดยไม่ต้องเลือกเครื่องใหม่',
   'โหมดเครื่องบิน: เปิดหน้านี้แล้วพิมพ์ได้',
+  'อ่านสถานะเครื่อง: ปกติ / เปิดฝา / ถอดกระดาษ แล้วค่าเปลี่ยนตรงความจริง (คัดลอก log ส่งให้ Claude)',
   'ถ่ายรูปตั๋วส่งให้ Claude',
 ];
 const CK = 'geek_printer_test_v1';

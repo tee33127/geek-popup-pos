@@ -23,7 +23,7 @@ const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช�
 /* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ก่อนส่ง (เฉพาะเครื่องที่มี bulk IN) จึงไม่ส่งงาน (Tee 2026-10-17) */
 const FAIL_MSG = {stuck:STUCK_MSG, cover:'ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
 const FAIL_HINT = {stuck:'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:'ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
-let printWhy = 'stuck';
+let printWhy = 'stuck', nearWarned = false;   // nearWarned = เตือนกระดาษใกล้หมดแล้ว (ครั้งเดียวต่อการเปิดแอป)
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
 const SLIP_NAME = {receipt:'ใบเสร็จ', kitchen:'ตั๋วครัว', both:'ใบเสร็จ + ตั๋วครัว'};
@@ -63,7 +63,14 @@ function printJobs(jobs, st){
     let res = 'ok';
     if(usbPrinter.connected && gen === printGen){
       if(usbPrinter.dirty){ const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
-      if(res === 'ok'){ const ps = await usbPrinter.status(); if(ps && (ps.cover || ps.paper)) res = ps.cover ? 'cover' : 'paper'; }
+      if(res === 'ok'){
+        const ps = await usbPrinter.status();
+        if(ps && (ps.cover || ps.paper)){
+          if(st.blocked) console.warn('printer status still says', ps.cover ? 'cover open' : 'paper out', '· staff pressed reprint, sending anyway');   // บอกปัญหาไปแล้วครั้งหนึ่ง พนักงานกดซ้ำ = ส่งเลย (อ่านค่าผิดต้องไม่ทำให้พิมพ์ไม่ได้)
+          else res = ps.cover ? 'cover' : 'paper';
+        }
+        if(ps && ps.near && !nearWarned){ nearWarned = true; toast('กระดาษใกล้หมด เตรียมม้วนใหม่ไว้', 'alert', 4000); }
+      }
     }
     for(const [k, bl] of jobs){
       if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
@@ -73,7 +80,8 @@ function printJobs(jobs, st){
       if(res === 'error') console.warn('usb print', r);
     }
     if(res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
-    if(res === 'cover' || res === 'paper'){ printWhy = res; toast(FAIL_MSG[res], 'alert', 6000); }
+    if(res === 'cover' || res === 'paper'){ printWhy = res; st.blocked = true; toast(FAIL_MSG[res], 'alert', 6000); }
+    else if(res === 'ok') delete st.blocked;
     if(res === 'timeout'){ printWhy = 'stuck'; const cleared = await printerStuck(); printFailBar(cleared); }
     else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
     return res;
