@@ -513,3 +513,5 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 .donebtns button .ic{vertical-align:-4px}
 .donebtns button:disabled{opacity:.5}
 .ghost.accent{background:var(--orange-soft);color:#7a3e00;border:2px solid var(--orange)}
+/* แถบเขียวสั้นๆ: ใบที่ค้างพิมพ์ออกครบแล้ว (Tee 2026-10-17) */
+#printOk{position:relative;z-index:5;background:#e8f5ee;color:var(--ok);border-bottom:2px solid var(--ok);padding:8px 12px;font-weight:700;line-height:1.4;text-align:center}

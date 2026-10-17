@@ -44,4 +44,12 @@ eq('findOut prefers printer class', ev('UsbPrinter.findOut(cfg)'), {iface:1, alt
 ctx.cfg2 = {interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'in', type:'bulk', packetSize:64}]}]}]};
 eq('findOut none', ev('UsbPrinter.findOut(cfg2)'), null);
 eq('no WebUSB in node', ev('UsbPrinter.supported()'), false);
+// ตัวแปลสถานะ DLE EOT 2/4 กับค่าจริงของ XP-Q807K (printer-test บนเครื่องจริง 2026-10-17)
+const FIX = [['ปกติ', 0x12, 0x12, {valid:true, cover:false, paper:false, near:false}],
+  ['เปิดฝา (เซนเซอร์กระดาษใต้ฝาบอกหมดด้วย)', 0x36, 0x72, {valid:true, cover:true, paper:false, near:false}],
+  ['ไม่มีกระดาษ ฝาปิด', 0x32, 0x72, {valid:true, cover:false, paper:true, near:false}],
+  ['กระดาษใกล้หมด (ตามมาตรฐาน ยังไม่ได้วัดจริง)', 0x12, 0x1E, {valid:true, cover:false, paper:false, near:true}],
+  ['ค่าผิดรูป', 0xFF, 0x12, {valid:false, cover:false, paper:false, near:false}]];
+FIX.forEach(([n, a, b, want]) => { const p = ev(`UsbPrinter.parseStatus(${a}, ${b})`); eq(`status ${n} 0x${a.toString(16)}/0x${b.toString(16)}`, {valid:p.valid, cover:p.cover, paper:p.paper, near:p.near}, want); });
+eq('busy: claimInterface NetworkError detected', [ev("UsbPrinter.isBusy({name:'NetworkError', message:\"Failed to execute 'claimInterface' on 'USBDevice': Unable to claim interface.\"})"), ev("UsbPrinter.isBusy({name:'NetworkError', message:'transfer error'})")], [true, false]);
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);

@@ -72,7 +72,7 @@
         <button data-test="cut" disabled>✂️ ตัดกระดาษ</button>
         <button data-test="drawer" disabled>💰 เปิดลิ้นชัก<small>ไม่มีลิ้นชักก็กดได้ ไม่เสียหาย</small></button>
         <button data-test="status" disabled>📡 อ่านสถานะเครื่อง<small>ลองเปิดฝา / ถอดกระดาษ แล้วกดดูค่า</small></button>
-        <button data-test="disconnect" disabled>⏏️ ตัดการเชื่อม</button>
+        <button data-test="disconnect" disabled>⏏️ ปล่อยปริ้นเตอร์<small>ให้แอป POS เชื่อมได้ (ปิดหน้านี้ก็ปล่อยเอง)</small></button>
       </div>
       <details>
         <summary>ตั้งค่าขั้นสูง (ใช้เมื่อพิมพ์ออกมาไม่ถูก)</summary>
@@ -154,6 +154,7 @@ function setConnected(){
   document.querySelectorAll('[data-test]').forEach(b => b.disabled = !on);
 }
 function explain(e){
+  if(UsbPrinter.isBusy(e)) return `${PRINTER_BUSY_MSG} · [${e.name}] ${e.message}`;
   const m = {
     NotFoundError: 'ไม่ได้เลือกเครื่อง หรือไม่เจออุปกรณ์ USB (เช็กสาย OTG / เปิดปริ้นเตอร์)',
     SecurityError: 'เบราว์เซอร์ไม่อนุญาตให้ใช้อุปกรณ์นี้',
@@ -264,9 +265,11 @@ const TESTS = {
       log(`แปลว่า: ${!p.valid ? 'อ่านค่าไม่ออก (รูปแบบไม่ตรงมาตรฐาน · แอปจะพิมพ์ต่อตามปกติ)' : m || 'ปกติ'}`, !p.valid || p.cover || p.paper || p.error ? 'bad' : 'ok');
     }catch(e){ log(`อ่านสถานะไม่ได้ · ${e.message}${/ไม่ตอบ/.test(e.message) ? ' (กดอีกครั้งอาจได้ค่าเก่าค้าง ถ้าแปลกให้ถอดสายแล้วเสียบใหม่)' : ''}`, 'bad'); }
   },
-  disconnect: async () => { await P.close(); log('ตัดการเชื่อมแล้ว (เครื่องยังจำการอนุญาตไว้)'); setConnected(); },
+  disconnect: async () => { await P.close(); log('ปล่อยปริ้นเตอร์แล้ว (releaseInterface + close) · แอป POS เชื่อมได้ · เครื่องยังจำการอนุญาตไว้'); setConnected(); },
 };
 let busy = false;
+/* ปิด/ออกจากหน้านี้ → ปล่อยปริ้นเตอร์ให้แอป POS (ไม่งั้นแอปจะเชื่อมไม่ได้ "ปริ้นเตอร์ถูกใช้อยู่ในหน้าอื่น") */
+addEventListener('pagehide', () => { if(P.dev) P.close().catch(() => {}); });
 document.querySelector('.tests').onclick = async e => {
   const b = e.target.closest('[data-test]'); if(!b || busy) return;
   busy = true; b.disabled = true;

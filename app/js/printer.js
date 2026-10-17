@@ -191,6 +191,7 @@ function renderSlip(blocks, dots = PRINTER.dots, canvas, tail = SLIP_TAIL){
 const canvasCmds = (canvas, threshold) => rasterCmds(rasterize(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), threshold));
 
 /* ---------- WebUSB ---------- */
+const PRINTER_BUSY_MSG = 'ปริ้นเตอร์ถูกใช้อยู่ในหน้าอื่น — ปิดหน้าอื่น (แอป POS หรือหน้าทดสอบ) แล้วกดเชื่อมอีกครั้ง';
 const hex4 = n => '0x' + n.toString(16).padStart(4, '0');
 class UsbPrinter {
   constructor(){ this.dev = null; this.iface = null; this.ep = null; }
@@ -227,7 +228,8 @@ class UsbPrinter {
     if(!d.configuration) await d.selectConfiguration(1);
     const f = UsbPrinter.findOut(d.configuration);
     if(!f) throw new Error('ไม่พบช่องส่งข้อมูล (bulk OUT) ในอุปกรณ์นี้');
-    await d.claimInterface(f.iface);
+    try{ await d.claimInterface(f.iface); }
+    catch(e){ try{ if(d.opened) await d.close(); }catch(x){} throw e; }   // จับไม่ได้ (อีกหน้าใช้อยู่) → ปิดที่เปิดค้างไว้ ไม่ถือเครื่องครึ่งๆ
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
     this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
     this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false;
@@ -236,11 +238,16 @@ class UsbPrinter {
   }
   /* สถานะเครื่อง DLE EOT 2 (สาเหตุออฟไลน์) และ 4 (เซนเซอร์กระดาษ) ผ่าน bulk IN · XP-Q807K มี ep2 IN (log printer-test 15 ต.ค.)
      แปลความหมาย: รูปแบบถูกต้อง = bit 1, 4 เป็น 1 · bit 0, 7 เป็น 0 (v & 0x93 = 0x12)
-     2: bit 2 ฝาเปิด · bit 5 หยุดเพราะกระดาษหมด · bit 6 ผิดพลาด   4: bit 2-3 กระดาษใกล้หมด · bit 5-6 กระดาษหมด */
+     2: bit 2 ฝาเปิด · bit 5 หยุดเพราะกระดาษหมด · bit 6 ผิดพลาด   4: bit 2-3 กระดาษใกล้หมด · bit 5-6 กระดาษหมด
+     ค่าจริง XP-Q807K (printer-test 2026-10-17): ปกติ 0x12/0x12 · เปิดฝา 0x36/0x72 · ไม่มีกระดาษ (ฝาปิด) 0x32/0x72
+     ฝาเปิด เซนเซอร์กระดาษ (อยู่ใต้ฝา) บอกว่ากระดาษหมดเสมอ → ฝาเปิด = บอกแค่ฝาเปิด · กระดาษหมด/ใกล้หมด เชื่อได้เฉพาะตอนฝาปิด */
   static parseStatus(s2, s4){
     const ok = v => v !== null && v !== undefined && (v & 0x93) === 0x12, v2 = ok(s2), v4 = ok(s4);
-    return {valid: v2 && v4, cover: v2 && !!(s2 & 0x04), paper: (v2 && !!(s2 & 0x20)) || (v4 && (s4 & 0x60) === 0x60), near: v4 && (s4 & 0x0C) === 0x0C, error: v2 && !!(s2 & 0x40)};
+    const cover = v2 && !!(s2 & 0x04);
+    return {valid: v2 && v4, cover, paper: !cover && ((v2 && !!(s2 & 0x20)) || (v4 && (s4 & 0x60) === 0x60)), near: !cover && v4 && (s4 & 0x0C) === 0x0C, error: v2 && !!(s2 & 0x40)};
   }
+  /* claimInterface ไม่ได้ = อีกหน้า (แอป POS / printer-test) จับปริ้นเตอร์ไว้ */
+  static isBusy(e){ return !!e && (e.name === 'NetworkError' || e.name === 'InvalidStateError') && /claim/i.test(e.message || ''); }
   /* อ่าน byte ดิบ (ใช้ทั้งแอปและ printer-test) · ข้อละไม่เกิน ms · ไม่ตอบ = throw · คืน {s2, s4, raw2, raw4} (raw = byte ทั้งหมดที่ได้ ใช้ byte สุดท้าย) */
   async readStatus(ms = PRINTER.statusMs){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');

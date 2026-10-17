@@ -2,11 +2,13 @@
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '../..');
 class Files extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(ROOT, new URL(u).pathname))); } }
+let claimBusy = false, released = 0;
 let errors = [], sent = [], permitted = [], usbEvents = new EventTarget(), stat = {2:0x12, 4:0x12}, lastAsk = 0, statHang = false;   // stat = ค่าที่เครื่องปลอมตอบ DLE EOT n
 const fakeDevice = () => ({vendorId:0x0483, productId:0x5743, manufacturerName:'Xprinter', productName:'XP-Q807K', opened:false, configuration:null,
   configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'in', type:'bulk', packetSize:64}, {endpointNumber:2, direction:'out', type:'bulk', packetSize:64}]}]}]}],
   async open(){ this.opened = true; }, async close(){ this.opened = false; },
-  async selectConfiguration(){ this.configuration = this.configurations[0]; }, async claimInterface(){}, async releaseInterface(){},
+  async selectConfiguration(){ this.configuration = this.configurations[0]; },
+  async claimInterface(){ if(claimBusy){ const e = new Error("Failed to execute 'claimInterface' on 'USBDevice': Unable to claim interface."); e.name = 'NetworkError'; throw e; } }, async releaseInterface(){ released++; },
   async transferOut(ep, data){ if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; return {status:'ok', bytesWritten:3}; } sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
   async transferIn(ep){ if(statHang) return new Promise(() => {}); return {status:'ok', data:new DataView(new Uint8Array([stat[lastAsk]]).buffer)}; }});
 const dev = fakeDevice();
@@ -25,6 +27,9 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     eq('env shows WebUSB', $('#env').textContent.includes('✓ ใช้ได้'), true);
     eq('tests disabled before connect', $('[data-test="text"]').disabled, true);
     eq('no permitted device on load', logText().includes('เครื่องที่เคยอนุญาตไว้ 0 เครื่อง'), true);
+    claimBusy = true; $('#btnConnect').click(); await wait(50);
+    eq('claim fails (POS app holds the printer): plain message · not connected · page not stuck', [logText().includes('ปริ้นเตอร์ถูกใช้อยู่ในหน้าอื่น — ปิดหน้าอื่น (แอป POS หรือหน้าทดสอบ) แล้วกดเชื่อมอีกครั้ง'), $('#status').textContent, dev.opened, $('#btnConnect').disabled], [true, 'ยังไม่เชื่อม', false, false]);
+    claimBusy = false;
     $('#btnConnect').click(); await wait(50);
     eq('connected status', $('#status').textContent, 'เชื่อมแล้ว · XP-Q807K');
     eq('tests enabled', $('[data-test="text"]').disabled, false);
@@ -32,8 +37,10 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     // อ่านสถานะเครื่อง: byte ดิบ + บิต + ความหมาย
     $('[data-test="status"]').click(); await wait(50);
     eq('status normal: raw bytes with bits + meaning', [logText().includes('DLE EOT 2 (สาเหตุหยุด): 0x12 (00010010)'), logText().includes('DLE EOT 4 (กระดาษ): 0x12 (00010010)'), logText().includes('แปลว่า: ปกติ')], [true, true, true]);
-    stat = {2:0x16, 4:0x72}; $('[data-test="status"]').click(); await wait(50);
-    eq('lid open + paper out', logText().includes('แปลว่า: ฝาเปิด · กระดาษหมด'), true);
+    stat = {2:0x36, 4:0x72}; $('[data-test="status"]').click(); await wait(50);   // ค่าจริง XP-Q807K เปิดฝา
+    eq('real lid open 0x36/0x72: says lid open only (paper sensor sits under the lid)', [logText().includes('แปลว่า: ฝาเปิด'), logText().includes('แปลว่า: ฝาเปิด · กระดาษหมด')], [true, false]);
+    stat = {2:0x32, 4:0x72}; $('[data-test="status"]').click(); await wait(50);   // ค่าจริง ไม่มีกระดาษ ฝาปิด
+    eq('real paper out 0x32/0x72: paper out', logText().trim().split('\n').pop().includes('แปลว่า: กระดาษหมด'), true);
     stat = {2:0x12, 4:0x1E}; $('[data-test="status"]').click(); await wait(50);
     eq('paper near end', logText().includes('แปลว่า: กระดาษใกล้หมด'), true);
     stat = {2:0xFF, 4:0x12}; $('[data-test="status"]').click(); await wait(50);
@@ -59,6 +66,13 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     eq('unplug → disconnected', [$('#status').textContent, $('[data-test="text"]').disabled], ['ยังไม่เชื่อม', true]);
     ev('connect'); await wait(50);
     eq('replug → auto reconnect', [$('#status').textContent, logText().includes('เสียบสายใหม่ · ไม่ต้องเลือกใหม่')], ['เชื่อมแล้ว · XP-Q807K', true]);
+    // ปล่อยปริ้นเตอร์ให้แอป POS: ปุ่ม + ปิดหน้า
+    released = 0; $('[data-test="disconnect"]').click(); await wait(50);
+    eq('"release printer" button: releaseInterface + close · says the POS app can connect', [released, dev.opened, $('#status').textContent, logText().includes('ปล่อยปริ้นเตอร์แล้ว')], [1, false, 'ยังไม่เชื่อม', true]);
+    $('#btnConnect').click(); await wait(50); released = 0;
+    w.dispatchEvent(new w.Event('pagehide')); await wait(50);
+    eq('closing the page (pagehide) releases the printer by itself', [released, dev.opened], [1, false]);
+    $('#btnConnect').click(); await wait(50);
     // เช็กลิสต์ + คัดลอก
     $('[data-i="3"][data-v="pass"]').click(); $('[data-i="7"][data-v="fail"]').click();
     let copied = ''; Object.defineProperty(w.navigator, 'clipboard', {value:{writeText: async t => { copied = t; }}});

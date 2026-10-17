@@ -47,7 +47,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const sell = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };
   w.addEventListener('load', async () => {
-    A.signIn(w);
+    A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9');   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
     await wait(100);
     eq('auto reconnect to allowed printer', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
     sell();
@@ -121,25 +121,25 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     $('#btnPrinter').click(); await wait(100);   // เชื่อมกลับหลังถอดสาย
     w.eval('PRINT_TIMEOUT.min = 300; PRINT_TIMEOUT.rate = 1e9; PRINT_TIMEOUT.close = 300');   // เทสต์เร็ว: หมดเวลา 300 ms w.eval('closeModal()');
     const nBills = () => w.eval('loadSales().length'), n0 = nBills();
-    sent = []; jobs = 0; hangJob = 2;   // ใบเสร็จออก ตั๋วครัวค้าง
+    sent = []; jobs = 0; hangJob = 2;   // ตั๋วครัวออก (พิมพ์ก่อน) ใบเสร็จค้าง
     sell(); const s1 = w.eval('lastSale.id');
     eq('stuck: success screen shows at once, next order button works (UI not blocked)', [!!$('#nextOrder'), (() => { $('#nextOrder').click(); return !$('#modal').classList.contains('show'); })()], [true, true]);
     sell(); const s2 = w.eval('lastSale.id');   // บิลถัดไประหว่างปริ้นเตอร์ค้าง: เข้าคิว
     await wait(600);
     const sentAtHang = hangAt;
     eq('after timeout: both bills saved', nBills() - n0, 2);
-    eq('after timeout: receipt of bill 1 out, kitchen not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), sent.length === sentAtHang],
-      [{receipt:'ok', kitchen:'fail'}, {receipt:'fail', kitchen:'fail'}, true]);
+    eq('after timeout: kitchen of bill 1 out (printed first), receipt not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), sent.length === sentAtHang],
+      [{kitchen:'ok', receipt:'fail'}, {kitchen:'fail', receipt:'fail'}, true]);
     eq('after timeout: connection closed (pending transfer cancelled) and reconnected by itself', [dev.opened, $('#btnPrinter').textContent.trim()], [true, 'ปริ้นเตอร์พร้อม']);
     const bar = $('#printFail');
     eq('fail bar: message + one reprint button per bill, only the missing slip', [!!bar && bar.textContent.includes('ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ'), bar && bar.textContent.includes('ล้างงานค้างไม่ได้'), [...d.querySelectorAll('#printFail .pfbtn')].map(b => b.textContent)],
-      [true, false, w.eval(`[${s1}, ${s2}].map(id => pad(loadSales().find(s => s.id === id).no, 3))`).map((n, i) => `พิมพ์ซ้ำ #${n} ${i ? 'ใบเสร็จ + ตั๋วครัว' : 'ตั๋วครัว'}`)]);
+      [true, false, w.eval(`[${s1}, ${s2}].map(id => pad(loadSales().find(s => s.id === id).no, 3))`).map((n, i) => `พิมพ์ซ้ำ #${n} ${i ? 'ตั๋วครัว + ใบเสร็จ' : 'ใบเสร็จ'}`)]);
     eq('success screen (bill 2) says which slips are not out', [$('#prStatus').textContent.includes('ตั๋วครัว + ใบเสร็จยังไม่ออก'), $('#prStatus').className.includes('warn')], [true, true]);
     await wait(400); eq('no leftover bytes of the old job sent later (after reconnect)', [sent.length === sentAtHang, lateSent], [true, 0]);
     // เติมกระดาษแล้วกดพิมพ์ซ้ำ: เฉพาะใบที่ขาด
     hangJob = 0; sent = [];
     d.querySelector('#printFail .pfbtn').click(); await wait(150);
-    eq('reprint bill 1 from bar after timeout: clear + cut old fragment, then kitchen only · bar keeps bill 2 only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40]), w.eval(`PRINTED.get(${s1}).kitchen`), [...d.querySelectorAll('#printFail .pfbtn')].length], [2, 2, 'ok', 1]);
+    eq('reprint bill 1 from bar after timeout: clear + cut old fragment, then receipt only · bar keeps bill 2 only', [count(sent, [0x1D, 0x56, 0x42, 0x00]), count(sent, [0x1B, 0x40]), w.eval(`PRINTED.get(${s1}).receipt`), [...d.querySelectorAll('#printFail .pfbtn')].length], [2, 2, 'ok', 1]);
     sent = []; $('#prKitchen').click(); $('#prReceipt').click(); await wait(150);
     eq('reprint bill 2 from success screen buttons: both slips · bar gone · status printed', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail'), $('#prStatus').textContent.trim()], [2, false, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ']);
     // ส่งครบแล้วแต่พนักงานบอกกระดาษไม่ออก → กดพิมพ์ตั๋วครัวซ้ำ
@@ -161,8 +161,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     d.querySelector('#printFail .pfbtn').click(); await wait(400);
     const want = k => EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([${k}Blocks(loadSales().find(s => s.id === ${sH}))])`)).pages[0]).join();
     const pages = emu.pages, last2 = pages.slice(-2).map(p => EscPosEmu.ink(p).join());
-    eq('H29 reprint after mid-image stop: no garbage text anywhere · receipt + kitchen complete and exact · old fragment cut off as its own piece',
-      [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('receipt'), last2[1] === want('kitchen'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);
+    eq('H29 reprint after mid-image stop: no garbage text anywhere · kitchen then receipt complete and exact · old fragment cut off as its own piece',
+      [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('kitchen'), last2[1] === want('receipt'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);
     // ---------- H30 สถานะก่อนพิมพ์ (DLE EOT 2/4) เฉพาะเครื่องที่มี bulk IN · XP-Q807K ที่วัดจริงมีแต่ ep1 OUT จึงข้ามข้อนี้บนเครื่องจริง ----------
     eq('H30 parse: normal 0x12 · lid 0x16 · paper stop 0x32 / sensor 0x72 · near end 0x1E · bad shapes invalid', w.eval(`[[0x12, 0x12], [0x16, 0x12], [0x32, 0x12], [0x12, 0x72], [0x12, 0x1E], [0xFF, 0x12], [0x12, null]].map(([a, b]) => { const p = UsbPrinter.parseStatus(a, b); return [p.valid, p.cover, p.paper, p.near]; })`),
       [[true, false, false, false], [true, true, false, false], [true, false, true, false], [true, false, true, false], [true, false, false, true], [false, false, false, false], [false, false, false, false]]);
@@ -170,8 +170,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('H30 printer with bulk IN found (ep2)', w.eval('usbPrinter.epIn'), 2);
     $('#nextOrder') && $('#nextOrder').click(); w.eval('PRINT_FAILS = []; renderFailBar()');
     emu.cover = true; sent = []; sell(); const sC = w.eval('lastSale.id'); await wait(300);
-    eq('H30 lid open: slips not sent · bar says lid open · success screen says so', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ'), $('#prStatus').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่'), w.eval(`PRINTED.get(${sC})`)],
-      [0, true, true, {receipt:'fail', kitchen:'fail', blocked:true}]);
+    eq('H30 lid open: slips not sent · bar says lid open · success screen says so', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วจะพิมพ์ต่อให้'), $('#prStatus').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่'), w.eval(`PRINTED.get(${sC})`)],
+      [0, true, true, {kitchen:'fail', receipt:'fail', blocked:true}]);
     sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(300);
     eq('H30 status still says lid open but staff presses reprint: send anyway (a misread must never block printing)', [count(sent, [0x1D, 0x56, 0x42, 0x00]), !!$('#printFail')], [2, false]);
     emu.cover = false; $('#nextOrder').click(); emu.cover = true; sell(); await wait(300); emu.cover = false; sent = []; d.querySelector('#printFail .pfbtn').click(); await wait(300);
@@ -183,7 +183,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('H30 paper near end: still prints (not blocked) + heads-up message', [count(sent, [0x1D, 0x56, 0x42, 0x00]), d.body.textContent.includes('กระดาษใกล้หมด')], [2, true]);
     emu.near = false;
     $('#nextOrder').click(); emu.paper = false; sent = []; sell(); await wait(300);
-    eq('H30 out of paper: not sent · bar says out of paper', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ')], [0, true]);
+    eq('H30 out of paper: not sent · bar says out of paper', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('กระดาษหมด — ใส่กระดาษแล้วจะพิมพ์ต่อให้')], [0, true]);
     emu.paper = true; d.querySelector('#printFail .pfbtn').click(); await wait(300); $('#nextOrder').click();
     emu.near = false; statusHang = true; sent = []; sell(); await wait(1100);
     eq('H30 printer does not answer status within 500 ms: prints anyway · stops asking until reconnect', [count(sent, [0x1D, 0x56, 0x42, 0x00]), w.eval('usbPrinter.noStatus')], [2, true]);

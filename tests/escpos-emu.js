@@ -4,7 +4,21 @@
 class EscPosEmu {
   constructor(){ this.pages = []; this.page = this.newPage(); this.st = 'idle'; this.cmd = []; this.need = 0; this.img = null; this.cover = false; this.paper = true; this.replies = []; }
   newPage(){ return {rows:[], text:'', inits:0, images:0}; }
-  feed(data){ for(const b of data) this.byte(b); return this; }
+  /* DLE EOT n เป็นคำสั่ง real-time: เครื่องตอบทันทีที่รับ ไม่ว่ากำลังอยู่กลางคำสั่งอะไร (ตามสเปก ESC/POS) · byte ยังไหลเข้าตัวแปลคำสั่งตามปกติ (กลางภาพ = เป็นข้อมูลภาพ) */
+  feed(data){ for(const b of data){ this.realtime(b); this.byte(b); } return this; }
+  realtime(b){
+    const [p2, p1] = this.rt || [];
+    if(p2 === 0x10 && p1 === 0x04 && b >= 1 && b <= 4) this.reply(b);
+    this.rt = [p1, b];
+  }
+  reply(n){
+    let v = 0x12;
+    const noPaper = !this.paper || this.cover;                 // เครื่องจริง: ฝาเปิด เซนเซอร์กระดาษ (ใต้ฝา) บอกว่าหมดด้วย (0x36 / 0x72)
+    if(n === 2){ if(this.cover) v |= 0x04; if(noPaper) v |= 0x20; }
+    if(n === 4 && noPaper) v |= 0x60;
+    if(n === 4 && this.near) v |= 0x0C;
+    this.replies.push(v);
+  }
   byte(b){
     if(this.st === 'raster'){
       this.img.buf.push(b);
@@ -45,13 +59,7 @@ class EscPosEmu {
       return;
     }
     if(a === 0x1D && k === 0x56){ this.cut(); return; }
-    if(a === 0x10 && k === 0x04){                            // DLE EOT n: ตอบ 1 byte (0x12 = ปกติ)
-      const n = c[2]; let v = 0x12;
-      if(n === 2){ if(this.cover) v |= 0x04; if(!this.paper) v |= 0x20; }
-      if(n === 4 && !this.paper) v |= 0x60;
-      if(n === 4 && this.near) v |= 0x0C;
-      this.replies.push(v);
-    }
+    // DLE EOT ตอบไปแล้วตอนรับ (realtime) ที่นี่แค่กินคำสั่ง
   }
   cut(){ this.st = 'idle'; this.pages.push(this.page); this.page = this.newPage(); }
   /* แถวภาพของใบ (ไม่นับแถวขาวล้วน) เป็นข้อความ hex ไว้เทียบ */
