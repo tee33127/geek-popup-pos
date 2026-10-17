@@ -23,7 +23,7 @@ class EscPosEmu {
   byte(b){
     if(this.st === 'raster'){
       this.img.buf.push(b);
-      if(this.img.buf.length === this.img.wb){ this.page.rows.push(this.img.buf.slice()); this.img.buf = []; }
+      if(this.img.buf.length === this.img.wb){ if(this.loseRows > 0) this.loseRows--; else this.page.rows.push(this.img.buf.slice()); this.img.buf = []; }   // loseRows = แถวที่เสียตรงรอยต่อตอนฝาเปิด (เครื่องพิมพ์ต่อเองแต่บรรทัดขาด)
       if(--this.need === 0){ this.st = 'idle'; this.img = null; }
       return;
     }

@@ -12,7 +12,7 @@ const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 
 /* ---------- ปริ้นเตอร์มีบัฟเฟอร์ ---------- */
-const BP = {cap:8192, per:4096, tick:3, drop:'close', jam:false};   // per = หัวพิมพ์พิมพ์กี่ byte ต่อ tick
+const BP = {cap:8192, per:4096, tick:3, drop:'close', jam:false, nak:false};   // nak = บัฟเฟอร์เต็มแล้วคำถามสถานะก็ส่งไม่เข้า (USB NAK ทุก OUT)   // per = หัวพิมพ์พิมพ์กี่ byte ต่อ tick
 const errors = [];
 let emu, buf, waiter, streamTotal, printedTotal, jobStarts, trigger, lost, statusHang = false, claimBusy = false, claims = 0, lateSent = 0;
 const reset0 = () => { emu = new EscPosEmu(); buf = []; if(waiter){ waiter.no(new Error('reset')); waiter = null; } streamTotal = 0; printedTotal = 0; jobStarts = []; trigger = null; lost = 0; BP.jam = false; };
@@ -30,6 +30,7 @@ setInterval(() => {
     if(trigger && jobStarts[trigger.job - 1] !== undefined && printedTotal >= jobStarts[trigger.job - 1] + trigger.at){   // ฝาเปิด/กระดาษหมด ตอนหัวพิมพ์ถึงตำแหน่งนี้ของใบ
       const t = trigger; trigger = null;
       if(t.what === 'cover'){ emu.cover = true; if(BP.drop === 'cover'){ lost += buf.length; buf = []; } }
+      else if(t.what === 'blink'){ emu.cover = true; emu.loseRows = 40; setTimeout(() => { emu.cover = false; }, t.ms || 1000); }   // เปิดฝาแป๊บเดียวแล้วปิดเอง: เครื่องพิมพ์ต่อเอง แต่แถวตรงรอยต่อหาย
       else emu.paper = false;
     }
   }
@@ -43,7 +44,9 @@ const dev = {opened:false, productName:'XP-Q807K', configuration:null,
   async transferIn(){ if(statusHang) return new Promise(() => {}); const v = emu.replies.shift(); return {status:'ok', data:new DataView(new Uint8Array(v === undefined ? [] : [v]).buffer)}; },
   async transferOut(ep, data){
     if(!this.opened){ lateSent += data.length; throw new Error('device closed'); }
-    if(data[0] === 0x10 && data[1] === 0x04){ emu.reply(data[2]); buf.push(...data); streamTotal += data.length; return {status:'ok'}; }   // real-time: ตอบทันที byte ไหลเข้าบัฟเฟอร์ตามลำดับ
+    if(data[0] === 0x10 && data[1] === 0x04){
+      if(BP.nak && (buf.length >= BP.cap || waiter)) return new Promise((ok, no) => { const t = setInterval(() => { if(!this.opened){ clearInterval(t); no(new Error('closed')); } else if(buf.length < BP.cap && !waiter){ clearInterval(t); emu.reply(data[2]); buf.push(...data); streamTotal += data.length; ok({status:'ok'}); } }, 5); });
+      emu.reply(data[2]); buf.push(...data); streamTotal += data.length; return {status:'ok'}; }   // real-time: ตอบทันที byte ไหลเข้าบัฟเฟอร์ตามลำดับ
     if(data[0] === 0x1B && data[1] === 0x40) jobStarts.push(streamTotal + (waiter ? waiter.data.length - waiter.i : 0));
     return new Promise((ok, no) => { waiter = {data, i:0, ok, no}; pump(); }); }};
 
@@ -111,19 +114,35 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const garbage = () => emu.pages.map(p => p.text).join('') + emu.page.text;
 
   w.addEventListener('load', async () => {
+    let id;
     /* เริ่มเคสใหม่: รอบิลก่อนหน้ายืนยันว่าออกแล้ว (ไม่งั้นเปิดฝาทันทีหลังบิลก่อน = บิลก่อนอาจขาด → ใบแทน ซึ่งถูกตามกฎ แต่ทำให้เคสพึ่งกัน) */
     const settle = async () => { await until(() => idle() && w.eval('UNCONF.length') === 0 && !$('#printFail'), 3000); };
     A.signIn(w);
     /* รันกับโค้ดก่อนแก้ได้ (ยืนยันว่าเทสต์จับบั๊ก): โค้ดเก่าไม่มีใบแทน/การยืนยัน = ถือว่าส่งครบคือออกแล้ว */
     w.eval(`if(typeof slipBlocks === 'undefined') window.slipBlocks = (s, k, st) => (st && st.redo && st.redo[k] ? [{box:'single', text:'ใบแทน — ทิ้งใบก่อนหน้าของ #' + pad(s.no, 3), size:28, bold:true}] : []).concat(k === 'receipt' ? receiptBlocks(s) : kitchenBlocks(s));
-      if(typeof PRINT_CONFIRM === 'undefined') window.PRINT_CONFIRM = {ms:0}; if(typeof UNCONF === 'undefined') window.UNCONF = [];`);
+      if(typeof PRINT_CONFIRM === 'undefined') window.PRINT_CONFIRM = {ms:0}; if(typeof UNCONF === 'undefined') window.UNCONF = []; if(typeof PRINT_WATCH === 'undefined') window.PRINT_WATCH = {}; if(typeof PLOG === 'undefined') window.PLOG = [];`);
     const t0 = w.toast; w.toast = (m, ...a) => { toasts.push(m); return t0(m, ...a); };
-    w.eval('PRINT_TIMEOUT.min = 2500; PRINT_TIMEOUT.rate = 1e9; PRINT_TIMEOUT.close = 300; PRINT_RESUME.ms = 100; PRINT_RESUME.okMs = 400; PRINTER.statusMs = 150; PRINT_CONFIRM.ms = 150');
+    const WATCH = () => `PRINT_CONFIRM.ms = 150; PRINT_WATCH.ms = 60; PRINT_WATCH.stall = 500; PRINT_WATCH.rate = ${BP.per * 200}`;   // rate ≈ หัวพิมพ์จำลอง (ช้ากว่าไว้นิด)
+    w.eval('PRINT_TIMEOUT.min = 2500; PRINT_TIMEOUT.rate = 1e9; PRINT_TIMEOUT.close = 300; PRINT_RESUME.ms = 100; PRINT_RESUME.okMs = 400; PRINTER.statusMs = 150; ' + WATCH());
     await wait(150);
     eq('connected by itself, status endpoint ep2', [$('#btnPrinter').textContent.trim(), w.eval('usbPrinter.epIn')], ['ปริ้นเตอร์พร้อม', 2]);
+    if(process.env.EXP){
+      for(const [cap, nak] of [[262144, false], [262144, true], [32768, true], [8192, true]]){
+        await settle(); reset0(); BP.cap = cap; BP.nak = nak; BP.per = 300; w.eval('PRINT_CONFIRM.ms = 1200; PRINT_RESUME.ms = 2000; PRINTER.statusMs = 500');
+        id = sellLong(); const kLen = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${id}))]).length`);
+        trigger = {job:1, at:Math.round(kLen * 0.4), what:'cover'};
+        await until(() => emu.cover, 5000); const t0 = Date.now();
+        await until(() => !!$('#printFail'), 20000); const tBar = Date.now() - t0;
+        const st1 = JSON.stringify(w.eval(`PRINTED.get(${id})`)), ns = w.eval('usbPrinter.noStatus');
+        emu.cover = false; await wait(100); const b = d.querySelector('#printFail .pfbtn'); if(b) b.click();
+        await until(() => idle() && !$('#printFail'), 8000); await wait(500);
+        console.log(`EXP cap ${cap} nak ${nak}: bar after ${tBar} ms · state ${st1} · noStatus ${ns} · after tap ${JSON.stringify(w.eval(`PRINTED.get(${id})`))} · paper ${paper(id)} · first lines ${JSON.stringify(emu.pages.map(p => readText(p)[0]).filter(Boolean))}`);
+      }
+      process.exit(0);
+    }
 
     // ---------- H32 ตั๋วครัวก่อนใบเสร็จ · ถอดข้อความได้ครบ ----------
-    await settle(); reset0(); let id = sellLong(); await until(idle); await wait(300);
+    await settle(); reset0(); id = sellLong(); await until(idle); await wait(300);
     const K0 = expect(id, 'kitchen');
     eq('H32 long bill: kitchen first, then receipt · decoded kitchen text has every item incl. Banana Choco details', [paper(id), K0.some(t => t.includes('Banana Choco')), K0.some(t => t.includes('ไม่เอาถั่ว')), K0.filter(t => t.includes('Greek Yogurt')).length], ['kr', true, true, 2]);
     eq('H32 reprint chooser + success screen: kitchen listed first', w.eval('SLIP_NAME.both'), 'ตั๋วครัว + ใบเสร็จ');
@@ -132,7 +151,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     /* (ก) แบบเดิม "ส่งครบ = ออกแล้ว" (ยืนยันทันทีไม่รอ): ตั๋วครัวทั้งใบเข้าบัฟเฟอร์เครื่องแล้ว แต่หัวพิมพ์ยังไม่ถึงท้าย · ฝาเปิด · ใบเสร็จค้าง → หมดเวลา
        → ปิด/เชื่อมใหม่ → เครื่องทิ้งบัฟเฟอร์ → ท้ายตั๋วครัว (Banana Choco) หาย แต่แอปนับว่าออกแล้ว พิมพ์ต่อเองแค่ใบเสร็จ = อาการเครื่องจริง */
     const lidNearKitchenEnd = async (confirmMs, openWhen) => {
-      await settle(); reset0(); BP.drop = 'close'; BP.cap = 24576; w.eval(`PRINT_CONFIRM.ms = ${confirmMs}`);   // บัฟเฟอร์ใหญ่พอให้ท้ายตั๋วครัวที่มีข้อความ (Banana Choco) ค้างอยู่ได้ เหมือนที่เกิดจริง
+      await settle(); reset0(); BP.drop = 'close'; BP.cap = 24576; w.eval(confirmMs ? WATCH() : 'PRINT_CONFIRM.ms = 0; PRINT_WATCH.ms = 1e9; PRINT_WATCH.stall = 1e9; PRINT_WATCH.rate = 1e9');   // 0 = แบบเดิม: ส่งครบ = ออก ไม่เฝ้าระหว่างพิมพ์ ·   // บัฟเฟอร์ใหญ่พอให้ท้ายตั๋วครัวที่มีข้อความ (Banana Choco) ค้างอยู่ได้ เหมือนที่เกิดจริง
       const sid = sellLong(), kLen = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${sid}))]).length`);
       if(openWhen === 'receipt-start'){ await until(() => jobStarts.length >= 2, 4000); trigger = null; emu.cover = true; }   // ใบเสร็จเริ่มส่งแล้ว ท้ายตั๋วครัวยังอยู่ในบัฟเฟอร์
       else trigger = {job:1, at:kLen - 16000, what:'cover'};
@@ -167,7 +186,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
         [want.includes('K'), want.includes('R'), true, `ใบแทน — ทิ้งใบก่อนหน้าของ #${w.eval(`pad(loadSales().find(s => s.id === ${r.sid}).no, 3)`)}`, true, '']);
       BP.per = 4096;
     }
-    w.eval('PRINT_CONFIRM.ms = 150'); BP.cap = 8192;
+    BP.cap = 8192; w.eval(WATCH());
 
     /* ---------- H33/H35 ตำแหน่งต่างๆ × (รอเฉยๆ / กดพิมพ์ซ้ำแทรก) × (เครื่องทิ้งบัฟเฟอร์ตอนปิด USB / ตอนฝาเปิด) ---------- */
     const CASES = [
@@ -194,6 +213,44 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       const okExtra = [...extra].every(c => (c === 'k' && want.includes('K')) || (c === 'r' && want.includes('R')) || (c === 'k' && want.startsWith('k')));   // ก่อนชุดสุดท้ายมีได้แค่ใบเดิมของใบที่สะดุด (เครื่องพิมพ์ต่อเองจนจบ) หรือตั๋วครัวที่ออกครบก่อนสะดุด
       eq(`H33 ${tag}: ends with a complete set decoded line by line, kitchen first · replacement only for the slip that stumbled · old piece separate · no garbage on complete slips · bar gone`,
         [clean.endsWith(want), okExtra, done.map(p => p.text).join(''), !!$('#printFail'), !!redo.kitchen, !!redo.receipt], [true, true, '', false, want.includes('K'), want.includes('R')]);
+    }
+
+    // ---------- H36 เปิดฝาแป๊บเดียว (~1 วิ ก่อนแถบเตือนขึ้น) เครื่องพิมพ์ต่อเอง แต่บรรทัดตรงรอยต่อหาย (บั๊กเครื่องจริง #018 กรณี A) ----------
+    // บัฟเฟอร์เล็ก: USB ค้างระหว่างฝาเปิด → จับจากก้อนที่ค้างนานผิดปกติ · บัฟเฟอร์ใหญ่: ส่งครบทันที → จับจากการถามสถานะระหว่างหัวพิมพ์กำลังพิมพ์
+    for(const [label, cap] of [['small buffer (USB stalls while the lid is open)', 8192], ['big buffer (whole slip already in the printer)', 262144]]) for(const at of [0.3, 0.7]){
+      await settle(); reset0(); BP.cap = cap; BP.drop = 'close'; w.eval(WATCH()); toasts.length = 0;
+      id = sellLong(); const len = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${id}))]).length`);
+      trigger = {job:1, at:Math.round(len * at), what:'blink', ms:1000};
+      await until(() => emu.cover, 4000); await until(() => !emu.cover, 3000);
+      await until(() => idle() && !$('#printFail') && /K/.test(paper(id)) && /[rR]$/.test(paper(id).replace(/f/g, '')), 8000); await wait(300);
+      const got = paper(id), clean = got.replace(/f/g, ''), log = w.eval('PLOG.slice(-12).join(" | ")');
+      const K = expect(id, 'kitchen'), repl = emu.pages.map(readText).find(t => t[0] && t[0].startsWith('ใบแทน') && t.slice(1).join('\n') === K.join('\n'));
+      eq(`H36 short lid blink at ${Math.round(at * 100)}% of kitchen · ${label}: detected (no staff action) → old kitchen with lost rows cut off · complete kitchen replacement with "ใบแทน" frame (every line) · receipt complete · kitchen first · no garbage`,
+        [/(stall|status)/.test(log), got.includes('f') || got.startsWith('k'), !!repl, clean.slice(-2), completeSlips(id).map(p => p.text).join('')], [true, true, true, clean.slice(-1) === 'R' ? 'KR' : 'Kr', '']);
+    }
+    BP.cap = 8192;
+
+    // ---------- H37 ใบที่พิมพ์ซ้ำมีกรอบ "ใบแทน" เสมอ (ตรวจจากภาพที่ส่งไปปริ้นเตอร์) ----------
+    {
+      // กรณี B: เปิดฝาค้างจนแถบเตือนขึ้น → ปิดฝา → กด "พิมพ์ซ้ำ" บนแถบ · บัฟเฟอร์ใหญ่ (ทั้งสองใบอาจเข้าเครื่องแล้ว)
+      await settle(); reset0(); BP.cap = 262144; w.eval(WATCH());
+      id = sellLong(); const len = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${id}))]).length`);
+      trigger = {job:1, at:Math.round(len * 0.4), what:'cover'};
+      await until(() => !!$('#printFail'), 5000); await wait(300);
+      const sentBefore = JSON.parse(w.eval(`JSON.stringify(PRINTED.get(${id}).sent || {})`));   // สำเนา (w.eval คืนตัวจริง ถ้าไม่คัดลอกจะเปลี่ยนตามตอนพิมพ์ซ้ำ)
+      emu.cover = false; const b = d.querySelector('#printFail .pfbtn'); if(b) b.click();
+      await until(() => idle() && !$('#printFail') && paper(id).replace(/f/g, '').length >= 2, 6000); await wait(300);
+      const shown = emu.pages.map(readText).filter(t => t.length), heads = shown.filter(t => t[0] && t[0].startsWith('ใบแทน')).length;
+      const no = w.eval(`pad(loadSales().find(s => s.id === ${id}).no, 3)`);
+      eq('H37 case B (lid open long, then tap reprint): every reprinted slip that had already been sent shows "ใบแทน — ทิ้งใบก่อนหน้าของ #NNN" on paper (decoded from the image)',
+        [heads, shown.filter(t => t[0] && t[0].startsWith('ใบแทน')).every(t => t[0] === `ใบแทน — ทิ้งใบก่อนหน้าของ #${no}`), paper(id).replace(/f/g, '').slice(-2)],
+        [(sentBefore.kitchen ? 1 : 0) + (sentBefore.receipt ? 1 : 0), true, (sentBefore.kitchen ? 'K' : 'k') + (sentBefore.receipt ? 'R' : 'r')]);
+      BP.cap = 8192;
+      // พิมพ์ซ้ำปกติจากหน้าสำเร็จ (ใบแรกออกครบ) → ใบที่สองมีกรอบใบแทน
+      await settle(); reset0(); w.eval(WATCH()); id = sellShort(); await until(() => idle() && paper(id) === 'kr', 4000); await settle();
+      $('#prKitchen').click(); await until(() => idle() && paper(id).length >= 3, 4000); await wait(200);
+      const last = readText(emu.pages[emu.pages.length - 1]);
+      eq('H37 normal reprint from the success screen ("พิมพ์ตั๋วครัวซ้ำ"): printed slip starts with the "ใบแทน" frame', [paper(id), last[0]], ['krK', `ใบแทน — ทิ้งใบก่อนหน้าของ #${w.eval(`pad(loadSales().find(s => s.id === ${id}).no, 3)`)}`]);
     }
 
     // ---------- ฝาเปิดก่อนพิมพ์ / กระดาษหมดก่อนพิมพ์ → พิมพ์ปกติ (ไม่ใช่ใบแทน เพราะยังไม่ได้เริ่ม) ----------

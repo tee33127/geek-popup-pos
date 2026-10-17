@@ -47,7 +47,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const sell = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };
   w.addEventListener('load', async () => {
-    A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9; PRINT_CONFIRM.ms = 10');   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
+    A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9; PRINT_CONFIRM.ms = 0; PRINT_WATCH.rate = 1e9');   // ปริ้นเตอร์ปลอมพิมพ์ทันที   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
     await wait(100);
     eq('auto reconnect to allowed printer', $('#btnPrinter').textContent.trim(), 'ปริ้นเตอร์พร้อม');
     sell();
@@ -130,7 +130,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     const sentAtHang = hangAt;
     eq('after timeout: both bills saved', nBills() - n0, 2);
     eq('after timeout: kitchen of bill 1 out (printed first), receipt not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), sent.length === sentAtHang],
-      [{kitchen:'ok', receipt:'fail', redo:{receipt:true}}, {kitchen:'fail', receipt:'fail'}, true]);   // ใบเสร็จสะดุดกลางใบ = ใบแทน · บิล 2 ยังไม่ได้เริ่ม = พิมพ์ปกติ
+      [{kitchen:'ok', receipt:'fail', sent:{kitchen:true, receipt:true}, redo:{receipt:true}}, {kitchen:'fail', receipt:'fail'}, true]);   // ใบเสร็จสะดุดกลางใบ = ใบแทน · บิล 2 ยังไม่ได้เริ่ม = พิมพ์ปกติ
     eq('after timeout: connection closed (pending transfer cancelled) and reconnected by itself', [dev.opened, $('#btnPrinter').textContent.trim()], [true, 'ปริ้นเตอร์พร้อม']);
     const bar = $('#printFail');
     eq('fail bar: message + one reprint button per bill, only the missing slip', [!!bar && bar.textContent.includes('ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ'), bar && bar.textContent.includes('ล้างงานค้างไม่ได้'), [...d.querySelectorAll('#printFail .pfbtn')].map(b => b.textContent)],
@@ -149,7 +149,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     // งานค้างดันตอบ ok หลังเชื่อมใหม่: ส่วนที่เหลือของงานเก่าต้องไม่ถูกส่งผ่านการเชื่อมใหม่
     $('#nextOrder') && $('#nextOrder').click(); jobs = 0; hangJob = 2; lateOk = true; sell(); await wait(900);
     const tailFrom = hangAt; hangJob = 0; await wait(300);
-    eq('late "ok" from the stuck transfer after reconnect: rest of the old job is not sent', sent.length, tailFrom);
+    const dataOnly = a => { let n = 0; for(let i = 0; i < a.length; i++){ if(a[i] === 0x10 && a[i + 1] === 0x04){ i += 2; continue; } n++; } return n; };   // ไม่นับคำถามสถานะ
+    eq('late "ok" from the stuck transfer after reconnect: rest of the old job is not sent', dataOnly(sent.slice(tailFrom)), 0);
     lateOk = false;
     // ---------- H29 ค้างกลางรูป แล้วพิมพ์ซ้ำ: ต้องไม่มีตัวมั่ว (บั๊กเครื่องจริง H23 2026-10-17) ----------
     // ปริ้นเตอร์รับก้อนแรกของใบเสร็จไปครึ่งก้อน (ESC @ + header + ภาพบางส่วน) แล้วค้าง (ฝาเปิด) → หมดเวลา เชื่อมใหม่ → กดพิมพ์ซ้ำจากแถบ
@@ -159,8 +160,9 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('H29 stuck mid-image: fail bar, bill saved, connection reset', [!!$('#printFail'), w.eval(`loadSales().some(s => s.id === ${sH})`), $('#btnPrinter').textContent.trim()], [true, true, 'ปริ้นเตอร์พร้อม']);
     eq('H29 hypothesis (ข) ruled out: nothing of the old job sent after the timeout (app side)', [sent.length === hangAt, lateSent], [true, 0]);
     hangPart = 0;
+    const wantNow = {}; ['kitchen', 'receipt'].forEach(k => { wantNow[k] = EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([slipBlocks(loadSales().find(s => s.id === ${sH}), '${k}', PRINTED.get(${sH}))])`)).pages[0]).join(); });   // ก่อนพิมพ์ซ้ำ: ตั๋วครัวเคยส่งแล้ว = ใบแทน · ใบเสร็จยังไม่เคยส่ง = ปกติ
+    const want = k => wantNow[k];
     d.querySelector('#printFail .pfbtn').click(); await wait(400);
-    const want = k => EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([slipBlocks(loadSales().find(s => s.id === ${sH}), '${k}', PRINTED.get(${sH}))])`)).pages[0]).join();   // ตั๋วครัวที่สะดุด = ใบแทน (มีกรอบบนสุด)
     const pages = emu.pages, last2 = pages.slice(-2).map(p => EscPosEmu.ink(p).join());
     eq('H29 reprint after mid-image stop: no garbage text anywhere · kitchen then receipt complete and exact · old fragment cut off as its own piece',
       [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('kitchen'), last2[1] === want('receipt'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);
@@ -186,8 +188,10 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     $('#nextOrder').click(); emu.paper = false; sent = []; sell(); await wait(300);
     eq('H30 out of paper: not sent · bar says out of paper', [count(sent, [0x1D, 0x56, 0x42, 0x00]), $('#printFail') && $('#printFail').textContent.includes('กระดาษหมด — ใส่กระดาษแล้วจะพิมพ์ต่อให้')], [0, true]);
     emu.paper = true; d.querySelector('#printFail .pfbtn').click(); await wait(300); $('#nextOrder').click();
-    emu.near = false; statusHang = true; sent = []; sell(); await wait(1100);
-    eq('H30 printer does not answer status within 500 ms: prints anyway · stops asking until reconnect', [count(sent, [0x1D, 0x56, 0x42, 0x00]), w.eval('usbPrinter.noStatus')], [2, true]);
+    emu.near = false; statusHang = true; sent = []; sell(); await wait(1500);
+    eq('H30 printer does not answer status within 500 ms: prints anyway (no polling during the job after a miss)', count(sent, [0x1D, 0x56, 0x42, 0x00]), 2);
+    for(let n = 0; n < 2; n++){ $('#nextOrder').click(); sell(); await wait(1500); }
+    eq('H30 no answer 3 times → stops asking until reconnect', w.eval('usbPrinter.noStatus'), true);
     statusHang = false;
     // ปิดการเชื่อมไม่ได้ → บอกในข้อความ
     jobs = 0; hangJob = 1; closeHang = true; sell(); await wait(900);

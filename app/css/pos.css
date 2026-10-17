@@ -515,3 +515,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 .ghost.accent{background:var(--orange-soft);color:#7a3e00;border:2px solid var(--orange)}
 /* แถบเขียวสั้นๆ: ใบที่ค้างพิมพ์ออกครบแล้ว (Tee 2026-10-17) */
 #printOk{position:relative;z-index:5;background:#e8f5ee;color:var(--ok);border-bottom:2px solid var(--ok);padding:8px 12px;font-weight:700;line-height:1.4;text-align:center}
+/* บันทึกการพิมพ์ในหน้าต่างปริ้นเตอร์ (ไว้ไล่ปัญหาบนเครื่องจริง) */
+.plog{margin-top:12px}
+.plog summary{cursor:pointer;color:var(--mute);min-height:44px;display:flex;align-items:center}
+.plog pre{max-height:240px;overflow:auto;font-size:12px;line-height:1.5;background:var(--bg);padding:8px;border-radius:8px;white-space:pre-wrap;user-select:text}

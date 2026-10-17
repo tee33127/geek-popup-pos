@@ -42,15 +42,22 @@ function rasterize(img, threshold = PRINTER.threshold){
   return {widthBytes: wb, height: img.height, bits};
 }
 
-/* บิตภาพ → คำสั่ง GS v 0 แบ่งเป็นแถบ */
-function rasterCmds(r, band = PRINTER.band){
-  const parts = [];
+/* บิตภาพ → คำสั่ง GS v 0 แบ่งเป็นแถบ · rasterBands = ทีละแถบ (คำสั่งครบในตัว) */
+function rasterBands(r, band = PRINTER.band){
+  const out = [];
   for(let y = 0; y < r.height; y += band){
     const h = Math.min(band, r.height - y);
-    parts.push([0x1D, 0x76, 0x30, 0x00, r.widthBytes & 255, r.widthBytes >> 8, h & 255, h >> 8]);
-    parts.push(r.bits.subarray(y * r.widthBytes, (y + h) * r.widthBytes));
+    out.push(bytes([0x1D, 0x76, 0x30, 0x00, r.widthBytes & 255, r.widthBytes >> 8, h & 255, h >> 8], r.bits.subarray(y * r.widthBytes, (y + h) * r.widthBytes)));
   }
-  return bytes(...parts);
+  return out;
+}
+const rasterCmds = (r, band) => bytes(...rasterBands(r, band));
+/* รวมคำสั่งหลายชิ้นเป็นงานเดียว + จำตำแหน่งรอยต่อคำสั่ง (safe) · ส่งแบ่งก้อนตรงรอยต่อเท่านั้น ถามสถานะระหว่างงานได้โดยไม่แทรกกลางคำสั่งภาพ
+   (DLE EOT ที่แทรกกลาง GS v 0 เครื่องตอบ แต่ byte ถูกนับเป็นข้อมูลภาพด้วย ภาพเลื่อน/ตัวมั่ว · Tee 2026-10-17) */
+function jobBytes(parts){
+  const data = bytes(...parts), safe = new Set(); let o = 0;
+  parts.forEach(p => { o += p.length; safe.add(o); });
+  data.safe = safe; return data;
 }
 
 /* ---------- ฟอนต์ตั๋ว ----------
@@ -188,7 +195,9 @@ function renderSlip(blocks, dots = PRINTER.dots, canvas, tail = SLIP_TAIL){
   return canvas;
 }
 /* canvas → คำสั่งพิมพ์ภาพ */
-const canvasCmds = (canvas, threshold) => rasterCmds(rasterize(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), threshold));
+const canvasRaster = (canvas, threshold) => rasterize(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), threshold);
+const canvasCmds = (canvas, threshold) => rasterCmds(canvasRaster(canvas, threshold));
+const canvasBands = (canvas, threshold) => rasterBands(canvasRaster(canvas, threshold));
 
 /* ---------- WebUSB ---------- */
 const PRINTER_BUSY_MSG = 'ปริ้นเตอร์ถูกใช้อยู่ในหน้าอื่น — ปิดหน้าอื่น (แอป POS หรือหน้าทดสอบ) แล้วกดเชื่อมอีกครั้ง';
@@ -232,7 +241,7 @@ class UsbPrinter {
     catch(e){ try{ if(d.opened) await d.close(); }catch(x){} throw e; }   // จับไม่ได้ (อีกหน้าใช้อยู่) → ปิดที่เปิดค้างไว้ ไม่ถือเครื่องครึ่งๆ
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
     this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
-    this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false;
+    this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false; this.statusMiss = 0;
     this.dirty = this.dirty || 'open';   // เชื่อมใหม่ทุกครั้ง: ไม่รู้ว่าเครื่องค้างกลางคำสั่งอยู่ไหม ล้างก่อนงานแรก (ล้มกลางงาน = 'fail' ตั้งจากฝั่งแอป)
     return d;
   }
@@ -262,26 +271,33 @@ class UsbPrinter {
     const raw2 = await within(ask(2)), raw4 = await within(ask(4));
     return {raw2, raw4, s2: raw2.length ? raw2[raw2.length - 1] : null, s4: raw4.length ? raw4[raw4.length - 1] : null};
   }
-  /* ก่อนพิมพ์: {cover, paper, near} · ห้ามทำให้พิมพ์ไม่ได้: ไม่มี IN / ไม่ตอบ / ค่าผิดรูป = null (พิมพ์ตามปกติ)
-     ไม่ตอบ = ไม่ถามอีกจนเชื่อมใหม่ (transferIn ที่ค้างอาจได้คำตอบเก่ามาปน) · ค่าผิดรูป = log แล้วพิมพ์ต่อ (ถามใหม่ครั้งหน้า) */
+  /* ก่อน/ระหว่างพิมพ์: {cover, paper, near} · ห้ามทำให้พิมพ์ไม่ได้: ไม่มี IN / ไม่ตอบ / ค่าผิดรูป = null (พิมพ์ตามปกติ)
+     ไม่ตอบ 3 ครั้งติด = ไม่ถามอีกจนเชื่อมใหม่ (ครั้งเดียว เช่นบัฟเฟอร์เต็มตอนฝาเปิด ยังถามต่อ: คำตอบที่มาช้าตกที่ transferIn เดิมที่ค้างอยู่ ไม่ปนครั้งถัดไป)
+     ค่าผิดรูป = log แล้วพิมพ์ต่อ (ถามใหม่ครั้งหน้า) */
   async status(ms = PRINTER.statusMs){
     if(!this.connected || this.epIn == null || this.noStatus) return null;
     let r;
-    try{ r = await this.readStatus(ms); }catch(e){ this.noStatus = true; console.warn('printer status: no answer, printing anyway', e && e.message); return null; }
+    try{ r = await this.readStatus(ms); this.statusMiss = 0; }
+    catch(e){ this.statusMiss = (this.statusMiss || 0) + 1; if(this.statusMiss >= 3) this.noStatus = true; console.warn('printer status: no answer, printing anyway', e && e.message); return null; }
     const p = UsbPrinter.parseStatus(r.s2, r.s4);
     if(!p.valid){ console.warn('printer status looks wrong, printing anyway', JSON.stringify(r)); return null; }
     return {cover:p.cover, paper:p.paper, near:p.near};
   }
-  async send(data, chunk = PRINTER.chunk){
+  /* hook(dt) = เรียกหลังส่งแต่ละก้อน (dt = ก้อนนั้นใช้กี่ ms) · throw ใน hook = หยุดส่งงานนี้ (เช่นถามสถานะเจอฝาเปิด) */
+  async send(data, chunk = PRINTER.chunk, hook){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
     /* ปิด/เชื่อมใหม่ระหว่างส่ง (เช่นหมดเวลา) → หยุด ห้ามส่งส่วนที่เหลือของงานเก่าผ่านการเชื่อมใหม่
        เทียบรอบการเชื่อม (session) ไม่ใช่ตัวอุปกรณ์ เพราะเชื่อมใหม่ได้ USBDevice ตัวเดิม */
-    const dev = this.dev, ep = this.ep, sid = this.session;
-    for(let i = 0; i < data.length; i += chunk){
+    const dev = this.dev, ep = this.ep, sid = this.session, safe = data.safe;
+    for(let i = 0; i < data.length; ){
       if(this.session !== sid || !this.dev) throw new Error('การเชื่อมเปลี่ยนระหว่างส่ง งานนี้ถูกยกเลิก');
-      const r = await dev.transferOut(ep, data.subarray(i, i + chunk));
+      let j = Math.min(data.length, i + chunk);
+      if(safe){ let k = j; while(k > i && !safe.has(k)) k--; if(k > i) j = k; }   // ตัดก้อนที่รอยต่อคำสั่ง (jobBytes)
+      const t0 = Date.now(), r = await dev.transferOut(ep, data.subarray(i, j));
       if(r.status !== 'ok') throw new Error(`ส่งข้อมูลไม่สำเร็จ (${r.status}) ที่ byte ${i}`);
       this.lastAck = Date.now();   // เครื่องรับก้อนล่าสุดเมื่อไร (หมดเวลา = สะดุดตั้งแต่ตอนนี้ · ใช้ตัดสินว่าใบก่อนหน้าอาจยังค้างในบัฟเฟอร์)
+      i = j;
+      if(hook) await hook(this.lastAck - t0, i >= data.length, !!safe && safe.has(i));   // safe = ตอนนี้เครื่องอยู่ระหว่างคำสั่ง ถามสถานะได้
     }
     return data.length;
   }

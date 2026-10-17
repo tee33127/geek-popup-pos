@@ -72,6 +72,8 @@
         <button data-test="cut" disabled>✂️ ตัดกระดาษ</button>
         <button data-test="drawer" disabled>💰 เปิดลิ้นชัก<small>ไม่มีลิ้นชักก็กดได้ ไม่เสียหาย</small></button>
         <button data-test="status" disabled>📡 อ่านสถานะเครื่อง<small>ลองเปิดฝา / ถอดกระดาษ แล้วกดดูค่า</small></button>
+        <button data-test="watch" disabled>🔎 ทดสอบถามสถานะระหว่างพิมพ์<small>พิมพ์รูปยาว ~20 ซม. ลองเปิดฝาแป๊บเดียวระหว่างพิมพ์</small></button>
+        <button data-test="asb" disabled>📨 ทดสอบ ASB<small>เครื่องแจ้งสถานะเอง 30 วิ ลองเปิด/ปิดฝา</small></button>
         <button data-test="disconnect" disabled>⏏️ ปล่อยปริ้นเตอร์<small>ให้แอป POS เชื่อมได้ (ปิดหน้านี้ก็ปล่อยเอง)</small></button>
       </div>
       <details>
@@ -265,9 +267,61 @@ const TESTS = {
       log(`แปลว่า: ${!p.valid ? 'อ่านค่าไม่ออก (รูปแบบไม่ตรงมาตรฐาน · แอปจะพิมพ์ต่อตามปกติ)' : m || 'ปกติ'}`, !p.valid || p.cover || p.paper || p.error ? 'bad' : 'ok');
     }catch(e){ log(`อ่านสถานะไม่ได้ · ${e.message}${/ไม่ตอบ/.test(e.message) ? ' (กดอีกครั้งอาจได้ค่าเก่าค้าง ถ้าแปลกให้ถอดสายแล้วเสียบใหม่)' : ''}`, 'bad'); }
   },
+  /* พิมพ์รูปยาว ~20 ซม. (1,600 แถว) ส่งแบ่งตรงรอยต่อคำสั่ง ถามสถานะทุก 300 ms (แบบเดียวกับแอป) + log ทุกครั้ง
+     จับฝาเปิดแป๊บเดียวได้ไหม · ก้อนไหนค้างนานผิดปกติ · การถามทำให้ช้าลงเท่าไร (Tee 2026-10-17) */
+  watch: async () => {
+    if(P.epIn == null){ log('เครื่องนี้ไม่มีช่องรับกลับ ถามสถานะไม่ได้', 'bad'); return; }
+    await slipFontsReady();
+    const o = opt(), H = 1600, c = document.createElement('canvas'), x = c.getContext('2d'); c.width = o.dots; c.height = H;
+    x.fillStyle = '#fff'; x.fillRect(0, 0, o.dots, H); x.fillStyle = '#000'; x.font = `700 28px ${SLIP_FONT}`;
+    for(let y = 0; y < H; y += 80){ x.fillRect(0, y, o.dots, 4); x.fillText(`แถว ${y} · ${(y / 8).toFixed(0)} มม.`, 12, y + 44); }
+    x.fillRect(0, 0, 4, H); x.fillRect(o.dots - 4, 0, 4, H);
+    const data = jobBytes([ESCPOS.init(), ...canvasBands(c, o.thr), ESCPOS.feed(3), o.cut]);
+    log(`ทดสอบถามสถานะระหว่างพิมพ์: ${data.length.toLocaleString()} byte · ลองเปิดฝาแป๊บเดียวระหว่างพิมพ์ แล้วดู log`);
+    const t0 = performance.now(); let polls = 0, pollMs = 0, last = 0, maxChunk = 0, seen = [];
+    const ask = async (when) => {
+      const a = performance.now();
+      try{ const r = await P.readStatus(500), p = UsbPrinter.parseStatus(r.s2, r.s4), m = [p.cover && 'ฝาเปิด', p.paper && 'กระดาษหมด', p.near && 'ใกล้หมด'].filter(Boolean).join(' ') || (p.valid ? 'ปกติ' : 'อ่านไม่ออก');
+        polls++; pollMs += performance.now() - a; if(m !== 'ปกติ') seen.push(m);
+        log(`${Math.round(a - t0)} ms ${when} · 0x${(r.s2 ?? 0).toString(16)}/0x${(r.s4 ?? 0).toString(16)} = ${m} (ถาม ${Math.round(performance.now() - a)} ms)`, m === 'ปกติ' ? '' : 'bad');
+      }catch(e){ polls++; pollMs += performance.now() - a; log(`${Math.round(a - t0)} ms ${when} · ไม่ตอบ (${e.message})`, 'bad'); }
+    };
+    try{
+      await P.send(data, o.chunk, async (dt, end, safe) => {
+        maxChunk = Math.max(maxChunk, dt);
+        if(dt > 500) log(`${Math.round(performance.now() - t0)} ms · ก้อนค้าง ${dt} ms (เครื่องหยุดรับ = ฝาเปิด/กระดาษหมด?)`, 'bad');
+        if(safe && performance.now() - last >= 300){ last = performance.now(); await ask('ระหว่างส่ง'); }
+      });
+      const sent = performance.now() - t0, until = t0 + Math.max(sent, data.length / 45000 * 1000) + 2000;
+      log(`ส่งครบ ${Math.round(sent)} ms · ก้อนนานสุด ${maxChunk} ms · ถามต่อจนหัวพิมพ์น่าจะพิมพ์จบ + 2 วิ`);
+      while(performance.now() < until){ await new Promise(r => setTimeout(r, 300)); await ask('หลังส่ง'); }
+      log(`สรุป: ถามสถานะ ${polls} ครั้ง ใช้รวม ${Math.round(pollMs)} ms (เฉลี่ย ${polls ? Math.round(pollMs / polls) : 0} ms/ครั้ง) · ส่งงาน ${Math.round(sent)} ms · ${seen.length ? 'เจอ: ' + [...new Set(seen)].join(', ') : 'ไม่เจอฝาเปิด/กระดาษหมด'}`, seen.length ? 'bad' : 'ok');
+    }catch(e){ log(`ทดสอบถามสถานะระหว่างพิมพ์: ${explain(e)}`, 'bad'); }
+  },
+  /* ASB (GS a n): เครื่องส่งสถานะมาเองเมื่อเปลี่ยน (ไม่ต้องถาม) · ฟัง 30 วิ log byte ดิบ + แปล (ตามสเปก ESC/POS 4 byte) แล้วปิด ASB และเชื่อมใหม่ (ล้างการรอรับที่ค้าง) */
+  asb: async () => {
+    if(P.epIn == null){ log('เครื่องนี้ไม่มีช่องรับกลับ ใช้ ASB ไม่ได้', 'bad'); return; }
+    const dev = P.dev, ep = P.ep, epIn = P.epIn, end = performance.now() + ASB_MS;
+    const hx = a => a.map(v => '0x' + v.toString(16).padStart(2, '0')).join(' ');
+    const mean = a => { if(a.length < 4) return 'ไม่ใช่รูปแบบ ASB 4 byte'; const m = [a[0] & 0x08 && 'ออฟไลน์', a[0] & 0x20 && 'ฝาเปิด', a[0] & 0x40 && 'กดปุ่มป้อนกระดาษ', a[1] & 0x40 && 'ผิดพลาด (แก้เองได้)', a[1] & 0x20 && 'ผิดพลาด (ร้ายแรง)', (a[2] & 0x0C) && 'กระดาษหมด', (a[2] & 0x03) && 'กระดาษใกล้หมด'].filter(Boolean); return m.join(' · ') || 'ปกติ'; };
+    try{
+      await dev.transferOut(ep, new Uint8Array([0x1D, 0x61, 0x0E]));   // GS a 14: แจ้ง ออนไลน์/ออฟไลน์ + ผิดพลาด + กระดาษ
+      log(`เปิด ASB แล้ว · ฟัง ${ASB_MS / 1000} วิ ลองเปิด/ปิดฝา ถอด/ใส่กระดาษ`);
+      while(performance.now() < end){
+        const r = await Promise.race([dev.transferIn(epIn, 64), new Promise(ok => setTimeout(() => ok(null), Math.max(1, end - performance.now())))]);
+        if(!r) break;
+        const a = r.data ? Array.from({length:r.data.byteLength}, (_, i) => r.data.getUint8(i)) : [];
+        if(a.length) log(`ASB ${hx(a)} = ${mean(a)}`, /ฝาเปิด|กระดาษหมด|ผิดพลาด/.test(mean(a)) ? 'bad' : 'ok');
+      }
+      await dev.transferOut(ep, new Uint8Array([0x1D, 0x61, 0x00]));   // ปิด ASB
+      log('ปิด ASB แล้ว · เชื่อมใหม่เพื่อล้างการรอรับที่ค้าง');
+      await P.close(); await P.reconnect(); setConnected();
+    }catch(e){ log(`ทดสอบ ASB: ${explain(e)}`, 'bad'); }
+  },
   disconnect: async () => { await P.close(); log('ปล่อยปริ้นเตอร์แล้ว (releaseInterface + close) · แอป POS เชื่อมได้ · เครื่องยังจำการอนุญาตไว้'); setConnected(); },
 };
 let busy = false;
+let ASB_MS = 30000;   // ฟัง ASB นานเท่านี้
 /* ปิด/ออกจากหน้านี้ → ปล่อยปริ้นเตอร์ให้แอป POS (ไม่งั้นแอปจะเชื่อมไม่ได้ "ปริ้นเตอร์ถูกใช้อยู่ในหน้าอื่น") */
 addEventListener('pagehide', () => { if(P.dev) P.close().catch(() => {}); });
 document.querySelector('.tests').onclick = async e => {
@@ -289,6 +343,8 @@ const CHECKS = [
   'ถอดสาย/ปิด-เปิดหน้า แล้วยังพิมพ์ได้โดยไม่ต้องเลือกเครื่องใหม่',
   'โหมดเครื่องบิน: เปิดหน้านี้แล้วพิมพ์ได้',
   'อ่านสถานะเครื่อง: ปกติ / เปิดฝา / ถอดกระดาษ แล้วค่าเปลี่ยนตรงความจริง (คัดลอก log ส่งให้ Claude)',
+  'ถามสถานะระหว่างพิมพ์: เปิดฝาแป๊บเดียว (~1 วิ) ระหว่างพิมพ์ แล้ว log ขึ้น "ฝาเปิด" หรือ "ก้อนค้าง" · จดเวลาเฉลี่ยต่อครั้งจากบรรทัดสรุป',
+  'ASB: เปิด/ปิดฝาระหว่างฟัง แล้ว log ขึ้น ASB เอง (ถ้าไม่ขึ้นเลย = เครื่องไม่รองรับ ไม่เป็นไร)',
   'ถ่ายรูปตั๋วส่งให้ Claude',
 ];
 const CK = 'geek_printer_test_v1';

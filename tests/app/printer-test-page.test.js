@@ -2,19 +2,21 @@
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '../..');
 class Files extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(ROOT, new URL(u).pathname))); } }
-let claimBusy = false, released = 0;
+let claimBusy = false, released = 0, asbQueue = null, asbOn = [];   // asbQueue = คำตอบที่เครื่องส่งเอง (ASB) · asbOn = คำสั่ง GS a ที่ได้รับ
 let errors = [], sent = [], permitted = [], usbEvents = new EventTarget(), stat = {2:0x12, 4:0x12}, lastAsk = 0, statHang = false;   // stat = ค่าที่เครื่องปลอมตอบ DLE EOT n
 const fakeDevice = () => ({vendorId:0x0483, productId:0x5743, manufacturerName:'Xprinter', productName:'XP-Q807K', opened:false, configuration:null,
   configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'in', type:'bulk', packetSize:64}, {endpointNumber:2, direction:'out', type:'bulk', packetSize:64}]}]}]}],
   async open(){ this.opened = true; }, async close(){ this.opened = false; },
   async selectConfiguration(){ this.configuration = this.configurations[0]; },
   async claimInterface(){ if(claimBusy){ const e = new Error("Failed to execute 'claimInterface' on 'USBDevice': Unable to claim interface."); e.name = 'NetworkError'; throw e; } }, async releaseInterface(){ released++; },
-  async transferOut(ep, data){ if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; return {status:'ok', bytesWritten:3}; } sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
-  async transferIn(ep){ if(statHang) return new Promise(() => {}); return {status:'ok', data:new DataView(new Uint8Array([stat[lastAsk]]).buffer)}; }});
+  async transferOut(ep, data){ if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; asks.push(sent.reduce((a, x) => a + x.data.length, 0)); return {status:'ok', bytesWritten:3}; } if(data[0] === 0x1D && data[1] === 0x61){ asbOn.push(data[2]); return {status:'ok', bytesWritten:3}; } sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
+  async transferIn(ep){ if(asbQueue){ if(!asbQueue.length) return new Promise(() => {}); await new Promise(r => setTimeout(r, 30)); return {status:'ok', data:new DataView(new Uint8Array(asbQueue.shift()).buffer)}; } if(statHang) return new Promise(() => {}); return {status:'ok', data:new DataView(new Uint8Array([stat[lastAsk]]).buffer)}; }});
+const asks = [];   // ตำแหน่ง (byte ที่ส่งไปแล้ว) ตอนถามสถานะ
 const dev = fakeDevice();
 JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerously', resources:new Files(), url:'http://localhost/printer-test/index.html', pretendToBeVisual:true,
   beforeParse(w){
     w.addEventListener('error', e => errors.push(e.message));
+    w.HTMLCanvasElement.prototype.getContext = function(){ return {font:'', fillStyle:'', textAlign:'', measureText: s => ({width:String(s).length * 12}), fillRect(){}, fillText(){}, getImageData: (x, y, w2, h) => ({width:w2, height:h, data:new Uint8ClampedArray(w2 * h * 4).fill(255)})}; };   // canvas จำลอง (ภาพขาว)
     Object.defineProperty(w.navigator, 'usb', {value:{
       requestDevice: async () => { permitted = [dev]; return dev; }, getDevices: async () => permitted,
       addEventListener: (t, f) => usbEvents.addEventListener(t, f)}});
@@ -66,6 +68,16 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     eq('unplug → disconnected', [$('#status').textContent, $('[data-test="text"]').disabled], ['ยังไม่เชื่อม', true]);
     ev('connect'); await wait(50);
     eq('replug → auto reconnect', [$('#status').textContent, logText().includes('เสียบสายใหม่ · ไม่ต้องเลือกใหม่')], ['เชื่อมแล้ว · XP-Q807K', true]);
+    // ทดสอบถามสถานะระหว่างพิมพ์: ถามเฉพาะตรงรอยต่อคำสั่งภาพ (ไม่แทรกกลาง GS v 0) · log ทุกครั้ง + สรุปเวลา
+    sent = []; asks.length = 0; stat = {2:0x12, 4:0x12}; $('#optChunk').value = '4096';
+    $('[data-test="watch"]').click(); await wait(6500);
+    const job = sent.flatMap(x => x.data), bandAt = new Set([0]); { let o = 2; bandAt.add(2); while(o < job.length && job[o] === 0x1D && job[o + 1] === 0x76){ const n = 8 + (job[o + 4] | job[o + 5] << 8) * (job[o + 6] | job[o + 7] << 8); o += n; bandAt.add(o); } }
+    eq('watch test: status asked during printing, only at band boundaries (never inside an image command) · summary with timing', [asks.length > 2, asks.filter(a => a < job.length - 20).every(a => bandAt.has(a)), /สรุป: ถามสถานะ \d+ ครั้ง ใช้รวม \d+ ms/.test(logText())], [true, true, true]);
+    // ASB: เครื่องแจ้งเอง (ฝาเปิด แล้วปกติ) → log แปลความหมาย → ปิด ASB + เชื่อมใหม่
+    asbQueue = [[0x34, 0x00, 0x00, 0x0F], [0x14, 0x00, 0x00, 0x0F]]; asbOn = []; w.eval('ASB_MS = 500');
+    $('[data-test="asb"]').click(); await wait(900);
+    eq('ASB test: turns ASB on, logs raw + meaning (lid open, then normal) · turns it off and reconnects', [asbOn, logText().includes('ASB 0x34 0x00 0x00 0x0f = ฝาเปิด'), logText().includes('ASB 0x14 0x00 0x00 0x0f = ปกติ'), $('#status').textContent], [[0x0E, 0x00], true, true, 'เชื่อมแล้ว · XP-Q807K']);
+    asbQueue = null;
     // ปล่อยปริ้นเตอร์ให้แอป POS: ปุ่ม + ปิดหน้า
     released = 0; $('[data-test="disconnect"]').click(); await wait(50);
     eq('"release printer" button: releaseInterface + close · says the POS app can connect', [released, dev.opened, $('#status').textContent, logText().includes('ปล่อยปริ้นเตอร์แล้ว')], [1, false, 'ยังไม่เชื่อม', true]);

@@ -5,8 +5,8 @@ const kitchenHtml = s => slipHtml(kitchenBlocks(s));
 /* บิล → byte ESC/POS: แต่ละใบวาดเป็นภาพ (ภาษาไทยไม่พึ่งฟอนต์ปริ้นเตอร์) แล้วตัดกระดาษ */
 function slipBytes(blockSets){
   const parts = [ESCPOS.init()];
-  blockSets.forEach(bl => parts.push(canvasCmds(renderSlip(bl)), ESCPOS.cut()));
-  return bytes(...parts);
+  blockSets.forEach(bl => parts.push(...canvasBands(renderSlip(bl)), ESCPOS.cut()));
+  return jobBytes(parts);   // จำรอยต่อคำสั่ง: ส่ง/ถามสถานะระหว่างงานเฉพาะตรงรอยต่อ
 }
 
 /* ---------- พิมพ์: ปริ้นเตอร์ USB ถ้าเชื่อมอยู่ ไม่งั้นใช้หน้าพิมพ์ของระบบ (window.print) ----------
@@ -22,8 +22,8 @@ const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.
 const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
 /* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ (ep2 IN) จึงไม่ส่งงาน (Tee 2026-10-17)
    auto = อ่านสถานะได้ แอปจะพิมพ์ใบที่ขาดต่อให้เองเมื่อเครื่องพร้อม (resumePoll) · ไม่ได้ = ให้พนักงานกดพิมพ์ซ้ำ */
-const FAIL_MSG = {stuck:() => STUCK_MSG, cover:a => `ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, paper:a => `กระดาษหมด — ใส่กระดาษแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`};
-const FAIL_HINT = {stuck:a => a ? 'ปิดฝา/ใส่กระดาษแล้วจะพิมพ์ต่อให้' : 'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:a => `ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, paper:a => `กระดาษหมด ใส่กระดาษแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`};
+const FAIL_MSG = {stuck:() => STUCK_MSG, cover:a => `ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, paper:a => `กระดาษหมด — ใส่กระดาษแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, pause:a => `ปริ้นเตอร์หยุดกลางใบ — ${a ? 'จะพิมพ์ใบแทนให้' : 'กดพิมพ์ซ้ำ'}`};
+const FAIL_HINT = {stuck:a => a ? 'ปิดฝา/ใส่กระดาษแล้วจะพิมพ์ต่อให้' : 'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:a => `ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, paper:a => `กระดาษหมด ใส่กระดาษแล้ว${a ? 'จะพิมพ์ต่อให้' : 'กดพิมพ์ซ้ำ'}`, pause:a => `ปริ้นเตอร์หยุดกลางใบ ${a ? 'จะพิมพ์ใบแทนให้' : 'กดพิมพ์ซ้ำ'}`};
 let printWhy = 'stuck', nearWarned = false;   // nearWarned = เตือนกระดาษใกล้หมดแล้ว (ครั้งเดียวต่อการเปิดแอป)
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
@@ -36,11 +36,11 @@ const missingOf = st => notOut(st.receipt) && notOut(st.kitchen) ? 'both' : notO
 const receiptMode = () => SETTINGS.receiptMode === 'ask' ? 'ask' : 'all';
 
 /* ส่ง 1 งาน · คืน true / 'timeout' / error */
-function sendJob(data){
+function sendJob(data, hook){
   return new Promise(done => {
     let over = false;
     const t = setTimeout(() => { if(!over){ over = true; done('timeout'); } }, jobTimeout(data.length));
-    usbPrinter.send(data).then(() => { if(!over){ over = true; clearTimeout(t); done(true); } }, e => { if(!over){ over = true; clearTimeout(t); done(e || new Error('send')); } });
+    usbPrinter.send(data, PRINTER.chunk, hook).then(() => { if(!over){ over = true; clearTimeout(t); done(true); } }, e => { if(!over){ over = true; clearTimeout(t); done(e || new Error('send')); } });
   });
 }
 const within = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
@@ -62,41 +62,67 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
   jobs.forEach(([k]) => { st[k] = 'wait'; });
   return printQueue = printQueue.then(async () => {
     await slipFontsReady();
-    let res = 'ok', stumbleAt = 0;
-    /* ถามสถานะ: พร้อม = ยืนยันใบก่อนหน้าที่ส่งนานพอแล้ว · ฝาเปิด/กระดาษหมด = สะดุด (ใบที่ยังไม่ยืนยันต้องพิมพ์ใบแทน) */
+    let res = 'ok', stumbleAt = 0, byStatus = false, cut = false, lastPoll = 0, estEnd = Date.now();   // byStatus = รู้ว่าสะดุดจากสถานะ (ไม่ใช่หมดเวลา/ค้าง/หลุด)
+    /* ถามสถานะ: พร้อม = ยืนยันใบที่หัวพิมพ์น่าจะพิมพ์จบนานพอแล้ว · ฝาเปิด/กระดาษหมด = สะดุด (ใบที่ยังไม่ยืนยันต้องพิมพ์ใบแทน) */
     const check = async () => {
+      lastPoll = Date.now();
       const ps = await usbPrinter.status();
       if(!ps) return 'ok';
       if(ps.near && !nearWarned){ nearWarned = true; toast('กระดาษใกล้หมด เตรียมม้วนใหม่ไว้', 'alert', 4000); }
       if(!ps.cover && !ps.paper){ slipsConfirmed(Date.now()); return 'ok'; }
-      if(st.blocked){ st.override = true; console.warn('printer status still says', ps.cover ? 'cover open' : 'paper out', '· staff pressed reprint, sending anyway'); return 'ok'; }   // บอกปัญหาไปแล้วครั้งหนึ่ง พนักงานกดซ้ำ = ส่งเลย (อ่านค่าผิดต้องไม่ทำให้พิมพ์ไม่ได้ · ไม่นับเป็นสะดุด ไม่งั้นวน)
-      stumbleAt = Date.now();
+      if(st.blocked){ st.override = true; plog('override', sid, ps.cover ? 'cover' : 'paper'); return 'ok'; }   // บอกปัญหาไปแล้วครั้งหนึ่ง พนักงานกดซ้ำ = ส่งเลย (อ่านค่าผิดต้องไม่ทำให้พิมพ์ไม่ได้ · ไม่นับเป็นสะดุด ไม่งั้นวน)
+      stumbleAt = Date.now(); byStatus = true; plog('status', sid, ps.cover ? 'cover open' : 'paper out');
       return ps.cover ? 'cover' : 'paper';
     };
+    /* ระหว่างส่ง (หลังทุกก้อน): ก้อนค้างนานผิดปกติ = เครื่องหยุดรับ (ฝาเปิดแป๊บเดียวก็จับได้) · ถามสถานะทุก PRINT_WATCH.ms (Tee 2026-10-17 · บั๊กเครื่องจริง #018) */
+    const watch = async (dt, last, safe) => {
+      if(dt > PRINT_WATCH.stall){ stumbleAt = usbPrinter.lastAck - dt; byStatus = false; plog('stall', sid, dt + ' ms'); throw Object.assign(new Error('stall'), {stumble:'pause'}); }
+      if(safe && canPoll() && !usbPrinter.statusMiss && Date.now() - lastPoll >= PRINT_WATCH.ms){   // ถามเฉพาะตรงรอยต่อคำสั่ง ไม่แทรกกลางภาพ · ไม่ตอบแล้ว = ไม่ถามระหว่างงาน (กันช้า)
+        const r = await check(); if(r !== 'ok') throw Object.assign(new Error(r), {stumble:r});
+      }
+    };
+    /* รอจนใบที่ส่งแล้วของบิลนี้ยืนยันว่าออก (เลยเวลาพิมพ์จบที่คาด + ช่วงยืนยัน) ถามสถานะทุก PRINT_WATCH.ms · ฝาเปิด/กระดาษหมด = หยุด
+       ใช้ก่อนส่งใบถัดไป (ฝาเปิดตอนใบเสร็จ ตั๋วครัวที่ยืนยันแล้วไม่พิมพ์ซ้ำ) และหลังใบสุดท้าย · อ่านสถานะไม่ได้ = ยืนยันด้วยเวลาตอนสะดุด */
+    const settle = async () => {
+      while(UNCONF.some(u => u.id === sid) && canPoll() && !usbPrinter.statusMiss && gen === printGen && usbPrinter.connected){
+        const left = estEnd + PRINT_CONFIRM.ms - Date.now();
+        await sleep(Math.max(0, Math.min(PRINT_WATCH.ms - (Date.now() - lastPoll), left)));
+        const r = await check(); if(r !== 'ok') return r;
+        if(Date.now() >= estEnd + PRINT_CONFIRM.ms) break;     // ครั้งสุดท้ายหลังพ้นช่วง = ยืนยัน
+      }
+      return 'ok';
+    };
     if(usbPrinter.connected && gen === printGen){
-      if(usbPrinter.dirty){ const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
+      if(usbPrinter.dirty){ plog('recover', sid, usbPrinter.dirty); const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
       if(res === 'ok') res = await check();
     }
     for(const [i, [k, bl]] of jobs.entries()){
+      if(i && res === 'ok' && sid) res = await settle();      // ก่อนใบถัดไป: รอยืนยันใบก่อน · ฝาเปิดก็หยุดตรงนี้
       if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
-      /* ใบที่สองเป็นต้นไป (อ่านสถานะได้): รอให้ใบก่อนหน้าออกจากบัฟเฟอร์เครื่องจริงก่อน แล้วถามสถานะ
-         ฝาเปิดตอนใบเสร็จ จะได้รู้ว่าตั๋วครัวออกครบแล้ว ไม่ต้องพิมพ์ซ้ำ (Tee 2026-10-17 · บั๊ก H33) */
-      if(i && sid && canPoll()){ await sleep(PRINT_CONFIRM.ms); res = await check(); if(res !== 'ok'){ st[k] = 'fail'; continue; } }
-      const r = await sendJob(slipBytes([bl]));
-      if(r === true){ st[k] = 'ok'; if(sid) UNCONF.push({id:sid, k, at:Date.now()}); continue; }
-      st[k] = 'fail'; res = r === 'timeout' ? 'timeout' : 'error';
+      const data = slipBytes([bl]), t0 = Date.now();
+      if(sid) (st.sent = st.sent || {})[k] = true;           // เริ่มส่งแล้ว: พิมพ์ใบนี้อีกครั้งเมื่อไร = ใบแทน
+      plog('send', sid, `${k} ${data.length} B${bl[0] && bl[0].text && bl[0].text.startsWith('ใบแทน') ? ' (ใบแทน)' : ''}`);
+      const r = await sendJob(data, sid ? watch : null);
+      estEnd = Math.max(Date.now(), Math.max(estEnd, t0) + data.length / PRINT_WATCH.rate * 1000);   // หัวพิมพ์น่าจะพิมพ์ใบนี้จบเมื่อไร (ใบก่อนต้องจบก่อน)
+      if(r === true){ st[k] = 'ok'; if(sid) UNCONF.push({id:sid, k, at:Date.now(), end:estEnd}); continue; }
+      st[k] = 'fail'; cut = true;
       if(sid) (st.redo = st.redo || {})[k] = true;           // สะดุดกลางใบนี้ = ออกไปบางส่วน พิมพ์ใหม่ทั้งใบเป็นใบแทน
-      stumbleAt = usbPrinter.lastAck || Date.now();          // สะดุดตั้งแต่เครื่องรับก้อนสุดท้าย
+      if(r && r.stumble){ res = r.stumble; continue; }       // ฝาเปิด / กระดาษหมด / เครื่องหยุดรับ ระหว่างส่ง
+      res = r === 'timeout' ? 'timeout' : 'error';
+      stumbleAt = usbPrinter.lastAck || Date.now(); byStatus = false;   // สะดุดตั้งแต่เครื่องรับก้อนสุดท้าย
       if(res === 'error') console.warn('usb print', r);
+      plog(res, sid, k);
     }
-    if(stumbleAt) slipsStumbled(stumbleAt);                  // ใบก่อนหน้าที่ส่งครบแต่ยังไม่ยืนยันว่าออก → ใบแทน
-    if(res === 'ok' && sid && canPoll()) setTimeout(settleCheck, PRINT_CONFIRM.ms);   // ยืนยันใบสุดท้ายของรอบ (ฝาเปิดหลังส่งครบก็จับได้)
-    if(res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
-    if(!resumed && (res === 'timeout' || res === 'cover' || res === 'paper')) resumeArmed = true;   // เครื่องพร้อมเมื่อไร พิมพ์ต่อให้ 1 ครั้ง · พิมพ์ต่อเองแล้วล้มอีก = รอเห็นเครื่องไม่พร้อมก่อน
-    if(res === 'cover' || res === 'paper'){ printWhy = res; st.blocked = true; toast(FAIL_MSG[res](canPoll()), 'alert', 6000); }
+    /* ส่งครบแล้ว: เฝ้าต่อจนหัวพิมพ์น่าจะพิมพ์จบ + ช่วงยืนยัน (ฝาเปิดตอนเครื่องพิมพ์จากบัฟเฟอร์ก็จับได้) */
+    if(res === 'ok' && sid) res = await settle();
+    if(stumbleAt) slipsStumbled(stumbleAt, byStatus);        // ใบที่ส่งครบแต่ยังไม่ยืนยันว่าออก → ใบแทน (สะดุดจากสถานะ ไม่นับบิลที่พนักงานสั่งส่งทั้งที่สถานะบอกปัญหา)
+    if(cut || res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ป้อนแล้วตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
+    if(!resumed && ['timeout', 'cover', 'paper', 'pause'].includes(res)) resumeArmed = true;   // เครื่องพร้อมเมื่อไร พิมพ์ต่อให้ 1 ครั้ง · พิมพ์ต่อเองแล้วล้มอีก = รอเห็นเครื่องไม่พร้อมก่อน
+    if(res === 'cover' || res === 'paper' || res === 'pause'){ printWhy = res; if(res !== 'pause') st.blocked = true; toast(FAIL_MSG[res](canPoll()), 'alert', 6000); }
     else if(res === 'ok') delete st.blocked;
     if(res === 'timeout'){ printWhy = 'stuck'; const cleared = await printerStuck(); printFailBar(cleared); }
     else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
+    plog('done', sid, `${res} · ${jobs.map(([k]) => k + '=' + st[k] + (st.redo && st.redo[k] ? '(ใบแทน)' : '')).join(' ')}`);
     return res;
   }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
 }
@@ -105,37 +131,38 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
    UNCONF = ใบที่ส่งครบแต่ยังไม่ยืนยัน · ยืนยัน = อ่านสถานะได้ "พร้อม" เมื่อผ่านไป ≥ PRINT_CONFIRM.ms หลังส่งครบ
    สะดุด (หมดเวลา / ฝาเปิด / กระดาษหมด / สายหลุด) → ใบที่ยังไม่ยืนยันและส่งไม่นานก่อนจุดสะดุด = fail + redo (ใบแทน) · ใบที่ไม่สะดุดไม่พิมพ์ซ้ำ
    อ่านสถานะได้: ใบที่ยังไม่ถูกยืนยันทุกใบ (ไม่เกิน stale ms) · อ่านสถานะไม่ได้: ยืนยันด้วยเวลา (ส่งครบนานกว่า PRINT_CONFIRM.ms ก่อนจุดสะดุด = ถือว่าออกแล้ว) */
-const PRINT_CONFIRM = {ms:1200, stale:20000};
+const PRINT_CONFIRM = {ms:500, stale:20000};   // ms = เผื่อหลังเวลาพิมพ์จบที่คาด (PRINT_WATCH.rate)
+/* เฝ้าระหว่างพิมพ์: ถามสถานะทุก ms · ก้อน 4 KB ปกติ ~80 ms (วัดจริง 109 KB ≈ 2.1 วิ) ค้างเกิน stall ms = เครื่องหยุดรับ
+   rate = ความเร็วหัวพิมพ์โดยประมาณ (byte/วิ ต่ำกว่าที่วัดได้ 52 KB/วิ เผื่อไว้) ใช้คาดว่าใบไหนพิมพ์จบเมื่อไร */
+const PRINT_WATCH = {ms:300, stall:500, rate:45000};
+/* บันทึกการพิมพ์ (ดูได้ที่ปุ่มปริ้นเตอร์ → บันทึกการพิมพ์) ไว้ไล่ปัญหาบนเครื่องจริง · เก็บ 200 บรรทัดล่าสุดในหน่วยความจำ */
+const PLOG = [];
+function plog(ev, sid, msg){
+  const t = new Date(), no = sid && typeof loadSales === 'function' ? (loadSales().find(x => x.id === sid) || {}).no : null;
+  PLOG.push(`${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}.${String(t.getMilliseconds()).padStart(3, '0')} ${no ? '#' + pad(no, 3) + ' ' : ''}${ev}${msg ? ' · ' + msg : ''}`);
+  if(PLOG.length > 200) PLOG.shift();
+}
 let UNCONF = [];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-function slipsConfirmed(t){ UNCONF = UNCONF.filter(u => u.at + PRINT_CONFIRM.ms > t + 10); }   // +10 ms: ตัวจับเวลาอาจมาก่อนกำหนดเล็กน้อย
+function slipsConfirmed(t){ UNCONF = UNCONF.filter(u => (u.end || u.at) + PRINT_CONFIRM.ms > t + 10); }   // ยืนยันเมื่อเลยเวลาที่หัวพิมพ์น่าจะพิมพ์จบ + ช่วงยืนยัน · +10 ms: ตัวจับเวลาอาจมาก่อนกำหนดเล็กน้อย
 function slipsStumbled(t, byStatus){   // byStatus = รู้จากสถานะ (ไม่ใช่หมดเวลา/หลุด) · บิลที่พนักงานสั่งส่งทั้งที่สถานะบอกปัญหา (st.override) ไม่นับ กันวน
   const hit = UNCONF.filter(u => u.at >= t - (canPoll() ? PRINT_CONFIRM.stale : PRINT_CONFIRM.ms) && !(byStatus && (PRINTED.get(u.id) || {}).override));
   UNCONF = [];   // ที่เก่ากว่าจุดสะดุดนานพอ = ออกแล้ว
   usbPrinter.dirty = usbPrinter.dirty || 'open';   // สะดุด = เครื่องอาจค้างกลางคำสั่ง (เช่นทิ้งบัฟเฟอร์กลางภาพ) → ล้างก่อนงานถัดไปเสมอ กันตัวมั่ว
   if(!hit.length) return 0;
   const all = loadSales();
-  hit.forEach(u => { const st = PRINTED.get(u.id), s = all.find(x => x.id === u.id); if(!st) return; st[u.k] = 'fail'; (st.redo = st.redo || {})[u.k] = true; if(s) addFail(s); });
+  hit.forEach(u => { const st = PRINTED.get(u.id), s = all.find(x => x.id === u.id); if(!st) return; st[u.k] = 'fail'; (st.redo = st.redo || {})[u.k] = true; if(s) addFail(s); plog('stumble → ใบแทน', u.id, u.k); });
   usbPrinter.dirty = 'fail';   // ก่อนใบแทน: ล้าง + ป้อนกระดาษแล้วตัด เศษใบเก่า (รวมที่เครื่องพิมพ์ต่อจากบัฟเฟอร์) เป็นชิ้นแยก
   return hit.length;
 }
-/* หลังรอบพิมพ์จบ PRINT_CONFIRM.ms: ถามสถานะ (ต่อคิว) พร้อม = ยืนยัน · ฝาเปิด/กระดาษหมด = สะดุด → ใบแทน + พิมพ์ต่อเองเมื่อพร้อม */
-function settleCheck(){
-  if(!UNCONF.length || !canPoll()) return;
-  printQueue = printQueue.then(async () => {
-    if(!UNCONF.length || !canPoll()) return;
-    const ps = await usbPrinter.status(), t = Date.now();
-    if(!ps) return;
-    if(!ps.cover && !ps.paper){ slipsConfirmed(t); return; }
-    printWhy = ps.cover ? 'cover' : 'paper';
-    if(slipsStumbled(t, true)){ resumeArmed = true; toast(FAIL_MSG[printWhy](canPoll()), 'alert', 6000); renderFailBar(); if(typeof lastSale !== 'undefined' && lastSale) renderDone(lastSale); }
-  }).catch(e => console.warn('settle', e));
-}
-/* บล็อกของใบ · ใบแทนมีกรอบบนสุด (เส้นกรอบ ไม่ใช้พื้นดำ) บอกครัว/ลูกค้าให้ทิ้งใบก่อนหน้า */
+/* บล็อกของใบ · ใบแทนมีกรอบบนสุด (เส้นกรอบ ไม่ใช้พื้นดำ) บอกครัว/ลูกค้าให้ทิ้งใบก่อนหน้า
+   ใบแทน = ใบนี้เคยเริ่มส่งไปแล้ว (st.sent) หรือสะดุด (st.redo) · ทุกครั้งที่พิมพ์ซ้ำ ไม่ว่าแอปพิมพ์ต่อเอง กดจากแถบส้ม หน้าสำเร็จ หรือสรุปยอด
+   (บั๊กเครื่องจริง #018: ใบที่พิมพ์ใหม่ไม่มีกรอบ ครัวเห็นตั๋วสองใบ · ไม่พึ่งว่าแอปจับการสะดุดได้หรือไม่) */
 const redoBlock = s => ({box:'single', text:`ใบแทน — ทิ้งใบก่อนหน้าของ #${pad(s.no, 3)}`, size:28, bold:true});
+const isRedo = (st, k) => !!st && !!((st.redo && st.redo[k]) || (st.sent && st.sent[k]));
 function slipBlocks(s, k, st){
   const bl = k === 'receipt' ? receiptBlocks(s) : kitchenBlocks(s);
-  return st && st.redo && st.redo[k] ? [redoBlock(s), ...bl] : bl;
+  return isRedo(st, k) ? [redoBlock(s), ...bl] : bl;
 }
 
 /* manual = พนักงานกดเอง (ปุ่มพิมพ์) · ไม่ใช่ = พิมพ์เองหลังชำระเงิน
@@ -234,7 +261,7 @@ function flashOk(msg){
    มีใบค้าง (fail) ในแถบส้ม + อ่านสถานะได้ → ถามสถานะทุก PRINT_RESUME.ms (ต่อคิวเดียวกับงานพิมพ์ ไม่ปนกัน)
    ฝาปิด + มีกระดาษ → พิมพ์เฉพาะใบที่ขาด ตั๋วครัวก่อน 1 ครั้ง (resumeArmed) · ล้มอีก = แถบเดิม ไม่วน: พิมพ์เองได้อีกเมื่อเห็นเครื่องไม่พร้อมแล้วกลับมาพร้อมเท่านั้น
    อ่านสถานะไม่ได้ (ไม่ตอบ) = หยุดถาม พนักงานกดเอง · ใบที่ส่งเข้าเครื่องครบแล้ว (ok) ไม่พิมพ์ซ้ำ · พนักงานกดแทรก = printSale ข้ามใบที่ wait ออกชุดเดียว */
-const PRINT_RESUME = {ms:2000, okMs:3500};
+const PRINT_RESUME = {ms:1000, okMs:3500};   // พร้อมแล้วพิมพ์ใบแทนต่อภายใน ~1 วิ
 let resumeTimer = null, resumeArmed = false, resumeBusy = false;
 const canPoll = () => !!(usbPrinter && usbPrinter.connected && usbPrinter.epIn != null && !usbPrinter.noStatus);
 const failedSlips = f => { const st = PRINTED.get(f.id) || {}; return SLIP_ORDER.filter(k => st[k] === 'fail'); };
@@ -300,7 +327,8 @@ function openPrinterInfo(){
   const d = usbPrinter.dev;
   openModal(`<p style="margin:0 0 6px"><b>เชื่อมอยู่:</b> ${esc((d && d.productName) || 'ปริ้นเตอร์ USB')}</p>
     <p style="color:var(--mute);margin:0 0 6px">ตั๋วครัว${receiptMode() === 'all' ? 'และใบเสร็จ' : ''}จะพิมพ์ออกเครื่องนี้ทันทีหลังชำระเงิน${receiptMode() === 'all' ? '' : ' · ใบเสร็จพิมพ์เมื่อลูกค้าขอ'}</p>
-    <div class="row"><button class="ghost" id="prOff">ยกเลิกการเชื่อม</button><button class="pay" id="prTest">พิมพ์ทดสอบ</button></div>`, {title:`${icon('printer', 22)} ปริ้นเตอร์`, key:'printer'});
+    <div class="row"><button class="ghost" id="prOff">ยกเลิกการเชื่อม</button><button class="pay" id="prTest">พิมพ์ทดสอบ</button></div>
+    <details class="plog"><summary>บันทึกการพิมพ์ (ไว้ส่งให้คนดูแลระบบ)</summary><pre id="plogText">${esc(PLOG.slice(-80).join('\n') || 'ยังไม่มี')}</pre></details>`, {title:`${icon('printer', 22)} ปริ้นเตอร์`, key:'printer'});
 }
 function printTest(){
   closeModal();
