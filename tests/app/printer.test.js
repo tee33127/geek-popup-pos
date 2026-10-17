@@ -31,7 +31,8 @@ eq('banded total length', banded.length, 8 + 4 + 8 + 2);
 // ภาพกว้าง 576 สูง 300: header xL/xH/yL/yH
 ctx.big = {width:576, height:300, data:new Uint8ClampedArray(576 * 300 * 4)};
 const b = arr('rasterCmds(rasterize(big))');
-eq('576 dots = 72 bytes/row, band 256 + 44', [b.slice(4, 8), b.slice(8 + 72 * 256 + 4, 8 + 72 * 256 + 8)], [[72, 0, 0, 1], [72, 0, 44, 0]]);
+const BD = ev('PRINTER.band'), last = 300 % BD || BD, nb = Math.ceil(300 / BD), lastAt = (nb - 1) * (8 + 72 * BD);
+eq(`576 dots = 72 bytes/row, bands of ${BD} rows (last ${last}) · total = data + 8 per band`, [b.slice(4, 8), b.slice(lastAt + 4, lastAt + 8), b.length], [[72, 0, BD, 0], [72, 0, last, 0], 72 * 300 + 8 * nb]);
 
 // เลือก endpoint: bulk OUT ใน interface class 7 ก่อน
 const cfg = {interfaces:[

@@ -20,6 +20,10 @@ let printQueue = Promise.resolve();
 const PRINT_TIMEOUT = {min:15000, rate:52000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
 const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.rate * 1000 * PRINT_TIMEOUT.factor));
 const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
+/* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ก่อนส่ง (เฉพาะเครื่องที่มี bulk IN) จึงไม่ส่งงาน (Tee 2026-10-17) */
+const FAIL_MSG = {stuck:STUCK_MSG, cover:'ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
+const FAIL_HINT = {stuck:'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:'ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
+let printWhy = 'stuck';
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
 const SLIP_NAME = {receipt:'ใบเสร็จ', kitchen:'ตั๋วครัว', both:'ใบเสร็จ + ตั๋วครัว'};
@@ -48,13 +52,19 @@ async function printerStuck(){
   renderPrinterBtn();
   return cleared;
 }
-/* jobs = [[ชื่อใบ, บล็อก]] · st = สถานะของบิล (PRINTED) · คืน ok / timeout / error / dropped */
+/* jobs = [[ชื่อใบ, บล็อก]] · st = สถานะของบิล (PRINTED) · คืน ok / timeout / error / dropped / cover / paper
+   ก่อนงานแรกหลังเชื่อมใหม่หรือล้มกลางงาน (usbPrinter.dirty): ส่ง ESCPOS.recover ปิดคำสั่งภาพที่ค้างในเครื่อง กันตัวมั่ว (บั๊ก H23 2026-10-17)
+   แล้วถามสถานะ (ถ้าเครื่องตอบได้) ฝาเปิด / กระดาษหมด = ไม่ส่งงาน บอกตรงๆ */
 function printJobs(jobs, st){
   const gen = printGen;
   jobs.forEach(([k]) => { st[k] = 'wait'; });
   return printQueue = printQueue.then(async () => {
     await slipFontsReady();
     let res = 'ok';
+    if(usbPrinter.connected && gen === printGen){
+      if(usbPrinter.dirty){ const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
+      if(res === 'ok'){ const ps = await usbPrinter.status(); if(ps && (ps.cover || ps.paper)) res = ps.cover ? 'cover' : 'paper'; }
+    }
     for(const [k, bl] of jobs){
       if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
       const r = await sendJob(slipBytes([bl]));
@@ -62,7 +72,9 @@ function printJobs(jobs, st){
       st[k] = 'fail'; res = r === 'timeout' ? 'timeout' : 'error';
       if(res === 'error') console.warn('usb print', r);
     }
-    if(res === 'timeout'){ const cleared = await printerStuck(); printFailBar(cleared); }
+    if(res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
+    if(res === 'cover' || res === 'paper'){ printWhy = res; toast(FAIL_MSG[res], 'alert', 6000); }
+    if(res === 'timeout'){ printWhy = 'stuck'; const cleared = await printerStuck(); printFailBar(cleared); }
     else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
     return res;
   }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
@@ -121,7 +133,7 @@ function renderDone(s){
   else if(of('nocon').length && !(usbPrinter && usbPrinter.connected)){ cls = 'warn';
     h = usbPrinter ? `<span>${icon('alert', 18)} ${esc(NOCON_MSG)}</span><button class="pfbtn" id="prConnect">${icon('printer', 18)} เชื่อมปริ้นเตอร์</button>`
       : `<span>${icon('alert', 18)} เครื่องนี้พิมพ์ตรงไม่ได้ — ตั๋วยังไม่ออก · กดปุ่มพิมพ์ด้านล่าง</span>`; }
-  else if(of('fail').length || of('nocon').length){ cls = 'warn'; h = `<span>${icon('alert', 18)} ${names([...of('fail'), ...of('nocon')])}ยังไม่ออก — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ</span>`; }
+  else if(of('fail').length || of('nocon').length){ cls = 'warn'; h = `<span>${icon('alert', 18)} ${names([...of('fail'), ...of('nocon')])}ยังไม่ออก — ${FAIL_HINT[printWhy]}</span>`; }
   else if(of('unknown').length) h = `${icon('printer', 18)} ส่งไปหน้าพิมพ์ของระบบแล้ว`;
   else if(of('ok').length){ cls = 'ok'; h = `พิมพ์แล้ว ✓ ${names(of('ok'))}`; }
   box.className = 'prstatus ' + cls; box.innerHTML = h;
@@ -141,7 +153,8 @@ function renderFailBar(){
   if(!PRINT_FAILS.length){ if(bar) bar.remove(); return; }
   if(!bar){ bar = document.createElement('div'); bar.id = 'printFail'; bar.setAttribute('role', 'alert'); document.body.prepend(bar); }
   bar.innerHTML = (noconOnly() ? `<span>${icon('alert', 18)} ${esc(NOCON_MSG)}<small>เชื่อมปริ้นเตอร์แล้วกดพิมพ์ซ้ำ</small></span>`
-    : `<span>${icon('alert', 18)} ${esc(STUCK_MSG)}${printCleared ? '' : ' · ล้างงานค้างไม่ได้ ถอดสายปริ้นเตอร์แล้วเสียบใหม่ก่อนพิมพ์ซ้ำ'}<small>ถ้ามีกระดาษครึ่งใบออกมาตอนเติมกระดาษ ทิ้งได้</small></span>`) +
+    : printWhy !== 'stuck' ? `<span>${icon('alert', 18)} ${esc(FAIL_MSG[printWhy])}</span>`
+    : `<span>${icon('alert', 18)} ${esc(STUCK_MSG)}${printCleared ? '' : ' · ล้างงานค้างไม่ได้ ถอดสายปริ้นเตอร์แล้วเสียบใหม่ก่อนพิมพ์ซ้ำ'}<small>ตอนพิมพ์ซ้ำ เศษใบเก่าจะออกมาเป็นชิ้นสั้นก่อน ทิ้งได้</small></span>`) +
     PRINT_FAILS.map(f => { const st = PRINTED.get(f.id) || {}, m = missingOf(st); return `<button class="pfbtn" data-pfid="${f.id}">พิมพ์ซ้ำ #${esc(pad(f.no, 3))}${m ? ' ' + SLIP_NAME[m] : ''}</button>`; }).join('');
 }
 document.addEventListener('click', e => {

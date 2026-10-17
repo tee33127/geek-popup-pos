@@ -577,7 +577,7 @@ input.moneyin.cur{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'1d132895855b', built:'2026-10-16T17:34:25.850Z'};
+const APP_VERSION = {v:'d255159c2534', built:'2026-10-17T06:17:32.139Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -1252,7 +1252,8 @@ const PRINTER = {
   dots: 576,        // ความกว้างพิมพ์ 80 มม. ≈ 576 จุดที่ 203 dpi (บางรุ่นพิมพ์ได้ 512)
   chunk: 4096,      // ส่งข้อมูลทีละกี่ byte
   threshold: 160,   // ความสว่างต่ำกว่านี้ = จุดดำ (สูงขึ้น = เข้มขึ้น)
-  band: 256,        // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 (กันบัฟเฟอร์ปริ้นเตอร์เต็ม)
+  band: 24,         // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 · สั้นไว้ (Tee 2026-10-17 · เดิม 256): ส่งขาดกลางแถบ เครื่องค้างรอข้อมูลไม่เกินแถบเดียว ล้างได้ด้วย ESCPOS.recover
+  statusMs: 500,    // รอคำตอบสถานะ (DLE EOT) ไม่เกินเท่านี้ ไม่ตอบ = ข้าม พิมพ์ตามปกติ
 };
 
 const ESCPOS = {
@@ -1262,6 +1263,11 @@ const ESCPOS = {
   fullCut: () => [0x1D, 0x56, 0x41, 0x00],             // GS V 65 0  เลื่อนถึงใบมีดแล้วตัดขาด
   drawer:  (pin = 0) => [0x1B, 0x70, pin, 25, 250],    // ESC p m 25 250  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5)
   text:    s => [...String(s)].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 0x3F).concat(0x0A), // ASCII เท่านั้น
+  /* ล้างคำสั่งภาพที่ค้าง (Tee 2026-10-17 · บั๊ก H23): ส่งขาดกลาง GS v 0 เครื่องจะรอข้อมูลภาพที่เหลือ แล้วกินงานถัดไปเป็นภาพ ที่เหลือพิมพ์เป็นตัวมั่ว
+     0x00 ยาวเกินหนึ่งแถบ + header = ปิดคำสั่งภาพที่ค้างเป็นแถวขาว (ไม่ค้าง = เครื่องข้าม 0x00 ไม่มีอะไรออก) → ESC @
+     cut = รู้ว่าเพิ่งล้มกลางงาน: เลื่อนแล้วตัด เศษใบเก่าแยกเป็นชิ้นทิ้งได้ ไม่ติดหัวใบใหม่
+     ไม่ใช้ DLE DC4 ล้างบัฟเฟอร์: ยังไม่ยืนยันว่า XP-Q807K รองรับ และ fn อื่นในชุดเดียวกันคือปิดเครื่อง */
+  recover: (cut, wb = Math.ceil(PRINTER.dots / 8), band = PRINTER.band) => bytes(new Uint8Array(8 + wb * band + 64), [0x1B, 0x40], cut ? [0x1B, 0x64, 3, 0x1D, 0x56, 0x42, 0x00] : []),
 };
 
 /* รวม array / Uint8Array หลายก้อนเป็น Uint8Array เดียว */
@@ -1452,6 +1458,12 @@ class UsbPrinter {
         (a.endpoints.map(e => `ep${e.endpointNumber} ${e.direction} ${e.type} ${e.packetSize}B`).join(', ') || 'ไม่มี endpoint')))));
     return L.join('\n');
   }
+  /* bulk IN ใน interface เดียวกัน (อ่านสถานะ DLE EOT) · ไม่มี = อ่านสถานะไม่ได้ */
+  static findIn(cfg, iface){
+    const it = cfg.interfaces.find(i => i.interfaceNumber === iface); if(!it) return null;
+    for(const alt of it.alternates || [it.alternate]) for(const e of alt.endpoints) if(e.direction === 'in' && e.type === 'bulk') return e.endpointNumber;
+    return null;
+  }
   get connected(){ return !!(this.dev && this.dev.opened && this.ep !== null); }
   async request(){ return this.open(await navigator.usb.requestDevice({filters: []})); }
   /* เครื่องที่เคยอนุญาตแล้ว เชื่อมได้โดยไม่ต้องเลือกใหม่ */
@@ -1464,7 +1476,26 @@ class UsbPrinter {
     await d.claimInterface(f.iface);
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
     this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
+    this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false;
+    this.dirty = this.dirty || 'open';   // เชื่อมใหม่ทุกครั้ง: ไม่รู้ว่าเครื่องค้างกลางคำสั่งอยู่ไหม ล้างก่อนงานแรก (ล้มกลางงาน = 'fail' ตั้งจากฝั่งแอป)
     return d;
+  }
+  /* สถานะก่อนพิมพ์ (DLE EOT 2 / 4): {cover, paper} · อ่านไม่ได้ / ไม่ตอบภายใน ms / คำตอบผิดรูป = null (ข้ามไปพิมพ์ตามปกติ ห้ามทำให้พิมพ์ไม่ได้)
+     ไม่ตอบครั้งเดียว = ไม่ถามอีกจนเชื่อมใหม่ (transferIn ที่ค้างอาจได้คำตอบเก่ามาปน) */
+  async status(ms = PRINTER.statusMs){
+    if(!this.connected || this.epIn == null || this.noStatus) return null;
+    const dev = this.dev, ep = this.ep, epIn = this.epIn;
+    const ask = async n => {
+      await dev.transferOut(ep, new Uint8Array([0x10, 0x04, n]));
+      const r = await dev.transferIn(epIn, 64), v = r.data && r.data.byteLength ? r.data.getUint8(r.data.byteLength - 1) : -1;
+      if(v < 0 || (v & 0x93) !== 0x12) throw new Error('bad status');   // รูปแบบคำตอบ: bit 1, 4 = 1 · bit 0, 7 = 0
+      return v;
+    };
+    const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('status timeout')), ms))]);
+    try{
+      const s2 = await within(ask(2)), s4 = await within(ask(4));
+      return {cover: !!(s2 & 0x04), paper: !!(s2 & 0x20) || (s4 & 0x60) === 0x60};
+    }catch(e){ this.noStatus = true; return null; }
   }
   async send(data, chunk = PRINTER.chunk){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
@@ -4234,6 +4265,10 @@ let printQueue = Promise.resolve();
 const PRINT_TIMEOUT = {min:15000, rate:52000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
 const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.rate * 1000 * PRINT_TIMEOUT.factor));
 const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
+/* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ก่อนส่ง (เฉพาะเครื่องที่มี bulk IN) จึงไม่ส่งงาน (Tee 2026-10-17) */
+const FAIL_MSG = {stuck:STUCK_MSG, cover:'ฝาปริ้นเตอร์เปิดอยู่ — ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด — ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
+const FAIL_HINT = {stuck:'เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ', cover:'ฝาปริ้นเตอร์เปิดอยู่ ปิดฝาแล้วกดพิมพ์ซ้ำ', paper:'กระดาษหมด ใส่กระดาษแล้วกดพิมพ์ซ้ำ'};
+let printWhy = 'stuck';
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
 const SLIP_NAME = {receipt:'ใบเสร็จ', kitchen:'ตั๋วครัว', both:'ใบเสร็จ + ตั๋วครัว'};
@@ -4262,13 +4297,19 @@ async function printerStuck(){
   renderPrinterBtn();
   return cleared;
 }
-/* jobs = [[ชื่อใบ, บล็อก]] · st = สถานะของบิล (PRINTED) · คืน ok / timeout / error / dropped */
+/* jobs = [[ชื่อใบ, บล็อก]] · st = สถานะของบิล (PRINTED) · คืน ok / timeout / error / dropped / cover / paper
+   ก่อนงานแรกหลังเชื่อมใหม่หรือล้มกลางงาน (usbPrinter.dirty): ส่ง ESCPOS.recover ปิดคำสั่งภาพที่ค้างในเครื่อง กันตัวมั่ว (บั๊ก H23 2026-10-17)
+   แล้วถามสถานะ (ถ้าเครื่องตอบได้) ฝาเปิด / กระดาษหมด = ไม่ส่งงาน บอกตรงๆ */
 function printJobs(jobs, st){
   const gen = printGen;
   jobs.forEach(([k]) => { st[k] = 'wait'; });
   return printQueue = printQueue.then(async () => {
     await slipFontsReady();
     let res = 'ok';
+    if(usbPrinter.connected && gen === printGen){
+      if(usbPrinter.dirty){ const r = await sendJob(ESCPOS.recover(usbPrinter.dirty === 'fail')); if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error'; }
+      if(res === 'ok'){ const ps = await usbPrinter.status(); if(ps && (ps.cover || ps.paper)) res = ps.cover ? 'cover' : 'paper'; }
+    }
     for(const [k, bl] of jobs){
       if(res !== 'ok' || gen !== printGen || !usbPrinter.connected){ st[k] = 'fail'; if(res === 'ok') res = 'dropped'; continue; }
       const r = await sendJob(slipBytes([bl]));
@@ -4276,7 +4317,9 @@ function printJobs(jobs, st){
       st[k] = 'fail'; res = r === 'timeout' ? 'timeout' : 'error';
       if(res === 'error') console.warn('usb print', r);
     }
-    if(res === 'timeout'){ const cleared = await printerStuck(); printFailBar(cleared); }
+    if(res === 'timeout' || res === 'error') usbPrinter.dirty = 'fail';   // ค้าง/ขาดกลางงาน → งานถัดไปล้างก่อน + ตัดเศษใบเก่า (เชื่อมใหม่ก็ยังจำไว้)
+    if(res === 'cover' || res === 'paper'){ printWhy = res; toast(FAIL_MSG[res], 'alert', 6000); }
+    if(res === 'timeout'){ printWhy = 'stuck'; const cleared = await printerStuck(); printFailBar(cleared); }
     else if(res === 'error'){ usbPrinter.forget(); renderPrinterBtn(); toast('ส่งไปปริ้นเตอร์ไม่ได้ เช็กสายแล้วกดเชื่อมใหม่', 'alert'); }
     return res;
   }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
@@ -4335,7 +4378,7 @@ function renderDone(s){
   else if(of('nocon').length && !(usbPrinter && usbPrinter.connected)){ cls = 'warn';
     h = usbPrinter ? `<span>${icon('alert', 18)} ${esc(NOCON_MSG)}</span><button class="pfbtn" id="prConnect">${icon('printer', 18)} เชื่อมปริ้นเตอร์</button>`
       : `<span>${icon('alert', 18)} เครื่องนี้พิมพ์ตรงไม่ได้ — ตั๋วยังไม่ออก · กดปุ่มพิมพ์ด้านล่าง</span>`; }
-  else if(of('fail').length || of('nocon').length){ cls = 'warn'; h = `<span>${icon('alert', 18)} ${names([...of('fail'), ...of('nocon')])}ยังไม่ออก — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ</span>`; }
+  else if(of('fail').length || of('nocon').length){ cls = 'warn'; h = `<span>${icon('alert', 18)} ${names([...of('fail'), ...of('nocon')])}ยังไม่ออก — ${FAIL_HINT[printWhy]}</span>`; }
   else if(of('unknown').length) h = `${icon('printer', 18)} ส่งไปหน้าพิมพ์ของระบบแล้ว`;
   else if(of('ok').length){ cls = 'ok'; h = `พิมพ์แล้ว ✓ ${names(of('ok'))}`; }
   box.className = 'prstatus ' + cls; box.innerHTML = h;
@@ -4355,7 +4398,8 @@ function renderFailBar(){
   if(!PRINT_FAILS.length){ if(bar) bar.remove(); return; }
   if(!bar){ bar = document.createElement('div'); bar.id = 'printFail'; bar.setAttribute('role', 'alert'); document.body.prepend(bar); }
   bar.innerHTML = (noconOnly() ? `<span>${icon('alert', 18)} ${esc(NOCON_MSG)}<small>เชื่อมปริ้นเตอร์แล้วกดพิมพ์ซ้ำ</small></span>`
-    : `<span>${icon('alert', 18)} ${esc(STUCK_MSG)}${printCleared ? '' : ' · ล้างงานค้างไม่ได้ ถอดสายปริ้นเตอร์แล้วเสียบใหม่ก่อนพิมพ์ซ้ำ'}<small>ถ้ามีกระดาษครึ่งใบออกมาตอนเติมกระดาษ ทิ้งได้</small></span>`) +
+    : printWhy !== 'stuck' ? `<span>${icon('alert', 18)} ${esc(FAIL_MSG[printWhy])}</span>`
+    : `<span>${icon('alert', 18)} ${esc(STUCK_MSG)}${printCleared ? '' : ' · ล้างงานค้างไม่ได้ ถอดสายปริ้นเตอร์แล้วเสียบใหม่ก่อนพิมพ์ซ้ำ'}<small>ตอนพิมพ์ซ้ำ เศษใบเก่าจะออกมาเป็นชิ้นสั้นก่อน ทิ้งได้</small></span>`) +
     PRINT_FAILS.map(f => { const st = PRINTED.get(f.id) || {}, m = missingOf(st); return `<button class="pfbtn" data-pfid="${f.id}">พิมพ์ซ้ำ #${esc(pad(f.no, 3))}${m ? ' ' + SLIP_NAME[m] : ''}</button>`; }).join('');
 }
 document.addEventListener('click', e => {

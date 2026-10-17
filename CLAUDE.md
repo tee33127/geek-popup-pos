@@ -84,7 +84,7 @@ app/                      ← ซอร์สจริง (แก้ที่น
   js/backup.js            ← backupData / parseBackup / applyBackup (ไม่แตะ DOM)
   js/ui/close-ui.js       ← ถามเงินทอนตั้งต้น, หน้าปิดร้าน, สำรอง (exportFile ใน summary.js), นำข้อมูลกลับ (restoreText ให้เทสต์เรียกตรง)
   js/ui/login.js          ← หน้าเข้าใช้งานเต็มจอ (ตั้งครั้งแรก / แป้นรหัส / รหัสกู้คืน) + ปุ่มผู้ใช้บนแถบหัว + needUser()
-  js/printer.js           ← ESC/POS, UsbPrinter.send หยุดเมื่อรอบการเชื่อม (session) เปลี่ยน · raster (GS v 0), renderSlip วาดบล็อกลง canvas (fillRect + fillText เท่านั้น), wrapText (ตัดคำ ห้ามขึ้นบรรทัดด้วยเครื่องหมาย), slipFontsReady (รอฟอนต์ ≤ 2 วิ), UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
+  js/printer.js           ← ESC/POS, UsbPrinter.send หยุดเมื่อรอบการเชื่อม (session) เปลี่ยน · raster (GS v 0) แถบละ 24 แถว · ESCPOS.recover ล้างคำสั่งภาพที่ค้าง (ส่งก่อนงานแรกเมื่อ usbPrinter.dirty = open/fail · บั๊ก H23 2026-10-17) · status() DLE EOT เฉพาะมี bulk IN · renderSlip วาดบล็อกลง canvas (fillRect + fillText เท่านั้น), wrapText (ตัดคำ ห้ามขึ้นบรรทัดด้วยเครื่องหมาย), slipFontsReady (รอฟอนต์ ≤ 2 วิ), UsbPrinter (WebUSB) · ใช้ทั้งในแอป (โหลดก่อน ui/) และ printer-test
 manual/index.html         ← คู่มือพนักงาน 1 หน้า + การ์ดแก้ปัญหา (พิมพ์ A4 2 หน้า) · **แก้ข้อความปุ่ม/ขั้นตอนในแอป ต้องแก้คู่มือด้วย**
 printer-test/index.html   ← หน้าทดสอบฮาร์ดแวร์ (ใช้ ../app/js/ config core printer slips + css/fonts.css) ตั๋วตัวอย่างเป็นบิลสมมติผ่าน receiptBlocks/kitchenBlocks ของแอป + บรรทัดทดสอบสระ (เฉพาะหน้านี้) · เช็กลิสต์ + log
 tools/build-prototype.js  ← รวม app/ เป็น prototype/pos.html + pos-demo.html (ฝัง CSS/JS/รูป) และเขียน VERSION + FILES ใน app/sw.js จาก hash ไฟล์ใน app/
@@ -101,6 +101,8 @@ tests/
   app/store.test.js       ← IndexedDB จำลอง (fake-indexeddb): migration, เปิดหน้าใหม่, รวมสองแหล่ง, พื้นที่เต็ม, โหมดสำรอง
   app/app-files.test.js   ← เปิด app/index.html แบบแยกไฟล์ แล้วขาย 1 บิล
   app/printer.test.js     ← byte ESC/POS + raster ใน vm เปล่า
+  app/printer-recover.test.js ← ตัดงานกลางรูปหลายตำแหน่ง แล้วพิมพ์ใหม่ ผ่านปริ้นเตอร์จำลอง (escpos-emu.js) ต้องไม่มีตัวมั่ว
+  escpos-emu.js           ← ปริ้นเตอร์ ESC/POS จำลอง แปลคำสั่งทีละ byte (ESC @, GS v 0, GS V, DLE EOT, ตัวอักษร)
   app/printer-test-page.test.js ← หน้า printer-test กับปริ้นเตอร์ปลอม (jsdom ไม่มี canvas จึงไม่ได้เทสต์ภาพตั๋ว)
   app/slips.test.js       ← ตั๋วใน vm + canvas จำลอง: ไม่รับแยกกลุ่ม ตัดบรรทัด ราคาต่อชิ้น ท้ายใบ หมายเหตุถูกแก้ว ไม่มีพื้นดำ คอลัมน์ตรง รอฟอนต์
   qa/e2e.test.js          ← npm run qa:e2e (Playwright 4 จอ) · S01 วาดตั๋วด้วยฟอนต์จริง → docs/qa/screens/<วันที่>/slips/*.png

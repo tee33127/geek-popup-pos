@@ -6,7 +6,8 @@ const PRINTER = {
   dots: 576,        // ความกว้างพิมพ์ 80 มม. ≈ 576 จุดที่ 203 dpi (บางรุ่นพิมพ์ได้ 512)
   chunk: 4096,      // ส่งข้อมูลทีละกี่ byte
   threshold: 160,   // ความสว่างต่ำกว่านี้ = จุดดำ (สูงขึ้น = เข้มขึ้น)
-  band: 256,        // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 (กันบัฟเฟอร์ปริ้นเตอร์เต็ม)
+  band: 24,         // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 · สั้นไว้ (Tee 2026-10-17 · เดิม 256): ส่งขาดกลางแถบ เครื่องค้างรอข้อมูลไม่เกินแถบเดียว ล้างได้ด้วย ESCPOS.recover
+  statusMs: 500,    // รอคำตอบสถานะ (DLE EOT) ไม่เกินเท่านี้ ไม่ตอบ = ข้าม พิมพ์ตามปกติ
 };
 
 const ESCPOS = {
@@ -16,6 +17,11 @@ const ESCPOS = {
   fullCut: () => [0x1D, 0x56, 0x41, 0x00],             // GS V 65 0  เลื่อนถึงใบมีดแล้วตัดขาด
   drawer:  (pin = 0) => [0x1B, 0x70, pin, 25, 250],    // ESC p m 25 250  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5)
   text:    s => [...String(s)].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 0x3F).concat(0x0A), // ASCII เท่านั้น
+  /* ล้างคำสั่งภาพที่ค้าง (Tee 2026-10-17 · บั๊ก H23): ส่งขาดกลาง GS v 0 เครื่องจะรอข้อมูลภาพที่เหลือ แล้วกินงานถัดไปเป็นภาพ ที่เหลือพิมพ์เป็นตัวมั่ว
+     0x00 ยาวเกินหนึ่งแถบ + header = ปิดคำสั่งภาพที่ค้างเป็นแถวขาว (ไม่ค้าง = เครื่องข้าม 0x00 ไม่มีอะไรออก) → ESC @
+     cut = รู้ว่าเพิ่งล้มกลางงาน: เลื่อนแล้วตัด เศษใบเก่าแยกเป็นชิ้นทิ้งได้ ไม่ติดหัวใบใหม่
+     ไม่ใช้ DLE DC4 ล้างบัฟเฟอร์: ยังไม่ยืนยันว่า XP-Q807K รองรับ และ fn อื่นในชุดเดียวกันคือปิดเครื่อง */
+  recover: (cut, wb = Math.ceil(PRINTER.dots / 8), band = PRINTER.band) => bytes(new Uint8Array(8 + wb * band + 64), [0x1B, 0x40], cut ? [0x1B, 0x64, 3, 0x1D, 0x56, 0x42, 0x00] : []),
 };
 
 /* รวม array / Uint8Array หลายก้อนเป็น Uint8Array เดียว */
@@ -206,6 +212,12 @@ class UsbPrinter {
         (a.endpoints.map(e => `ep${e.endpointNumber} ${e.direction} ${e.type} ${e.packetSize}B`).join(', ') || 'ไม่มี endpoint')))));
     return L.join('\n');
   }
+  /* bulk IN ใน interface เดียวกัน (อ่านสถานะ DLE EOT) · ไม่มี = อ่านสถานะไม่ได้ */
+  static findIn(cfg, iface){
+    const it = cfg.interfaces.find(i => i.interfaceNumber === iface); if(!it) return null;
+    for(const alt of it.alternates || [it.alternate]) for(const e of alt.endpoints) if(e.direction === 'in' && e.type === 'bulk') return e.endpointNumber;
+    return null;
+  }
   get connected(){ return !!(this.dev && this.dev.opened && this.ep !== null); }
   async request(){ return this.open(await navigator.usb.requestDevice({filters: []})); }
   /* เครื่องที่เคยอนุญาตแล้ว เชื่อมได้โดยไม่ต้องเลือกใหม่ */
@@ -218,7 +230,26 @@ class UsbPrinter {
     await d.claimInterface(f.iface);
     if(f.alt) await d.selectAlternateInterface(f.iface, f.alt);
     this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
+    this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false;
+    this.dirty = this.dirty || 'open';   // เชื่อมใหม่ทุกครั้ง: ไม่รู้ว่าเครื่องค้างกลางคำสั่งอยู่ไหม ล้างก่อนงานแรก (ล้มกลางงาน = 'fail' ตั้งจากฝั่งแอป)
     return d;
+  }
+  /* สถานะก่อนพิมพ์ (DLE EOT 2 / 4): {cover, paper} · อ่านไม่ได้ / ไม่ตอบภายใน ms / คำตอบผิดรูป = null (ข้ามไปพิมพ์ตามปกติ ห้ามทำให้พิมพ์ไม่ได้)
+     ไม่ตอบครั้งเดียว = ไม่ถามอีกจนเชื่อมใหม่ (transferIn ที่ค้างอาจได้คำตอบเก่ามาปน) */
+  async status(ms = PRINTER.statusMs){
+    if(!this.connected || this.epIn == null || this.noStatus) return null;
+    const dev = this.dev, ep = this.ep, epIn = this.epIn;
+    const ask = async n => {
+      await dev.transferOut(ep, new Uint8Array([0x10, 0x04, n]));
+      const r = await dev.transferIn(epIn, 64), v = r.data && r.data.byteLength ? r.data.getUint8(r.data.byteLength - 1) : -1;
+      if(v < 0 || (v & 0x93) !== 0x12) throw new Error('bad status');   // รูปแบบคำตอบ: bit 1, 4 = 1 · bit 0, 7 = 0
+      return v;
+    };
+    const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('status timeout')), ms))]);
+    try{
+      const s2 = await within(ask(2)), s4 = await within(ask(4));
+      return {cover: !!(s2 & 0x04), paper: !!(s2 & 0x20) || (s4 & 0x60) === 0x60};
+    }catch(e){ this.noStatus = true; return null; }
   }
   async send(data, chunk = PRINTER.chunk){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
