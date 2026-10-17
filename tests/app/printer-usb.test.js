@@ -17,7 +17,9 @@ let jobs = 0, hangJob = 0, pending = null, closeHang = false, lateSent = 0, hang
 const timeline = []; let fontLoaded = false;
 const dev = {opened:false, productName:'XP-Q807K', configuration:null,
   configurations:[{configurationValue:1, interfaces:[{interfaceNumber:0, alternates:[{alternateSetting:0, interfaceClass:7, endpoints:[{endpointNumber:1, direction:'out', type:'bulk', packetSize:64}, {endpointNumber:2, direction:'in', type:'bulk', packetSize:64}]}]}]}],   // ตรงกับ XP-Q807K จริง (log printer-test 15 ต.ค.)
-  async transferIn(){ if(statusHang) return new Promise(() => {}); const e = emu.replies.shift(), v = statusOverride !== null ? statusOverride : e; return {status:'ok', data:new DataView(new Uint8Array(v === undefined ? [] : [].concat(v)).buffer)}; },
+  /* แบบ WebUSB: transferIn ค้างรอจนเครื่องมีอะไรส่งกลับ (statusHang = เครื่องไม่ส่งอะไรกลับ) · statusOverride = ตอบสถานะค่านี้แทน · ปิดการเชื่อม = ยกเลิก */
+  transferIn(){ const me = this; return new Promise((ok, no) => { const t = setInterval(() => { if(!me.opened){ clearInterval(t); no(new Error('transfer cancelled')); return; } if(statusHang || !emu.replies.length) return; clearInterval(t);
+    let v = emu.replies.shift(); if(statusOverride !== null && typeof v === 'number' && (v & 0x10)) v = statusOverride; ok({status:'ok', data:new DataView(new Uint8Array([].concat(v)).buffer)}); }, 2); }); },
   async open(){ this.opened = true; }, async selectConfiguration(){ this.configuration = this.configurations[0]; this.configuration.interfaces.forEach(i => i.alternate = i.alternates[0]); },
   async claimInterface(){}, async releaseInterface(){},
   close(){ if(closeHang) return new Promise(() => {}); this.opened = false; if(pending){ const p = pending; pending = null; if(lateOk) setTimeout(() => p.ok({status:'ok'}), 150); else p.no(new Error('transfer cancelled')); } return Promise.resolve(); },
@@ -45,6 +47,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   const sell = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
+  /* byte ข้อมูลพิมพ์ (ไม่นับคำถามสถานะ DLE EOT · เปิด ASB GS a · GS r ที่แอปส่งตอนเชื่อม/ท้ายงาน) */
+  const dataOnly = a => { let n = 0; for(let i = 0; i < a.length; i++){ if((a[i] === 0x10 && a[i + 1] === 0x04) || (a[i] === 0x1D && (a[i + 1] === 0x61 || a[i + 1] === 0x72))){ i += 2; continue; } n++; } return n; };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };
   w.addEventListener('load', async () => {
     A.signIn(w); w.eval('PRINT_RESUME.ms = 1e9; PRINT_CONFIRM.ms = 0; PRINT_WATCH.rate = 1e9');   // ปริ้นเตอร์ปลอมพิมพ์ทันที   // พิมพ์ต่อเองเมื่อพร้อม เทสต์แยกใน printer-resume.test.js · ที่นี่ทดสอบแบบกดเอง
@@ -60,12 +64,12 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('fonts: first slip drawn only after fonts loaded', timeline.indexOf('loaded') >= 0 && timeline.indexOf('loaded') < timeline.indexOf('draw'), true);
     const R0 = w.eval('ESCPOS.recover(false).length'), z = R0 - 2;
     eq('first job after connecting: clears any half-received image command first (zeros ≥ one band, then ESC @), no extra cut', [sent.slice(0, z).every(b => b === 0), sent.slice(z, R0), z >= 8 + 72 * w.eval('PRINTER.band')], [true, [0x1B, 0x40], true]);
-    eq('then asks status via ep2 IN (DLE EOT 2, DLE EOT 4)', [w.eval('usbPrinter.epIn'), sent.slice(R0, R0 + 6)], [2, [0x10, 0x04, 0x02, 0x10, 0x04, 0x04]]);
-    const S0 = R0 + 6;
+    eq('then turns ASB on (GS a 14) and asks status via ep2 IN (DLE EOT 2, DLE EOT 4 · this fake printer sends no ASB)', [w.eval('usbPrinter.epIn'), sent.slice(R0, R0 + 9)], [2, [0x1D, 0x61, 0x0E, 0x10, 0x04, 0x02, 0x10, 0x04, 0x04]]);
+    const S0 = R0 + 9;
     eq('2 slips: 2 cuts', count(sent, [0x1D, 0x56, 0x42, 0x00]), 2);
-    eq('slip starts with ESC @ · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(S0, S0 + 2), sent.slice(S0 + 2, S0 + 8), sent[S0 + 8], sent[S0 + 9]], [[0x1B, 0x40], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
-    const tail = (() => { let e = sent.length; while(e >= 3 && sent[e - 3] === 0x10 && sent[e - 2] === 0x04) e -= 3; return sent.slice(e - 4, e); })();   // ท้ายสุดอาจเป็นคำถามสถานะยืนยันหลังพิมพ์
-    eq('ends with cut (then only status questions)', tail, [0x1D, 0x56, 0x42, 0x00]);
+    eq('slip starts with ESC @ + ASB on again (ESC @ may turn it off) · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(S0, S0 + 2), sent.slice(S0 + 2, S0 + 5), sent.slice(S0 + 5, S0 + 11), sent[S0 + 11], sent[S0 + 12]], [[0x1B, 0x40], [0x1D, 0x61, 0x0E], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
+    const tail = (() => { let e = sent.length; while(e >= 3 && sent[e - 3] === 0x10 && sent[e - 2] === 0x04) e -= 3; return sent.slice(e - 7, e); })();   // ท้ายสุดอาจเป็นคำถามสถานะยืนยันหลังพิมพ์
+    eq('ends with cut + GS r 1 (printer answers when printed and cut · then only status questions)', tail, [0x1D, 0x56, 0x42, 0x00, 0x1D, 0x72, 0x01]);
     eq('blocks: kitchen ticket content', w.eval('kitchenBlocks(lastSale)').slice(0, 2).map(b => b.text), ['#001', 'กินเลย']);
     eq('blocks: dine-in is a framed box, no solid black band', w.eval('kitchenBlocks(lastSale)').slice(1, 2).map(b => [b.box, !!b.invert]), [['single', false]]);
     eq('blocks: receipt total + change', w.eval('receiptBlocks(lastSale)').filter(b => b.left === 'รวม' || b.left === 'เงินทอน').map(b => b.right), ['฿189', '฿311']);
@@ -129,14 +133,14 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     await wait(600);
     const sentAtHang = hangAt;
     eq('after timeout: both bills saved', nBills() - n0, 2);
-    eq('after timeout: kitchen of bill 1 out (printed first), receipt not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), sent.length === sentAtHang],
+    eq('after timeout: kitchen of bill 1 out (printed first), receipt not · queued bill 2 dropped (nothing sent for it)', [w.eval(`PRINTED.get(${s1})`), w.eval(`PRINTED.get(${s2})`), dataOnly(sent.slice(sentAtHang)) === 0],
       [{kitchen:'ok', receipt:'fail', sent:{kitchen:true, receipt:true}, redo:{receipt:true}}, {kitchen:'fail', receipt:'fail'}, true]);   // ใบเสร็จสะดุดกลางใบ = ใบแทน · บิล 2 ยังไม่ได้เริ่ม = พิมพ์ปกติ
     eq('after timeout: connection closed (pending transfer cancelled) and reconnected by itself', [dev.opened, $('#btnPrinter').textContent.trim()], [true, 'ปริ้นเตอร์พร้อม']);
     const bar = $('#printFail');
     eq('fail bar: message + one reprint button per bill, only the missing slip', [!!bar && bar.textContent.includes('ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ'), bar && bar.textContent.includes('ล้างงานค้างไม่ได้'), [...d.querySelectorAll('#printFail .pfbtn')].map(b => b.textContent)],
       [true, false, w.eval(`[${s1}, ${s2}].map(id => pad(loadSales().find(s => s.id === id).no, 3))`).map((n, i) => `พิมพ์ซ้ำ #${n} ${i ? 'ตั๋วครัว + ใบเสร็จ' : 'ใบเสร็จ'}`)]);
     eq('success screen (bill 2) says which slips are not out', [$('#prStatus').textContent.includes('ตั๋วครัว + ใบเสร็จยังไม่ออก'), $('#prStatus').className.includes('warn')], [true, true]);
-    await wait(400); eq('no leftover bytes of the old job sent later (after reconnect)', [sent.length === sentAtHang, lateSent], [true, 0]);
+    await wait(400); eq('no leftover bytes of the old job sent later (after reconnect · only ASB on)', [dataOnly(sent.slice(sentAtHang)), lateSent], [0, 0]);
     // เติมกระดาษแล้วกดพิมพ์ซ้ำ: เฉพาะใบที่ขาด
     hangJob = 0; sent = [];
     d.querySelector('#printFail .pfbtn').click(); await wait(150);
@@ -149,7 +153,6 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     // งานค้างดันตอบ ok หลังเชื่อมใหม่: ส่วนที่เหลือของงานเก่าต้องไม่ถูกส่งผ่านการเชื่อมใหม่
     $('#nextOrder') && $('#nextOrder').click(); jobs = 0; hangJob = 2; lateOk = true; sell(); await wait(900);
     const tailFrom = hangAt; hangJob = 0; await wait(300);
-    const dataOnly = a => { let n = 0; for(let i = 0; i < a.length; i++){ if(a[i] === 0x10 && a[i + 1] === 0x04){ i += 2; continue; } n++; } return n; };   // ไม่นับคำถามสถานะ
     eq('late "ok" from the stuck transfer after reconnect: rest of the old job is not sent', dataOnly(sent.slice(tailFrom)), 0);
     lateOk = false;
     // ---------- H29 ค้างกลางรูป แล้วพิมพ์ซ้ำ: ต้องไม่มีตัวมั่ว (บั๊กเครื่องจริง H23 2026-10-17) ----------
@@ -158,7 +161,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     emu = new EscPosEmu(); jobs = 0; hangJob = 1; hangPart = 2048; lateSent = 0;
     sell(); const sH = w.eval('lastSale.id'); await wait(900);
     eq('H29 stuck mid-image: fail bar, bill saved, connection reset', [!!$('#printFail'), w.eval(`loadSales().some(s => s.id === ${sH})`), $('#btnPrinter').textContent.trim()], [true, true, 'ปริ้นเตอร์พร้อม']);
-    eq('H29 hypothesis (ข) ruled out: nothing of the old job sent after the timeout (app side)', [sent.length === hangAt, lateSent], [true, 0]);
+    eq('H29 hypothesis (ข) ruled out: nothing of the old job sent after the timeout (app side · only ASB on)', [dataOnly(sent.slice(hangAt)), lateSent], [0, 0]);
     hangPart = 0;
     const wantNow = {}; ['kitchen', 'receipt'].forEach(k => { wantNow[k] = EscPosEmu.ink(new EscPosEmu().feed(w.eval(`slipBytes([slipBlocks(loadSales().find(s => s.id === ${sH}), '${k}', PRINTED.get(${sH}))])`)).pages[0]).join(); });   // ก่อนพิมพ์ซ้ำ: ตั๋วครัวเคยส่งแล้ว = ใบแทน · ใบเสร็จยังไม่เคยส่ง = ปกติ
     const want = k => wantNow[k];

@@ -9,8 +9,14 @@ const fakeDevice = () => ({vendorId:0x0483, productId:0x5743, manufacturerName:'
   async open(){ this.opened = true; }, async close(){ this.opened = false; },
   async selectConfiguration(){ this.configuration = this.configurations[0]; },
   async claimInterface(){ if(claimBusy){ const e = new Error("Failed to execute 'claimInterface' on 'USBDevice': Unable to claim interface."); e.name = 'NetworkError'; throw e; } }, async releaseInterface(){ released++; },
-  async transferOut(ep, data){ if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; asks.push(sent.reduce((a, x) => a + x.data.length, 0)); return {status:'ok', bytesWritten:3}; } if(data[0] === 0x1D && data[1] === 0x61){ asbOn.push(data[2]); return {status:'ok', bytesWritten:3}; } sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
-  async transferIn(ep){ if(asbQueue){ if(!asbQueue.length) return new Promise(() => {}); await new Promise(r => setTimeout(r, 30)); return {status:'ok', data:new DataView(new Uint8Array(asbQueue.shift()).buffer)}; } if(statHang) return new Promise(() => {}); return {status:'ok', data:new DataView(new Uint8Array([stat[lastAsk]]).buffer)}; }});
+  /* แบบเครื่องจริง: ตอบทาง IN เมื่อถาม (DLE EOT) · เปิด ASB = ส่ง asbQueue ทีละก้อน · GS r = ตอบ ackReply เมื่อ "พิมพ์จบ" (ackDelay ms) · statHang = ไม่ตอบอะไร */
+  async transferOut(ep, data){
+    if(data[0] === 0x10 && data[1] === 0x04){ lastAsk = data[2]; asks.push(sent.reduce((a, x) => a + x.data.length, 0)); if(!statHang) inQ.push([stat[lastAsk]]); return {status:'ok', bytesWritten:3}; }
+    if(data[0] === 0x1D && data[1] === 0x61){ asbOn.push(data[2]); if(data[2] && asbQueue) asbQueue.forEach((a, i) => setTimeout(() => inQ.push(a), 30 * (i + 1))); return {status:'ok', bytesWritten:3}; }
+    for(let i = 0; i + 2 < data.length; i++) if(data[i] === 0x1D && data[i + 1] === 0x72 && ackReply !== null) setTimeout(() => inQ.push([ackReply]), ackDelay);
+    sent.push({ep, data:Array.from(data)}); return {status:'ok', bytesWritten:data.length}; },
+  transferIn(ep){ const me = this; return new Promise((ok, no) => { const t = setInterval(() => { if(!me.opened){ clearInterval(t); no(new Error('transfer cancelled')); return; } if(!inQ.length) return; clearInterval(t); ok({status:'ok', data:new DataView(new Uint8Array(inQ.shift()).buffer)}); }, 3); }); }});
+let inQ = [], ackReply = null, ackDelay = 200;   // ackReply = ค่าที่ตอบ GS r (null = ไม่รองรับ)
 const asks = [];   // ตำแหน่ง (byte ที่ส่งไปแล้ว) ตอนถามสถานะ
 const dev = fakeDevice();
 JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerously', resources:new Files(), url:'http://localhost/printer-test/index.html', pretendToBeVisual:true,
@@ -74,10 +80,19 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     const job = sent.flatMap(x => x.data), bandAt = new Set([0]); { let o = 2; bandAt.add(2); while(o < job.length && job[o] === 0x1D && job[o + 1] === 0x76){ const n = 8 + (job[o + 4] | job[o + 5] << 8) * (job[o + 6] | job[o + 7] << 8); o += n; bandAt.add(o); } }
     eq('watch test: status asked during printing, only at band boundaries (never inside an image command) · summary with timing', [asks.length > 2, asks.filter(a => a < job.length - 20).every(a => bandAt.has(a)), /สรุป: ถามสถานะ \d+ ครั้ง ใช้รวม \d+ ms/.test(logText())], [true, true, true]);
     // ASB: เครื่องแจ้งเอง (ฝาเปิด แล้วปกติ) → log แปลความหมาย → ปิด ASB + เชื่อมใหม่
-    asbQueue = [[0x34, 0x00, 0x00, 0x0F], [0x14, 0x00, 0x00, 0x0F]]; asbOn = []; w.eval('ASB_MS = 500');
+    asbQueue = [[0x3C, 0x00, 0x00, 0x0F], [0x3C, 0x00, 0x0C, 0x0F], [0x14, 0x00, 0x00, 0x0F]]; asbOn = []; w.eval('ASB_MS = 500');   // ค่าจริง XP-Q807K
     $('[data-test="asb"]').click(); await wait(900);
-    eq('ASB test: turns ASB on, logs raw + meaning (lid open, then normal) · turns it off and reconnects', [asbOn, logText().includes('ASB 0x34 0x00 0x00 0x0f = ฝาเปิด'), logText().includes('ASB 0x14 0x00 0x00 0x0f = ปกติ'), $('#status').textContent], [[0x0E, 0x00], true, true, 'เชื่อมแล้ว · XP-Q807K']);
+    eq('ASB test (same reader as the app): turns ASB on, logs raw + meaning (lid open, lid open + paper sensor, normal) · turns it off · still connected',
+      [asbOn, logText().includes('ASB 0x3c 0x00 0x00 0x0f = ออฟไลน์ · ฝาเปิด'), logText().includes('ASB 0x3c 0x00 0x0c 0x0f = ออฟไลน์ · ฝาเปิด · กระดาษหมด'), logText().includes('ASB 0x14 0x00 0x00 0x0f = ปกติ'), logText().includes('ปิด ASB แล้ว'), $('#status').textContent],
+      [[0x0E, 0x00], true, true, true, true, 'เชื่อมแล้ว · XP-Q807K']);
     asbQueue = null;
+    // ยืนยันพิมพ์จบ (GS r 1): เครื่องตอบหลังพิมพ์จบ → log เวลา · ไม่ตอบ → บอกว่าไม่รองรับ
+    sent = []; ackReply = 0x00; ackDelay = 200; $('[data-test="ack"]').click(); await wait(700);
+    const ackJob = sent.flatMap(x => x.data);
+    eq('print-done test: image + cut + GS r 1 at the very end · printer answers → logs time after sending + real print speed', [ackJob.slice(0, 2), ackJob.slice(-7), /เครื่องตอบ GS r 0x00 หลังส่งครบ \d+ ms \(ตั้งแต่เริ่มส่ง \d+ ms\) · พิมพ์จริง ≈ \d+ KB\/วิ/.test(logText())],
+      [[0x1B, 0x40], [0x1D, 0x56, 0x41, 0x00, 0x1D, 0x72, 0x01], true]);   // ตัดขาด (ตั้งไว้ข้างบน)
+    ackReply = null; w.eval('ASB_MS = 500'); $('[data-test="ack"]').click(); await wait(10400);
+    eq('print-done test: no answer in 10 s → says the printer does not support it (app falls back to time + ASB)', logText().includes('เครื่องไม่ตอบ GS r ใน 10 วิ = ไม่รองรับ'), true);
     // ปล่อยปริ้นเตอร์ให้แอป POS: ปุ่ม + ปิดหน้า
     released = 0; $('[data-test="disconnect"]').click(); await wait(50);
     eq('"release printer" button: releaseInterface + close · says the POS app can connect', [released, dev.opened, $('#status').textContent, logText().includes('ปล่อยปริ้นเตอร์แล้ว')], [1, false, 'ยังไม่เชื่อม', true]);

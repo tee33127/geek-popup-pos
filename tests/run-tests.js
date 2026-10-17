@@ -11,6 +11,7 @@ const runs = [
   ['app/printer-usb.test.js'],
   ['app/printer-recover.test.js'],
   ['app/printer-resume.test.js'],
+  ['app/printer-asb.test.js'],
   ['app/slips.test.js'],
   ['app/promptpay.test.js'],
   ['app/promptpay-ui.test.js'],

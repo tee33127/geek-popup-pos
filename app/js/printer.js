@@ -8,6 +8,7 @@ const PRINTER = {
   threshold: 160,   // ความสว่างต่ำกว่านี้ = จุดดำ (สูงขึ้น = เข้มขึ้น)
   band: 24,         // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 · สั้นไว้ (Tee 2026-10-17 · เดิม 256): ส่งขาดกลางแถบ เครื่องค้างรอข้อมูลไม่เกินแถบเดียว ล้างได้ด้วย ESCPOS.recover
   statusMs: 500,    // รอคำตอบสถานะ (DLE EOT) ไม่เกินเท่านี้ ไม่ตอบ = ข้าม พิมพ์ตามปกติ
+  asb: 0x0E,        // GS a n: ให้เครื่องแจ้งเองเมื่อ ออนไลน์/ออฟไลน์ (ฝา) · ผิดพลาด · กระดาษ เปลี่ยน (XP-Q807K แจ้งภายใน ~1 วิ · printer-test 2026-10-17)
 };
 
 const ESCPOS = {
@@ -22,6 +23,10 @@ const ESCPOS = {
      cut = รู้ว่าเพิ่งล้มกลางงาน: เลื่อนแล้วตัด เศษใบเก่าแยกเป็นชิ้นทิ้งได้ ไม่ติดหัวใบใหม่
      ไม่ใช้ DLE DC4 ล้างบัฟเฟอร์: ยังไม่ยืนยันว่า XP-Q807K รองรับ และ fn อื่นในชุดเดียวกันคือปิดเครื่อง */
   recover: (cut, wb = Math.ceil(PRINTER.dots / 8), band = PRINTER.band) => bytes(new Uint8Array(8 + wb * band + 64), [0x1B, 0x40], cut ? [0x1B, 0x64, 3, 0x1D, 0x56, 0x42, 0x00] : []),
+  /* GS a n: ASB เครื่องส่งสถานะ 4 byte มาเองทาง bulk IN เมื่อเปลี่ยน (ไม่ต้องถาม ไม่ติดคิวข้อมูล) · ทำงานตามลำดับในบัฟเฟอร์ จึงส่งซ้ำหลัง ESC @ ทุกงาน (ESC @ อาจปิด ASB) */
+  asb:     on => [0x1D, 0x61, on ? PRINTER.asb : 0],
+  /* GS r 1: ไม่ใช่ real-time เครื่องตอบ 1 byte เมื่อทำงานถึงจุดนี้จริง (พิมพ์ + ตัดส่วนก่อนหน้าเสร็จ) = ยืนยันว่าใบออกแล้ว */
+  ack:     () => [0x1D, 0x72, 0x01],
 };
 
 /* รวม array / Uint8Array หลายก้อนเป็น Uint8Array เดียว */
@@ -54,9 +59,9 @@ function rasterBands(r, band = PRINTER.band){
 const rasterCmds = (r, band) => bytes(...rasterBands(r, band));
 /* รวมคำสั่งหลายชิ้นเป็นงานเดียว + จำตำแหน่งรอยต่อคำสั่ง (safe) · ส่งแบ่งก้อนตรงรอยต่อเท่านั้น ถามสถานะระหว่างงานได้โดยไม่แทรกกลางคำสั่งภาพ
    (DLE EOT ที่แทรกกลาง GS v 0 เครื่องตอบ แต่ byte ถูกนับเป็นข้อมูลภาพด้วย ภาพเลื่อน/ตัวมั่ว · Tee 2026-10-17) */
-function jobBytes(parts){
+function jobBytes(parts, ackPart){   // ackPart = ชิ้นที่เป็น GS r (ESCPOS.ack) · send นับว่ารอคำตอบตอนส่งก้อนที่มีชิ้นนี้
   const data = bytes(...parts), safe = new Set(); let o = 0;
-  parts.forEach(p => { o += p.length; safe.add(o); });
+  parts.forEach(p => { if(p === ackPart) data.ack = o; o += p.length; safe.add(o); });
   data.safe = safe; return data;
 }
 
@@ -243,8 +248,57 @@ class UsbPrinter {
     this.dev = d; this.iface = f.iface; this.ep = f.ep; this.found = f; this.session = (this.session || 0) + 1;
     this.epIn = UsbPrinter.findIn(d.configuration, f.iface); this.noStatus = false; this.statusMiss = 0;
     this.dirty = this.dirty || 'open';   // เชื่อมใหม่ทุกครั้ง: ไม่รู้ว่าเครื่องค้างกลางคำสั่งอยู่ไหม ล้างก่อนงานแรก (ล้มกลางงาน = 'fail' ตั้งจากฝั่งแอป)
+    /* ช่องรับกลับ (ep2 IN) ต่อรอบการเชื่อม: ASB ล่าสุด · คำถาม DLE EOT ที่รอคำตอบ (นับเลขตามลำดับ) · GS r ที่ส่งไป/ได้คำตอบ */
+    this.asb = null; this.asbSeen = false; this.asbSeq = 0; this.asbEnabled = false; this.inPart = null;
+    this.eotSent = 0; this.eotGot = 0; this.eotWait = []; this.eotLost = new Set();
+    this.ackSent = 0; this.ackGot = 0; this.ackMode = 'unknown'; this.ackMiss = 0;
+    if(this.epIn != null && this.reading !== d) this.listen(d);   // อุปกรณ์เดิม (เชื่อมใหม่โดยไม่ได้ปิด) ใช้ตัวอ่านเดิมต่อ ไม่ให้สองตัวแย่งคำตอบกัน
+    if(this.onOpen) this.onOpen();
     return d;
   }
+  /* อ่าน ep2 IN ตลอดเวลาที่อุปกรณ์เปิดอยู่ (transferIn ค้างรอทีละครั้ง ไม่ติดคิวส่งข้อมูล) · ทุก byte ผ่าน inByte ที่เดียว · หนึ่งตัวต่ออุปกรณ์ (ข้ามรอบการเชื่อมได้)
+     ไม่มีข้อมูล (บางเครื่อง/เทสต์ตอบว่าง) = พักนิดก่อนอ่านใหม่ · อ่านพลาดติดกันนาน = เลิกอ่าน (อ่านสถานะไม่ได้ แอปพิมพ์ตามปกติ) */
+  async listen(dev){
+    const nap = ms => new Promise(r => setTimeout(r, ms));
+    let errs = 0;
+    this.reading = dev;
+    while(this.reading === dev && dev.opened){
+      let r;
+      try{ r = await dev.transferIn(this.epIn, 64); errs = 0; }
+      catch(e){ if(!dev.opened || ++errs >= 20){ if(errs >= 20) console.warn('printer IN: giving up', e && e.message); break; } await nap(50); continue; }
+      const d = r && r.data, n = d ? d.byteLength : 0;
+      if(this.dev === dev) for(let i = 0; i < n; i++) this.inByte(d.getUint8(i));
+      await nap(n ? 0 : 20);
+    }
+    if(this.reading === dev) this.reading = null;
+  }
+  /* แยก byte ที่เครื่องส่งกลับ (ESC/POS กำหนดบิตไว้ให้แยกกันได้):
+     ASB 4 byte: byte แรก bit 4 = 1, bit 0-1 = 0 (v & 0x93 = 0x10) · XP-Q807K ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F / 3C 00 0C 0F
+     GS r: bit 4 = 0 (เช่น 0x00) · นับเฉพาะตอนมี GS r ที่ยังไม่ได้คำตอบ
+     DLE EOT: bit 4 = 1, bit 1 = 1 (0x12 …) · ค่าอื่นตอนมีคำถามรออยู่ก็ส่งให้คำถามนั้น (ค่าผิดรูปแอปจัดการเอง) */
+  inByte(b){
+    if(this.inPart){ this.inPart.push(b); if(this.inPart.length === 4){ const a = this.inPart; this.inPart = null; this.gotAsb(a); } return; }
+    if((b & 0x93) === 0x10){ this.inPart = [b]; return; }
+    if(!(b & 0x90) && this.ackGot < this.ackSent){ this.ackGot++; this.ackLast = b; this.ackMode = 'yes'; this.ackMiss = 0; if(this.onAck) this.onAck(this.ackGot); return; }
+    while(this.eotLost.has(this.eotGot + 1)) this.eotGot++;
+    if(this.eotGot < this.eotSent){ const n = ++this.eotGot, w = this.eotWait.findIndex(x => x.n === n); if(w >= 0) this.eotWait.splice(w, 1)[0].ok(b); }
+  }
+  /* ASB: {offline, cover, paper, near, error} · ฝาเปิด เซนเซอร์กระดาษ (ใต้ฝา) บอกว่าหมดด้วย → ฝาเปิด = บอกแค่ฝาเปิด (เหมือน DLE EOT)
+     trouble = ฝาเปิด / กระดาษหมด / ผิดพลาด / ออฟไลน์ (เหตุอื่น) · asbSeq เพิ่มทุกครั้งที่เปลี่ยนจากพร้อมเป็นมีปัญหา (แอปดูว่าระหว่างใบมีปัญหาเกิดขึ้นไหม แม้ปิดฝาไปแล้ว) */
+  static parseAsb(a){
+    const [b0, b1, b2] = a, cover = !!(b0 & 0x20);
+    return {raw:a, offline:!!(b0 & 0x08), cover, paper:!cover && !!(b2 & 0x0C), near:!cover && !!(b2 & 0x03), error:!!(b1 & 0x6C)};
+  }
+  static asbTrouble(s){ return !s ? null : s.cover ? 'cover' : s.paper ? 'paper' : s.error || s.offline ? 'offline' : null; }
+  gotAsb(a){
+    const prev = this.asb, s = UsbPrinter.parseAsb(a);
+    s.at = Date.now(); this.asb = s; this.asbSeen = true;
+    if(UsbPrinter.asbTrouble(s) && !UsbPrinter.asbTrouble(prev)) this.asbSeq++;
+    if(this.onAsb) this.onAsb(s, prev);
+  }
+  /* ส่งคำสั่งสั้นๆ (ไม่ใช่งานพิมพ์) */
+  async out(arr){ if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์'); return this.dev.transferOut(this.ep, new Uint8Array(arr)); }
+  async setAsb(on){ await this.out(ESCPOS.asb(on)); this.asbEnabled = on; }
   /* สถานะเครื่อง DLE EOT 2 (สาเหตุออฟไลน์) และ 4 (เซนเซอร์กระดาษ) ผ่าน bulk IN · XP-Q807K มี ep2 IN (log printer-test 15 ต.ค.)
      แปลความหมาย: รูปแบบถูกต้อง = bit 1, 4 เป็น 1 · bit 0, 7 เป็น 0 (v & 0x93 = 0x12)
      2: bit 2 ฝาเปิด · bit 5 หยุดเพราะกระดาษหมด · bit 6 ผิดพลาด   4: bit 2-3 กระดาษใกล้หมด · bit 5-6 กระดาษหมด
@@ -257,19 +311,15 @@ class UsbPrinter {
   }
   /* claimInterface ไม่ได้ = อีกหน้า (แอป POS / printer-test) จับปริ้นเตอร์ไว้ */
   static isBusy(e){ return !!e && (e.name === 'NetworkError' || e.name === 'InvalidStateError') && /claim/i.test(e.message || ''); }
-  /* อ่าน byte ดิบ (ใช้ทั้งแอปและ printer-test) · ข้อละไม่เกิน ms · ไม่ตอบ = throw · คืน {s2, s4, raw2, raw4} (raw = byte ทั้งหมดที่ได้ ใช้ byte สุดท้าย) */
+  /* อ่าน byte ดิบ (ใช้ทั้งแอปและ printer-test) · ข้อละไม่เกิน ms · ไม่ตอบ = throw · คืน {s2, s4, raw2, raw4}
+     คำตอบมาทาง listen() · คำถามนับเลขตามลำดับ: คำตอบที่มาช้า (เช่นคำถามติดคิวหลังข้อมูลตอนฝาเปิด) ตกที่คำถามเดิม ไม่ปนคำถามถัดไป */
   async readStatus(ms = PRINTER.statusMs){
     if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์');
     if(this.epIn == null) throw new Error('เครื่องนี้ไม่มีช่องรับข้อมูลกลับ (bulk IN)');
-    const dev = this.dev, ep = this.ep, epIn = this.epIn;
     const within = p => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('ไม่ตอบใน ' + ms + ' ms')), ms))]);
-    const ask = async n => {
-      await dev.transferOut(ep, new Uint8Array([0x10, 0x04, n]));
-      const r = await dev.transferIn(epIn, 64), d = r.data;
-      return d ? Array.from({length:d.byteLength}, (_, i) => d.getUint8(i)) : [];
-    };
-    const raw2 = await within(ask(2)), raw4 = await within(ask(4));
-    return {raw2, raw4, s2: raw2.length ? raw2[raw2.length - 1] : null, s4: raw4.length ? raw4[raw4.length - 1] : null};
+    const ask = n => { const k = ++this.eotSent, got = new Promise(ok => this.eotWait.push({n:k, ok})); return this.out([0x10, 0x04, n]).then(() => got, e => { this.eotLost.add(k); throw e; }); };   // ส่งไม่ได้ = ไม่มีคำตอบลำดับนี้
+    const s2 = await within(ask(2)), s4 = await within(ask(4));
+    return {raw2:[s2], raw4:[s4], s2, s4};
   }
   /* ก่อน/ระหว่างพิมพ์: {cover, paper, near} · ห้ามทำให้พิมพ์ไม่ได้: ไม่มี IN / ไม่ตอบ / ค่าผิดรูป = null (พิมพ์ตามปกติ)
      ไม่ตอบ 3 ครั้งติด = ไม่ถามอีกจนเชื่อมใหม่ (ครั้งเดียว เช่นบัฟเฟอร์เต็มตอนฝาเปิด ยังถามต่อ: คำตอบที่มาช้าตกที่ transferIn เดิมที่ค้างอยู่ ไม่ปนครั้งถัดไป)
@@ -293,6 +343,7 @@ class UsbPrinter {
       if(this.session !== sid || !this.dev) throw new Error('การเชื่อมเปลี่ยนระหว่างส่ง งานนี้ถูกยกเลิก');
       let j = Math.min(data.length, i + chunk);
       if(safe){ let k = j; while(k > i && !safe.has(k)) k--; if(k > i) j = k; }   // ตัดก้อนที่รอยต่อคำสั่ง (jobBytes)
+      if(data.ack != null && data.ack >= i && data.ack < j){ data.ackN = ++this.ackSent; data.ackSid = sid; }   // ก้อนนี้มี GS r: รอคำตอบลำดับนี้
       const t0 = Date.now(), r = await dev.transferOut(ep, data.subarray(i, j));
       if(r.status !== 'ok') throw new Error(`ส่งข้อมูลไม่สำเร็จ (${r.status}) ที่ byte ${i}`);
       this.lastAck = Date.now();   // เครื่องรับก้อนล่าสุดเมื่อไร (หมดเวลา = สะดุดตั้งแต่ตอนนี้ · ใช้ตัดสินว่าใบก่อนหน้าอาจยังค้างในบัฟเฟอร์)
@@ -301,6 +352,10 @@ class UsbPrinter {
     }
     return data.length;
   }
-  async close(){ const d = this.dev; this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); } }
+  /* ปิด: ปิด ASB ก่อน (ไม่รอนานถ้าช่องส่งค้าง) ให้เครื่องเงียบตอนแอปอื่น/หน้าทดสอบมาเชื่อม */
+  async close(){
+    if(this.asbEnabled && this.connected){ this.asbEnabled = false; try{ await Promise.race([this.out(ESCPOS.asb(false)), new Promise(r => setTimeout(r, 300))]); }catch(e){} }
+    const d = this.dev; this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; if(d && d.opened){ try{ await d.releaseInterface(this.iface); }catch(e){} await d.close(); }
+  }
   forget(){ this.dev = null; this.ep = null; this.session = (this.session || 0) + 1; }
 }

@@ -41,7 +41,8 @@ const dev = {opened:false, productName:'XP-Q807K', configuration:null,
   async open(){ this.opened = true; }, async selectConfiguration(){ this.configuration = this.configurations[0]; this.configuration.interfaces.forEach(i => i.alternate = i.alternates[0]); },
   async claimInterface(){ claims++; if(claimBusy){ const e = new Error("Failed to execute 'claimInterface' on 'USBDevice': Unable to claim interface."); e.name = 'NetworkError'; throw e; } }, async releaseInterface(){},
   async close(){ this.opened = false; if(waiter){ const w = waiter; waiter = null; w.no(new Error('transfer cancelled')); } if(BP.drop === 'close'){ lost += buf.length; buf = []; } },
-  async transferIn(){ if(statusHang) return new Promise(() => {}); const v = emu.replies.shift(); return {status:'ok', data:new DataView(new Uint8Array(v === undefined ? [] : [v]).buffer)}; },
+  /* แบบ WebUSB: transferIn ค้างรอจนเครื่องมีอะไรส่งกลับ (statusHang = เครื่องไม่ส่งอะไรกลับ) · ปิดการเชื่อม = ยกเลิก */
+  transferIn(){ const me = this; return new Promise((ok, no) => { const t = setInterval(() => { if(!me.opened){ clearInterval(t); no(new Error('transfer cancelled')); return; } if(statusHang || !emu.replies.length) return; clearInterval(t); ok({status:'ok', data:new DataView(new Uint8Array([].concat(emu.replies.shift())).buffer)}); }, 2); }); },
   async transferOut(ep, data){
     if(!this.opened){ lateSent += data.length; throw new Error('device closed'); }
     if(data[0] === 0x10 && data[1] === 0x04){
@@ -116,7 +117,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   w.addEventListener('load', async () => {
     let id;
     /* เริ่มเคสใหม่: รอบิลก่อนหน้ายืนยันว่าออกแล้ว (ไม่งั้นเปิดฝาทันทีหลังบิลก่อน = บิลก่อนอาจขาด → ใบแทน ซึ่งถูกตามกฎ แต่ทำให้เคสพึ่งกัน) */
-    const settle = async () => { await until(() => idle() && w.eval('UNCONF.length') === 0 && !$('#printFail'), 3000); };
+    const settle = async () => { await until(() => idle() && w.eval('UNCONF.length') === 0 && !$('#printFail') && !($('#prKitchen') && $('#prKitchen').disabled), 3000); };   // ปุ่มบนหน้าสำเร็จกดได้แล้ว = งานจบจริง
     A.signIn(w);
     /* รันกับโค้ดก่อนแก้ได้ (ยืนยันว่าเทสต์จับบั๊ก): โค้ดเก่าไม่มีใบแทน/การยืนยัน = ถือว่าส่งครบคือออกแล้ว */
     w.eval(`if(typeof slipBlocks === 'undefined') window.slipBlocks = (s, k, st) => (st && st.redo && st.redo[k] ? [{box:'single', text:'ใบแทน — ทิ้งใบก่อนหน้าของ #' + pad(s.no, 3), size:28, bold:true}] : []).concat(k === 'receipt' ? receiptBlocks(s) : kitchenBlocks(s));
@@ -151,7 +152,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     /* (ก) แบบเดิม "ส่งครบ = ออกแล้ว" (ยืนยันทันทีไม่รอ): ตั๋วครัวทั้งใบเข้าบัฟเฟอร์เครื่องแล้ว แต่หัวพิมพ์ยังไม่ถึงท้าย · ฝาเปิด · ใบเสร็จค้าง → หมดเวลา
        → ปิด/เชื่อมใหม่ → เครื่องทิ้งบัฟเฟอร์ → ท้ายตั๋วครัว (Banana Choco) หาย แต่แอปนับว่าออกแล้ว พิมพ์ต่อเองแค่ใบเสร็จ = อาการเครื่องจริง */
     const lidNearKitchenEnd = async (confirmMs, openWhen) => {
-      await settle(); reset0(); BP.drop = 'close'; BP.cap = 24576; w.eval(confirmMs ? WATCH() : 'PRINT_CONFIRM.ms = 0; PRINT_WATCH.ms = 1e9; PRINT_WATCH.stall = 1e9; PRINT_WATCH.rate = 1e9');   // 0 = แบบเดิม: ส่งครบ = ออก ไม่เฝ้าระหว่างพิมพ์ ·   // บัฟเฟอร์ใหญ่พอให้ท้ายตั๋วครัวที่มีข้อความ (Banana Choco) ค้างอยู่ได้ เหมือนที่เกิดจริง
+      await settle(); reset0(); BP.drop = 'close'; BP.cap = 24576; w.eval(confirmMs ? WATCH() : 'PRINT_CONFIRM.ms = 0; PRINT_WATCH.ms = 1e9; PRINT_WATCH.stall = 1e9; PRINT_WATCH.rate = 1e9');
+      emu.noAck = !confirmMs; w.eval(`usbPrinter.ackMode = '${confirmMs ? 'unknown' : 'no'}'`);   // แบบเดิม = ไม่มี GS r ยืนยัน (ยืนยันด้วย GS r คือกฎใหม่ H40)   // 0 = แบบเดิม: ส่งครบ = ออก ไม่เฝ้าระหว่างพิมพ์ ·   // บัฟเฟอร์ใหญ่พอให้ท้ายตั๋วครัวที่มีข้อความ (Banana Choco) ค้างอยู่ได้ เหมือนที่เกิดจริง
       const sid = sellLong(), kLen = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${sid}))]).length`);
       if(openWhen === 'receipt-start'){ await until(() => jobStarts.length >= 2, 4000); trigger = null; emu.cover = true; }   // ใบเสร็จเริ่มส่งแล้ว ท้ายตั๋วครัวยังอยู่ในบัฟเฟอร์
       else trigger = {job:1, at:kLen - 16000, what:'cover'};

@@ -74,6 +74,7 @@
         <button data-test="status" disabled>📡 อ่านสถานะเครื่อง<small>ลองเปิดฝา / ถอดกระดาษ แล้วกดดูค่า</small></button>
         <button data-test="watch" disabled>🔎 ทดสอบถามสถานะระหว่างพิมพ์<small>พิมพ์รูปยาว ~20 ซม. ลองเปิดฝาแป๊บเดียวระหว่างพิมพ์</small></button>
         <button data-test="asb" disabled>📨 ทดสอบ ASB<small>เครื่องแจ้งสถานะเอง 30 วิ ลองเปิด/ปิดฝา</small></button>
+        <button data-test="ack" disabled>✅ ทดสอบยืนยันพิมพ์จบ<small>พิมพ์รูป ~10 ซม. แล้วรอเครื่องตอบ GS r ว่าพิมพ์จบ</small></button>
         <button data-test="disconnect" disabled>⏏️ ปล่อยปริ้นเตอร์<small>ให้แอป POS เชื่อมได้ (ปิดหน้านี้ก็ปล่อยเอง)</small></button>
       </div>
       <details>
@@ -298,25 +299,47 @@ const TESTS = {
       log(`สรุป: ถามสถานะ ${polls} ครั้ง ใช้รวม ${Math.round(pollMs)} ms (เฉลี่ย ${polls ? Math.round(pollMs / polls) : 0} ms/ครั้ง) · ส่งงาน ${Math.round(sent)} ms · ${seen.length ? 'เจอ: ' + [...new Set(seen)].join(', ') : 'ไม่เจอฝาเปิด/กระดาษหมด'}`, seen.length ? 'bad' : 'ok');
     }catch(e){ log(`ทดสอบถามสถานะระหว่างพิมพ์: ${explain(e)}`, 'bad'); }
   },
-  /* ASB (GS a n): เครื่องส่งสถานะมาเองเมื่อเปลี่ยน (ไม่ต้องถาม) · ฟัง 30 วิ log byte ดิบ + แปล (ตามสเปก ESC/POS 4 byte) แล้วปิด ASB และเชื่อมใหม่ (ล้างการรอรับที่ค้าง) */
+  /* ASB (GS a n): เครื่องส่งสถานะมาเองเมื่อเปลี่ยน (ไม่ต้องถาม) · ฟัง 30 วิ log byte ดิบ + แปล (ตามสเปก ESC/POS 4 byte) แล้วปิด ASB
+     อ่านผ่านช่องรับกลับตัวเดียวกับแอป (UsbPrinter.listen) ค่าที่แปลเหมือนที่แอปใช้ */
   asb: async () => {
     if(P.epIn == null){ log('เครื่องนี้ไม่มีช่องรับกลับ ใช้ ASB ไม่ได้', 'bad'); return; }
-    const dev = P.dev, ep = P.ep, epIn = P.epIn, end = performance.now() + ASB_MS;
     const hx = a => a.map(v => '0x' + v.toString(16).padStart(2, '0')).join(' ');
     const mean = a => { if(a.length < 4) return 'ไม่ใช่รูปแบบ ASB 4 byte'; const m = [a[0] & 0x08 && 'ออฟไลน์', a[0] & 0x20 && 'ฝาเปิด', a[0] & 0x40 && 'กดปุ่มป้อนกระดาษ', a[1] & 0x40 && 'ผิดพลาด (แก้เองได้)', a[1] & 0x20 && 'ผิดพลาด (ร้ายแรง)', (a[2] & 0x0C) && 'กระดาษหมด', (a[2] & 0x03) && 'กระดาษใกล้หมด'].filter(Boolean); return m.join(' · ') || 'ปกติ'; };
+    const prev = P.onAsb;
+    P.onAsb = (st, p) => { const m = mean(st.raw); log(`ASB ${hx(st.raw)} = ${m}`, /ฝาเปิด|กระดาษหมด|ผิดพลาด/.test(m) ? 'bad' : 'ok'); if(prev) prev(st, p); };
     try{
-      await dev.transferOut(ep, new Uint8Array([0x1D, 0x61, 0x0E]));   // GS a 14: แจ้ง ออนไลน์/ออฟไลน์ + ผิดพลาด + กระดาษ
+      await P.setAsb(true);   // GS a 14: แจ้ง ออนไลน์/ออฟไลน์ + ผิดพลาด + กระดาษ
       log(`เปิด ASB แล้ว · ฟัง ${ASB_MS / 1000} วิ ลองเปิด/ปิดฝา ถอด/ใส่กระดาษ`);
-      while(performance.now() < end){
-        const r = await Promise.race([dev.transferIn(epIn, 64), new Promise(ok => setTimeout(() => ok(null), Math.max(1, end - performance.now())))]);
-        if(!r) break;
-        const a = r.data ? Array.from({length:r.data.byteLength}, (_, i) => r.data.getUint8(i)) : [];
-        if(a.length) log(`ASB ${hx(a)} = ${mean(a)}`, /ฝาเปิด|กระดาษหมด|ผิดพลาด/.test(mean(a)) ? 'bad' : 'ok');
-      }
-      await dev.transferOut(ep, new Uint8Array([0x1D, 0x61, 0x00]));   // ปิด ASB
-      log('ปิด ASB แล้ว · เชื่อมใหม่เพื่อล้างการรอรับที่ค้าง');
-      await P.close(); await P.reconnect(); setConnected();
+      await new Promise(r => setTimeout(r, ASB_MS));
+      await P.setAsb(false);
+      log('ปิด ASB แล้ว');
     }catch(e){ log(`ทดสอบ ASB: ${explain(e)}`, 'bad'); }
+    finally{ P.onAsb = prev; }
+  },
+  /* ยืนยันพิมพ์จบ (Tee 2026-10-17): รูป ~10 ซม. + ตัด + GS r 1 (ไม่ใช่ real-time เครื่องตอบเมื่อทำงานถึงจุดนั้น = พิมพ์ + ตัดจบ)
+     log เวลาตั้งแต่ส่งครบถึงได้คำตอบ + ความเร็วพิมพ์จริง · ไม่ตอบใน 10 วิ = ไม่รองรับ (แอปใช้เวลาประมาณ + ASB เฝ้าต่อ 3 วิ) */
+  ack: async () => {
+    if(P.epIn == null){ log('เครื่องนี้ไม่มีช่องรับกลับ ยืนยันพิมพ์จบไม่ได้', 'bad'); return; }
+    await slipFontsReady();
+    const o = opt(), H = 800, c = document.createElement('canvas'), x = c.getContext('2d'); c.width = o.dots; c.height = H;
+    x.fillStyle = '#fff'; x.fillRect(0, 0, o.dots, H); x.fillStyle = '#000'; x.font = `700 28px ${SLIP_FONT}`;
+    for(let y = 0; y < H; y += 80){ x.fillRect(0, y, o.dots, 4); x.fillText(`ยืนยันพิมพ์จบ · ${(y / 8).toFixed(0)} มม.`, 12, y + 44); }
+    const ack = ESCPOS.ack(), data = jobBytes([ESCPOS.init(), ...canvasBands(c, o.thr), ESCPOS.feed(3), o.cut, ack], ack);
+    const got0 = P.ackGot, prev = P.onAck; let tAck = 0;
+    P.onAck = n => { if(!tAck) tAck = performance.now(); if(prev) prev(n); };
+    try{
+      const t0 = performance.now();
+      await P.send(data, o.chunk);
+      const sent = performance.now() - t0;
+      log(`ทดสอบยืนยันพิมพ์จบ: ส่งครบ ${data.length.toLocaleString()} byte ใน ${Math.round(sent)} ms · รอเครื่องตอบ GS r 1 (สูงสุด 10 วิ)`);
+      const end = performance.now() + 10000;
+      while(P.ackGot <= got0 && performance.now() < end && P.connected) await new Promise(r => setTimeout(r, 20));
+      if(P.ackGot > got0){
+        const all = tAck - t0;
+        log(`เครื่องตอบ GS r 0x${(P.ackLast ?? 0).toString(16).padStart(2, '0')} หลังส่งครบ ${Math.round(tAck - t0 - sent)} ms (ตั้งแต่เริ่มส่ง ${Math.round(all)} ms) · พิมพ์จริง ≈ ${Math.round(data.length / all)} KB/วิ · แอปใช้ยืนยันว่าใบออกแล้วได้`, 'ok');
+      } else log('เครื่องไม่ตอบ GS r ใน 10 วิ = ไม่รองรับ (แอปจะประมาณเวลาพิมพ์จบ แล้วให้ ASB เฝ้าต่ออีก 3 วิ)', 'bad');
+    }catch(e){ log(`ทดสอบยืนยันพิมพ์จบ: ${explain(e)}`, 'bad'); }
+    finally{ P.onAck = prev; }
   },
   disconnect: async () => { await P.close(); log('ปล่อยปริ้นเตอร์แล้ว (releaseInterface + close) · แอป POS เชื่อมได้ · เครื่องยังจำการอนุญาตไว้'); setConnected(); },
 };
@@ -345,6 +368,7 @@ const CHECKS = [
   'อ่านสถานะเครื่อง: ปกติ / เปิดฝา / ถอดกระดาษ แล้วค่าเปลี่ยนตรงความจริง (คัดลอก log ส่งให้ Claude)',
   'ถามสถานะระหว่างพิมพ์: เปิดฝาแป๊บเดียว (~1 วิ) ระหว่างพิมพ์ แล้ว log ขึ้น "ฝาเปิด" หรือ "ก้อนค้าง" · จดเวลาเฉลี่ยต่อครั้งจากบรรทัดสรุป',
   'ASB: เปิด/ปิดฝาระหว่างฟัง แล้ว log ขึ้น ASB เอง (ถ้าไม่ขึ้นเลย = เครื่องไม่รองรับ ไม่เป็นไร)',
+  'ยืนยันพิมพ์จบ: กดแล้วดูว่า log ขึ้น "เครื่องตอบ GS r" (จดเวลา) หรือ "ไม่ตอบ"',
   'ถ่ายรูปตั๋วส่งให้ Claude',
 ];
 const CK = 'geek_printer_test_v1';

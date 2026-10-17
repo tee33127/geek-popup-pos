@@ -1,8 +1,15 @@
 // ปริ้นเตอร์ ESC/POS จำลอง: แปลคำสั่งทีละ byte แบบเครื่องจริง (state machine) ใช้เทสต์ว่าพิมพ์ต่อหลังงานถูกตัดกลางคันแล้วไม่ได้ตัวมั่ว
 // รองรับ: NUL (ข้าม) · ESC @ · ESC d n · ESC p m t1 t2 · GS v 0 m xL xH yL yH + ข้อมูลภาพ · GS V m [n] (ตัด = จบ 1 ใบ) · DLE EOT n (ตอบสถานะ)
+//         GS a n (ASB: เปิดเฉพาะ asbCapable · ส่ง 4 byte แบบ XP-Q807K เมื่อเปิดและเมื่อฝา/กระดาษเปลี่ยน ผ่าน setCover/setPaper) · GS r n (ตอบ 0x00 เมื่อทำงานถึงจุดนี้ · noAck = ไม่รองรับ)
+// replies = คิวคำตอบทาง bulk IN (ตัวเลข = 1 byte · array = 1 ก้อน เช่น ASB)
 // byte อื่นนอกคำสั่ง = พิมพ์เป็นตัวอักษร (ตัวมั่ว) · ระหว่างรับข้อมูลภาพ ทุก byte เป็นข้อมูลภาพ (รวม ESC @ ของงานถัดไป) แบบเครื่องจริง
 class EscPosEmu {
-  constructor(){ this.pages = []; this.page = this.newPage(); this.st = 'idle'; this.cmd = []; this.need = 0; this.img = null; this.cover = false; this.paper = true; this.replies = []; }
+  constructor(){ this.pages = []; this.page = this.newPage(); this.st = 'idle'; this.cmd = []; this.need = 0; this.img = null; this.cover = false; this.paper = true; this.replies = []; this.asbMode = 0; this.acks = 0; }
+  /* ASB แบบ XP-Q807K (printer-test 2026-10-17): ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F แล้ว 3C 00 0C 0F (เซนเซอร์กระดาษใต้ฝา) · กระดาษหมดฝาปิด 1C 00 0C 0F (คาด) */
+  asbBytes(){ const noPaper = !this.paper || (this.cover && this.coverSensed); return [0x14 | (this.cover || !this.paper ? 0x08 : 0) | (this.cover ? 0x20 : 0), 0x00, (noPaper ? 0x0C : 0) | (this.near ? 0x03 : 0), 0x0F]; }
+  sendAsb(){ if(this.asbCapable && this.asbMode) this.replies.push(this.asbBytes()); }
+  setCover(v){ if(this.cover === v) return; this.cover = v; this.coverSensed = false; this.sendAsb(); if(v){ this.coverSensed = true; this.sendAsb(); } }
+  setPaper(v){ if(this.paper === v) return; this.paper = v; this.sendAsb(); }
   newPage(){ return {rows:[], text:'', inits:0, images:0}; }
   /* DLE EOT n เป็นคำสั่ง real-time: เครื่องตอบทันทีที่รับ ไม่ว่ากำลังอยู่กลางคำสั่งอะไร (ตามสเปก ESC/POS) · byte ยังไหลเข้าตัวแปลคำสั่งตามปกติ (กลางภาพ = เป็นข้อมูลภาพ) */
   feed(data){ for(const b of data){ this.realtime(b); this.byte(b); } return this; }
@@ -45,14 +52,16 @@ class EscPosEmu {
     if(c.length < 2) return Infinity;
     const [a, k] = c;
     if(a === 0x1B) return k === 0x40 ? 2 : k === 0x64 ? 3 : k === 0x70 ? 5 : 2;
-    if(a === 0x1D) return k === 0x76 ? 8 : k === 0x56 ? 4 : 2;
+    if(a === 0x1D) return k === 0x76 ? 8 : k === 0x56 ? 4 : k === 0x61 || k === 0x72 ? 3 : 2;
     if(a === 0x10) return k === 0x04 ? 3 : 2;
     return 2;
   }
   run(c){
     this.st = 'idle';
     const [a, k] = c;
-    if(a === 0x1B && k === 0x40){ this.page.inits++; return; }
+    if(a === 0x1B && k === 0x40){ this.page.inits++; if(this.initClearsAsb) this.asbMode = 0; return; }   // initClearsAsb = ESC @ ปิด ASB (ยังไม่รู้ว่า XP-Q807K ทำไหม แอปเปิดซ้ำหลัง ESC @ ทุกงาน)
+    if(a === 0x1D && k === 0x61){ const was = this.asbMode; this.asbMode = c[2]; if(c[2] && !was) this.sendAsb(); return; }   // เปิด ASB = ส่งสถานะปัจจุบันทันที
+    if(a === 0x1D && k === 0x72){ this.acks++; if(!this.noAck) this.replies.push(0x00); if(this.onAck) this.onAck(); return; }
     if(a === 0x1D && k === 0x76){
       const wb = c[4] | c[5] << 8, h = c[6] | c[7] << 8;
       this.page.images++;
