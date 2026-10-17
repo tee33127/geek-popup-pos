@@ -1,5 +1,5 @@
 // screenshot ชุดตรวจ UI (Tee 2026-10-17 งานจัดระเบียบ UI) · 4 จอ × หน้าหลัก → docs/qa/screens/<วันที่>/ui/<tag>/
-// รัน: node tests/qa/ui-shots.js before|after  (ใช้ prototype/pos-demo.html ต้อง build ก่อน)
+// รัน: node tests/qa/ui-shots.js <tag> (เช่น before / after / r2-after)  (ใช้ prototype/pos-demo.html ต้อง build ก่อน)
 // ไม่ใช่เทสต์ (ไม่มีผ่าน/ไม่ผ่าน) ไว้เทียบก่อน/หลังด้วยตา
 const {chromium, webkit} = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -47,7 +47,14 @@ const server = http.createServer((q, r) => {
     if(await page.isVisible('#cartMini')) await page.click('#cartMini');
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2');
     await page.click('[data-dine="takeaway"]'); await page.click('[data-method="cash"]'); await shot('3-pay');
+    await page.click('[data-q="1000"]'); await shot('3a-pay-cash');
+    await page.evaluate(() => { saveSettings({...SETTINGS, promptpay:'0812345678'}); renderPay(); });   // เลขสมมติ
+    await page.click('[data-method="promptpay"]'); await shot('3b-pay-promptpay');
+    await page.click('[data-method="tcp"]'); await shot('3c-pay-tcp');
     await page.click('#payCancel');
+    // หน้าต่างยืนยัน: ล้างออเดอร์
+    if(await page.isVisible('#cartMini')) await page.click('#cartMini');
+    await page.click('#btnClear'); await shot('8-confirm-clear'); await page.click('#cfNo');
     // 5 ตั้งค่า · 6 สินค้าหมด
     await page.click('#btnSettings'); await shot('5-settings');
     if(await page.$('#stockOpen')){ await page.click('#stockOpen'); await shot('6-stock'); }
@@ -56,6 +63,10 @@ const server = http.createServer((q, r) => {
     // 7 สรุปยอด เลื่อนลงแล้ว
     await page.click('#btnSummary'); await page.evaluate(() => { const b = document.querySelector('#modal .mbody'); b.scrollTop = b.scrollHeight; });
     await shot('7-summary-scrolled');
+    // หน้าต่างยืนยัน: ยกเลิกบิล · ออกจากระบบ
+    await page.evaluate(() => { document.querySelector('#modal .mbody').scrollTop = 0; });
+    await page.click('[data-tab="bills"]'); await page.click('[data-v]'); await shot('9-confirm-void'); await page.click('#cfNo'); await closeX();
+    await page.click('#btnUser'); await shot('10-confirm-logout'); await page.click('#cfNo');
     await ctx.close();
     console.log('shots', label);
   }

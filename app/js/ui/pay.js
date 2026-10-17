@@ -14,40 +14,59 @@ function askPendingCup(){
     <button class="pay" id="pendBack">กลับไปเพิ่มก่อน</button>
     <button class="ghost wide" id="pendDrop">ทิ้งแก้วนี้ แล้วชำระเงิน</button>`, {key:'pending'});
 }
+/* หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ · แนวตั้งเรียงซ้อน (ซ้ายบน ขวาล่าง)
+   ซ้าย = กินเลย/กลับบ้าน → วิธีชำระ → (เงินสด) ช่องรับเงินมา + × ล้างในช่อง → ปุ่มเงินด่วน → เงินทอนตัวใหญ่
+   ขวา = เงินสด: แป้น 4×3 · PromptPay: ยอดตัวใหญ่ → QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ยอด + ข้อความ
+   ล่างติดหน้าต่าง: [ยกเลิก] [ยืนยันรับเงิน ฿x / สิ่งที่ยังขาด] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม */
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
   const cashOk = pay.method !== 'cash' || pay.received >= total;
   const ok = !!pay.dining && !!pay.method && cashOk;
   const hadFocus = document.activeElement && document.activeElement.id === 'recv';
   const pr = promoNow();
-  let h = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
-    <div class="q2">รับที่ร้านหรือกลับบ้าน?</div>
+  let L = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 var(--s2)">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
+    <div class="q2" style="margin-top:0">รับที่ร้านหรือกลับบ้าน?</div>
     <div class="row">${CONFIG.dining.map(d => `<button class="opt ${pay.dining === d.id ? 'on':''}" data-dine="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
-    <div class="row wrap">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
-  if(!pay.method){ /* ยังไม่เลือกวิธีชำระ: ไม่แสดงส่วนรับเงิน */ }
+    <div class="row">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
+  let R = '', cls = '';
+  const amt = sub => `<div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${sub ? `<p class="note2 payhint">${sub}</p>` : ''}`;
+  if(!pay.method) R = amt(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
   else if(pay.method === 'cash'){
-    /* แป้นตัวเลขของแอปข้างช่อง (ไม่เปิดแป้นระบบ) · ปุ่มลัดอยู่เหมือนเดิม */
-    h += `<div class="cashgrid"><div class="cashl"><div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
-      <label class="recvrow"><span>รับเงินมา</span>${moneyField('recv', pay.received || '', true)}</label>
-      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div></div>${moneyPadHtml()}</div>`;
+    cls = 'cash';
+    L += `<label class="recvrow"><span>รับเงินมา</span><span class="mfield">${moneyField('recv', pay.received || '', true)}${pay.received ? `<button type="button" class="mx mfx" data-mk="clear" aria-label="ล้างช่องรับเงิน">${icon('x', 22)}</button>` : ''}</span></label>
+      <div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
+      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
+    R = moneyPadHtml(false);
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
-    h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}
-      <div class="ppamt">${baht(total)}</div>
-      <p class="note2">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
+    cls = 'qr';
+    R = `<div class="ppqr"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
+      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
-    if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
-    h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
+    R = (pay.method === 'promptpay' ? `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>` : '') +
+      amt(`ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
   }
-  const foot = `<div class="row payrow"><button class="tbtn" id="payCancel">ยกเลิก</button>
-    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'mid'});   // X = ยกเลิก
+  const h = `<div class="paygrid ${cls}"><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
+  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? `ยืนยันรับเงิน ${baht(total)}` : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
+  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
+  fitPayQr();
   const r = $('recv');
   if(r){
     r.oninput = () => { pay.received = Number(r.value.replace(/\D/g, '')) || 0; renderPay(); const n = $('recv'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
     if(hadFocus){ r.focus(); r.setSelectionRange(r.value.length, r.value.length); }
   }
 }
+/* QR โตเท่าที่ที่เหลือในหน้าต่าง (ไม่เกิน 360 · ไม่ต่ำกว่า 200 ให้สแกนได้) ไม่ดันอะไรตกจอ · เริ่มที่ 360 แล้วลดเท่าที่ล้น */
+const PAY_QR = {min:200, max:360};
+function fitPayQr(){
+  const q = document.querySelector('#modal .paybox svg.qr'), mb = document.querySelector('#modal .mbody'); if(!q || !mb) return;
+  const set = s => { q.setAttribute('width', s); q.setAttribute('height', s); };
+  set(PAY_QR.max);
+  const over = mb.scrollHeight - mb.clientHeight;
+  if(over > 0) set(Math.max(PAY_QR.min, Math.floor(PAY_QR.max - over)));
+}
+window.addEventListener('resize', fitPayQr);
 function confirmPay(){
   if(!pay.dining || !pay.method || !cart.length) return;
   if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }

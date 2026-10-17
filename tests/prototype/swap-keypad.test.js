@@ -33,8 +33,8 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
   p.add({menu:'banana'});
   click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]');
   const r = $('#recv');
-  eq('cash: received field is read-only with inputmode none (no system keyboard) + keypad beside it + quick buttons kept', [r.readOnly, r.getAttribute('inputmode'), $$('#modal .mpad [data-mk]').length, $$('#modal [data-q]').length],
-    [true, 'none', 13, 6]);
+  eq('cash: received field is read-only with inputmode none (no system keyboard) + keypad 4×3 (no separate clear key · Tee 2026-10-18) + quick buttons kept', [r.readOnly, r.getAttribute('inputmode'), $$('#modal .mpad [data-mk]').length, $$('#modal [data-q]').length, !!$('#modal .mfx')],
+    [true, 'none', 12, 6, false]);
   const key = k => click(`#modal [data-mk="${k}"]`);
   key('2'); key('00'); eq('keys 2 + 00 → 200, change shown', [$('#recv').value, ev('pay.received'), $('#modal .change').textContent.trim()], ['200', 200, 'เงินทอน ฿51']);
   key('back'); eq('⌫ → 20, short', [$('#recv').value, $('#modal .change').textContent.includes('ยังขาด')], ['20', true]);

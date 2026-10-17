@@ -101,7 +101,7 @@ let confirmCb = null, confirmNo = null, pinCb = null, pinMsg = '';
 function askConfirm(o){
   confirmCb = o.onYes || null; confirmNo = o.onNo || null;
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
-    <div class="row"><button class="tbtn" id="cfNo">กลับ</button><button class="pay ${o.ok ? '' : 'danger'}" id="cfYes">${esc(o.yes || 'ยืนยัน')}</button></div>`);
+    <div class="row confirmrow"><button class="tbtn" id="cfNo">กลับ</button><button class="pay ${o.ok ? '' : 'danger'}" id="cfYes">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
 /* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ช่องกรอก codeField (codepad.js) */
 function askOwner(onOk, msg, err){
@@ -109,7 +109,7 @@ function askOwner(onOk, msg, err){
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
     ${codeField('pinIn', 'pinOk')}
     ${err ? `<p class="pinerr" role="alert">${esc(err)}</p>` : ''}
-    <div class="row"><button class="tbtn" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
+    <div class="row confirmrow"><button class="tbtn" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
   $('pinIn').focus();
 }
 function checkPin(){

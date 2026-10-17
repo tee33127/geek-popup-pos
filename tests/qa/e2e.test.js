@@ -775,7 +775,11 @@ const server = http.createServer((q, r) => {
       const uneven = ctl.filter(el => { const w = bw(el); return !w.every(x => x === w[0]) && !el.matches('.tminus'); }).map(name);
       const opts = all.filter(el => el.matches(OPT)), optW = [...new Set(opts.map(el => bw(el).join('/')))];
       const boxes = all.filter(el => el.matches(BOX) && bw(el).some(w => w > 0)).map(name);
-      return {thick, uneven, optW, boxes, nOpt:opts.length};
+      /* UI31 ปุ่มทุกปุ่มมีกรอบ หรือพื้นต่างจากพื้นหลัง (Tee 2026-10-18) · ยกเว้นลิงก์ในประโยค/ข้างรายการ และไอคอน X / ตา / − ในปุ่มท็อปปิ้ง / แถบออเดอร์ยุบ (ทั้งการ์ด) */
+      const bgOf = el => { for(let e = el.parentElement; e; e = e.parentElement){ const c = getComputedStyle(e).backgroundColor; if(c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; } return 'rgb(255, 255, 255)'; };
+      const plain = all.filter(el => el.tagName === 'BUTTON' && !el.matches('.linkbtn, .comp .skip, .mx, .eye, .tminus, .cartmini') && !el.closest('.topw') || el.matches('.topw > .top'))
+        .filter(el => { const c = getComputedStyle(el).backgroundColor, bg = c === 'rgba(0, 0, 0, 0)' || c === 'transparent' ? null : c; return bw(el).every(w => w === 0) && (!bg || bg === bgOf(el)); }).map(name);
+      return {thick, uneven, optW, boxes, plain, nOpt:opts.length};
     }, [OPT, BOX]);
     /* ตำแหน่งปุ่ม + ตัวหนังสือแรก (ท็อปปิ้ง = ชื่อ .tn) ปัดครึ่ง px · วัดเทียบกับเนื้อหาของหน้าต่าง/หน้าขาย
        (หน้าต่างจัดกลางจอ เนื้อหาข้างล่างเพิ่ม/ข้อความแจ้งในหน้าต่าง ทำให้ทั้งกล่องขยับ ไม่ใช่ปุ่มขยับเอง) */
@@ -811,13 +815,31 @@ const server = http.createServer((q, r) => {
     if(await page.isVisible('#cartMini')) await page.click('#cartMini');
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2'); if(await page.$('#pendDrop')) await page.click('#pendDrop');
     await pick('dine', '[data-dine="takeaway"]'); await pick('method', '[data-method="cash"]');
-    A.pay = await audit(); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
+    A.pay = await audit();
+    /* UI32 หน้าต่างชำระเงินทุกวิธีจบในจอ ไม่ต้องเลื่อน (Tee 2026-10-18) · PromptPay QR ≥ 200px · เงินสดมีเงินทอนแล้ว */
+    const payFit = () => page.evaluate(() => { const m = document.querySelector('#modal .mbody'), q = document.querySelector('#modal svg.qr'), ok = document.getElementById('payOk').getBoundingClientRect();
+      return {fit: m.scrollHeight <= m.clientHeight + 1 && ok.bottom <= (window.visualViewport ? visualViewport.height : innerHeight) + 1, qr: q ? Math.round(q.getBoundingClientRect().width) : null}; });
+    const PF = {};
+    await page.click('[data-q="1000"]'); PF.cash = await payFit(); A.payCash = await audit();
+    await page.evaluate(() => { saveSettings({...SETTINGS, promptpay:'0812345678'}); renderPay(); });   // เลขสมมติ ไม่ใช่เลขจริง
+    await page.click('[data-method="promptpay"]'); PF.promptpay = await payFit(); A.payPP = await audit();
+    await page.screenshot({path:path.join(SHOTS, `${label}-32-pay-promptpay.png`)});
+    await page.click('[data-method="tcp"]'); PF.tcp = await payFit();
+    await page.click('[data-method="cash"]'); await page.click('[data-q="1000"]');
+    eq(`UI32 ${label}: หน้าต่างชำระเงินทุกวิธี (เงินสด PromptPay ไทยช่วยไทย) ไม่ต้องเลื่อน ปุ่มยืนยันอยู่ในจอ · QR ≥ 200px`,
+      [PF.cash.fit, PF.promptpay.fit, PF.promptpay.qr >= 200, PF.tcp.fit], [true, true, true, true]);
+    console.log(`INFO UI32 ${label}: ${JSON.stringify(PF)}`); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
     await page.click('#btnSettings'); A.settings = await audit(); await pick('receipt', '[data-rcpt="ask"]');
     await page.click('#stockOpen'); A.stock = await audit(); await page.click('#closeX');
     await page.click('#btnSummary'); A.summary = await audit(); await pick('tab', '[data-tab="pay"]'); await pick('range', '[data-range="7d"]');
     await page.click('#closeDay'); A.close = await audit(); await page.click('#closeX');
-    await page.click('#btnClear').catch(() => {}); if(await page.$('#cfYes')) A.confirm = await audit();
+    await page.click('#btnUser'); A.confirm = await audit();   // ยืนยันออกจากระบบ (ตะกร้าว่างแล้ว ล้างออเดอร์กดไม่ได้)
+    /* หน้าต่างยืนยัน: ปุ่มคู่กว้างเท่ากัน ซ้าย = กลับ (รอง) ขวา = แดงทึบ */
+    const pair = await page.evaluate(() => { const n = document.getElementById('cfNo'), y = document.getElementById('cfYes'); if(!n || !y) return null; const a = n.getBoundingClientRect(), b = y.getBoundingClientRect();
+      return [Math.abs(a.width - b.width) <= 1, a.left < b.left, n.classList.contains('ghost') || n.classList.contains('tbtn'), getComputedStyle(y).backgroundColor]; });
     await ctx.close();
+    eq(`UI31 ${label}: หน้าต่างยืนยัน ปุ่มคู่กว้างเท่ากัน · ซ้ายกลับแบบรอง · ขวาแดงทึบ`, pair, [true, true, true, 'rgb(198, 40, 40)']);
+    eq(`UI31 ${label}: ทุกปุ่มที่เห็นมีกรอบหรือพื้นต่างจากพื้นหลัง (ไม่มีปุ่มขาวบนพื้นขาวไร้กรอบ)`, Object.keys(A).map(k => A[k].plain), Object.keys(A).map(() => []));
     const pages = Object.keys(A);
     eq(`UI30 ${label}: ไม่มีเส้นกรอบหนากว่า 1px ทุกหน้า (${pages.join(' ')})`, pages.map(k => A[k].thick), pages.map(() => []));
     eq(`UI30 ${label}: ปุ่ม/ช่องกรอกทุกตัวกรอบเท่ากันทั้ง 4 ด้าน (0 หรือ 1px)`, pages.map(k => A[k].uneven), pages.map(() => []));

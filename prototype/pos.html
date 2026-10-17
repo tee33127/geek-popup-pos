@@ -134,7 +134,6 @@ main > .cart{min-width:0}   /* แนวตั้ง: บรรทัดตะ�
 .qty{display:flex;align-items:center;gap:var(--s2)}
 .qty button{width:44px;height:44px;padding:0;font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700}
 .qty .rm{margin-left:auto;display:grid;place-items:center;color:var(--bad)}
-.qty .rm:active{background:#fdecea;border-radius:var(--r-btn)}
 .total{display:flex;justify-content:space-between;font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;padding:calc(14px * var(--ui-scale)) 0 calc(10px * var(--ui-scale))}
 .pay{width:100%;font-size:max(12px, calc(20px * var(--ui-scale)));padding:var(--s3) var(--s4)}
 .clear{width:100%;margin-top:var(--s2);padding:var(--s2) var(--s4)}
@@ -537,24 +536,24 @@ input.moneyin.cur{border-color:var(--sel-bd);background:var(--sel-bg);box-shadow
 .base.out,.opt:disabled,.popt:disabled,.promo:disabled,.tab:disabled,.chip:disabled,.tops .topw.out .top,.tops .topw .top:disabled{
   background:var(--off-bg);color:var(--off-fg);border-color:var(--border);box-shadow:none;cursor:not-allowed}
 /* 2) ปุ่ม 3 แบบ (ทุกแบบสูง ≥ 44px) · หลัก = พื้นทึบน้ำเงิน ไม่มีกรอบ · อันตราย = หลักสีแดง */
-.pay,.add,.bar button,.pfbtn,.clear,.vbtn,.ghost.danger,.ghost.accent{
+.pay,.add,.bar button,.pfbtn,.ghost.accent{
   background:var(--blue);color:#fff;border:0;border-radius:var(--r-btn);font-weight:700;min-height:44px}
-.clear,.vbtn,.ghost.danger,.pay.danger{background:var(--bad);color:#fff}
+.pay.danger{background:var(--bad);color:#fff}   /* แดงทึบ = เฉพาะปุ่มยืนยันในหน้าต่างถามซ้ำ (ล้าง / ยกเลิกบิล / ออกจากระบบ / ลบ) */
 .pay.okay{background:var(--ok)}
 .pay:disabled,.add.off,.bar button:disabled,.clear:disabled,.ghost:disabled,.donebtns button:disabled{background:var(--off-bg);color:var(--off-fg);border-color:var(--border);cursor:not-allowed}
-.clear:disabled{background:var(--off-bg)}
-/* รอง = พื้นขาว กรอบ 1px ตัวน้ำเงิน */
-.ghost,.quick button,.qty button,.comp button,.keypad button,.mpad button,.sbtn,.rbtn,.addsum{
+/* รอง = พื้นขาว กรอบ 1px ตัวน้ำเงิน · กลับ / ยกเลิก / ปิด ทุกปุ่มใช้แบบนี้ (.tbtn = .ghost) (Tee 2026-10-18: ปุ่มขาวบนพื้นขาวไม่มีกรอบ มองไม่ออก) */
+.ghost,.tbtn,.quick button,.qty button,.comp button,.keypad button,.mpad button,.sbtn,.rbtn,.addsum{
   background:#fff;border:var(--bw) solid var(--border);color:var(--blue);border-radius:var(--r-btn);font-weight:700;min-height:44px}
-.ghost.danger,.ghost.accent{border:0;color:#fff}
-.ghost.danger{background:var(--bad)}
-.ghost.accent{background:var(--blue)}
+.ghost.accent{border:0;color:#fff;background:var(--blue)}
+/* อันตรายแบบรอง: พื้นแดงอ่อน กรอบแดง 1px ตัวแดง (ล้างออเดอร์ · ยกเลิกบิล · ลบพนักงาน · ลบแก้วในตะกร้า) · กดแล้วมีหน้าต่างถามซ้ำที่เป็นแดงทึบ */
+.clear,.vbtn,.ghost.danger,.qty .rm{background:#fdf2f2;border:var(--bw) solid var(--bad);color:var(--bad);border-radius:var(--r-btn);font-weight:700;min-height:44px}
+.clear:active,.vbtn:active,.ghost.danger:active,.qty .rm:active{background:#fbe2e2}
+.clear:disabled{background:var(--off-bg);border-color:var(--border);color:var(--off-fg)}
 .keypad button:active,.mpad button:active,.quick button:active,.qty button:active,.ghost:active,.sbtn:active,.rbtn:active,.comp button:not(.skip):active{background:var(--sel-bg)}
-/* ข้อความ = ไม่มีพื้น ไม่มีกรอบ ตัวน้ำเงิน */
-.tbtn,.linkbtn,.comp button.skip,.mx,.qty .rm,.codein .eye{background:none;border:0;color:var(--blue);min-height:44px;box-shadow:none}
-.tbtn{padding:0 var(--s4);font-weight:700;border-radius:var(--r-btn)}
-.tbtn:active,.linkbtn:active,.comp button.skip:active{background:var(--sel-bg)}
-.qty .rm{color:var(--bad)}
+/* ข้อความ = ไม่มีพื้น ไม่มีกรอบ ตัวน้ำเงิน · ใช้ได้เฉพาะลิงก์ในประโยค/ข้างรายการ (+ หมายเหตุ, ลืมรหัส, ไม่รับ/คืนค่า) · ไอคอน X ปิด / ตา (ในช่อง) ไม่มีกรอบ */
+.linkbtn,.comp button.skip,.mx,.codein .eye{background:none;border:0;color:var(--blue);min-height:44px;box-shadow:none}
+.tbtn{padding:0 var(--s4)}
+.linkbtn:active,.comp button.skip:active{background:var(--sel-bg)}
 .mx,.codein .eye{color:var(--mute)}
 .codein .eye.on{color:var(--blue);background:var(--sel-bg)}
 /* แถบหัว (พื้นน้ำเงิน): ปุ่มรองแบบกลับสี กรอบ 1px สีขาวโปร่ง */
@@ -573,7 +572,7 @@ input.note:focus,input.num:focus,.cnum:focus,.lgform input:focus,.codein input:f
 .navrow > .ic{color:var(--blue)}
 .navrow:active{background:var(--sel-bg)}
 /* หัวหน้าต่าง: ปุ่ม ‹ กลับ (หน้าย่อย) ซ้าย · ปุ่มเครื่องมือ (สรุปยอด) ก่อน X */
-.mhead .mback{flex:none;display:inline-flex;align-items:center;padding:0 var(--s2) 0 0;margin-left:calc(-1 * var(--s3));font-size:max(12px, calc(15px * var(--ui-scale)))}
+.mhead .mback{flex:none;display:inline-flex;align-items:center;padding:0 var(--s3) 0 var(--s1);margin-left:calc(-1 * var(--s3));font-size:max(12px, calc(15px * var(--ui-scale)))}
 .mtools{flex:none;display:flex;align-items:center;gap:var(--s2)}
 .mtools .ghost{padding:0 var(--s3);font-size:max(12px, calc(15px * var(--ui-scale)));white-space:nowrap}
 .mtools .ghost .ic{vertical-align:-3px}
@@ -583,6 +582,38 @@ main > .card:first-child{padding-top:var(--s2)}
 #builder .sec{padding:var(--s2) var(--s3);margin-bottom:var(--s2)}
 #builder .tcat .gt{margin:0}
 #builder .sep{margin-top:var(--s2)}
+/* ---------- หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ ----------
+   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = แป้น (เงินสด) / ยอด + QR (PromptPay) / ยอด + ข้อความ · แนวตั้ง = ซ้อนกัน */
+.box.paybox{max-width:min(980px, 100%)}
+.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);gap:var(--s5);align-items:start}
+.payl .row{margin:0 0 var(--s3)}
+.payl .opt[data-method]{min-width:0}
+.payr{display:flex;flex-direction:column;align-items:stretch;gap:var(--s3);min-width:0}
+.payamt{display:flex;flex-direction:column;align-items:center;background:var(--sec-bg);border-radius:var(--r-card);padding:var(--s3)}
+.payamt small{color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)))}
+.payamt .ppamt{margin:0;font-size:max(12px, calc(36px * var(--ui-scale)));line-height:1.3}
+.payhint{margin:0;text-align:center}
+.paybox .ppqr{margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
+.paybox .ppqr .payamt{align-self:stretch}
+.paybox .ppqr .qr{width:auto;max-width:100%;height:auto}
+.paybox .ppwarn{margin:0}
+/* เงินสด: ช่องรับเงิน + × ในช่อง · เงินด่วนตัดแถวได้ · เงินทอนตัวใหญ่ */
+.paybox .recvrow{margin:var(--s4) 0 var(--s3)}
+.mfield{position:relative;flex:1 !important;min-width:0;display:block}
+.mfield input.num{width:100%;padding-right:52px}
+.mfield .mfx{position:absolute;top:50%;right:var(--s1);transform:translateY(-50%);width:44px;height:44px;display:grid;place-items:center}
+.paybox .quick{margin:0}
+.paybox .quick button{flex:1 0 calc(64px * var(--ui-scale))}
+.paybox .change{margin:var(--s3) 0 0;min-height:1.4em;line-height:1.4}
+.paybox .mpad{grid-template-columns:repeat(3, 1fr);gap:var(--s2)}
+.paybox .mpad button{height:max(44px, calc(60px * var(--ui-scale)));font-size:max(12px, calc(24px * var(--ui-scale)))}
+@media(max-width:900px){
+  .paygrid{grid-template-columns:1fr;gap:var(--s4)}
+  .paygrid.cash .payr{width:min(100%, 420px);margin:0 auto}
+}
+/* หน้าต่างยืนยัน (askConfirm / askOwner): ปุ่มคู่กว้างเท่ากันคนละครึ่ง · ซ้าย = กลับ/ยกเลิก (รอง) · ขวา = หลัก หรือแดงทึบ (Tee 2026-10-18) */
+.confirmrow{display:grid;grid-template-columns:1fr 1fr;margin-top:var(--s4)}
+.confirmrow > *{flex:1 1 0;min-width:0;width:auto}
 </style>
 </head>
 <body>
@@ -628,7 +659,7 @@ main > .card:first-child{padding-top:var(--s2)}
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'2669de0eb65e', built:'2026-10-17T17:30:31.935Z'};
+const APP_VERSION = {v:'584e33846268', built:'2026-10-17T18:25:45.349Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -4269,7 +4300,7 @@ let confirmCb = null, confirmNo = null, pinCb = null, pinMsg = '';
 function askConfirm(o){
   confirmCb = o.onYes || null; confirmNo = o.onNo || null;
   openModal(`<h3>${esc(o.msg)}</h3>${o.sub ? `<p style="color:var(--mute);margin:0 0 6px">${esc(o.sub)}</p>` : ''}
-    <div class="row"><button class="tbtn" id="cfNo">กลับ</button><button class="pay ${o.ok ? '' : 'danger'}" id="cfYes">${esc(o.yes || 'ยืนยัน')}</button></div>`);
+    <div class="row confirmrow"><button class="tbtn" id="cfNo">กลับ</button><button class="pay ${o.ok ? '' : 'danger'}" id="cfYes">${esc(o.yes || 'ยืนยัน')}</button></div>`);
 }
 /* ให้เจ้าของใส่รหัส (พนักงานกดยกเลิก/นำบิลกลับ) · ผ่าน → onOk(เจ้าของคนนั้น) · ช่องกรอก codeField (codepad.js) */
 function askOwner(onOk, msg, err){
@@ -4277,7 +4308,7 @@ function askOwner(onOk, msg, err){
   openModal(`<h3>${icon('lock', 22)} ให้เจ้าของใส่รหัส</h3>${msg ? `<p style="color:var(--mute);margin:0 0 8px">${esc(msg)}</p>` : ''}
     ${codeField('pinIn', 'pinOk')}
     ${err ? `<p class="pinerr" role="alert">${esc(err)}</p>` : ''}
-    <div class="row"><button class="tbtn" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
+    <div class="row confirmrow"><button class="tbtn" id="pinNo">ยกเลิก</button><button class="pay" id="pinOk">ตกลง</button></div>`);
   $('pinIn').focus();
 }
 function checkPin(){
@@ -4372,10 +4403,10 @@ const MONEY_MAX = 7;   // สูงสุด 9,999,999 บาท
 function moneyField(id, value, cur, cls = 'num'){
   return `<input class="${cls} moneyin ${cur ? 'cur' : ''}" id="${id}" readonly inputmode="none" data-money autocomplete="off" placeholder="0" value="${value === null || value === undefined ? '' : value}" aria-label="ช่องเงิน แตะแล้วใช้แป้นตัวเลขด้านข้าง">`;
 }
-function moneyPadHtml(){
+function moneyPadHtml(withClear = true){   // ชำระเงิน: ไม่มีปุ่มล้างในแป้น (× อยู่ในช่องรับเงินแทน · Tee 2026-10-18)
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '00', '0', 'back'];
   return `<div class="mpad" role="group" aria-label="แป้นตัวเลข">` + keys.map(k => `<button type="button" data-mk="${k}"${k === 'back' ? ' aria-label="ลบ"' : ''}>${k === 'back' ? '⌫' : k}</button>`).join('') +
-    `<button type="button" data-mk="clear" class="mclear">ล้าง</button></div>`;
+    (withClear ? `<button type="button" data-mk="clear" class="mclear">ล้าง</button>` : '') + `</div>`;
 }
 document.addEventListener('click', e => {
   const t0 = e.target.closest && e.target.closest('input[data-money]');
@@ -5351,40 +5382,59 @@ function askPendingCup(){
     <button class="pay" id="pendBack">กลับไปเพิ่มก่อน</button>
     <button class="ghost wide" id="pendDrop">ทิ้งแก้วนี้ แล้วชำระเงิน</button>`, {key:'pending'});
 }
+/* หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ · แนวตั้งเรียงซ้อน (ซ้ายบน ขวาล่าง)
+   ซ้าย = กินเลย/กลับบ้าน → วิธีชำระ → (เงินสด) ช่องรับเงินมา + × ล้างในช่อง → ปุ่มเงินด่วน → เงินทอนตัวใหญ่
+   ขวา = เงินสด: แป้น 4×3 · PromptPay: ยอดตัวใหญ่ → QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ยอด + ข้อความ
+   ล่างติดหน้าต่าง: [ยกเลิก] [ยืนยันรับเงิน ฿x / สิ่งที่ยังขาด] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม */
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
   const cashOk = pay.method !== 'cash' || pay.received >= total;
   const ok = !!pay.dining && !!pay.method && cashOk;
   const hadFocus = document.activeElement && document.activeElement.id === 'recv';
   const pr = promoNow();
-  let h = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 8px">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
-    <div class="q2">รับที่ร้านหรือกลับบ้าน?</div>
+  let L = `${pr && pr.ok ? `<p class="note2" style="margin:0 0 var(--s2)">${icon('tag', 16)} หักโปร ${esc(PROMO[promo.id].name)} -${baht(pr.discount)} แล้ว</p>` : ''}
+    <div class="q2" style="margin-top:0">รับที่ร้านหรือกลับบ้าน?</div>
     <div class="row">${CONFIG.dining.map(d => `<button class="opt ${pay.dining === d.id ? 'on':''}" data-dine="${d.id}">${esc(d.name)}</button>`).join('')}</div>
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
-    <div class="row wrap">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
-  if(!pay.method){ /* ยังไม่เลือกวิธีชำระ: ไม่แสดงส่วนรับเงิน */ }
+    <div class="row">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
+  let R = '', cls = '';
+  const amt = sub => `<div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${sub ? `<p class="note2 payhint">${sub}</p>` : ''}`;
+  if(!pay.method) R = amt(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
   else if(pay.method === 'cash'){
-    /* แป้นตัวเลขของแอปข้างช่อง (ไม่เปิดแป้นระบบ) · ปุ่มลัดอยู่เหมือนเดิม */
-    h += `<div class="cashgrid"><div class="cashl"><div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
-      <label class="recvrow"><span>รับเงินมา</span>${moneyField('recv', pay.received || '', true)}</label>
-      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div></div>${moneyPadHtml()}</div>`;
+    cls = 'cash';
+    L += `<label class="recvrow"><span>รับเงินมา</span><span class="mfield">${moneyField('recv', pay.received || '', true)}${pay.received ? `<button type="button" class="mx mfx" data-mk="clear" aria-label="ล้างช่องรับเงิน">${icon('x', 22)}</button>` : ''}</span></label>
+      <div class="quick"><button data-q="${total}">พอดี</button>${[20,50,100,500,1000].map(v => `<button data-q="${v}">${v}</button>`).join('')}</div>
+      <div class="change">${pay.received ? (change >= 0 ? 'เงินทอน ' + baht(change) : '<span style="color:var(--bad)">ยังขาด ' + baht(-change) + '</span>') : '&nbsp;'}</div>`;
+    R = moneyPadHtml(false);
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
-    h += `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 220)}
-      <div class="ppamt">${baht(total)}</div>
-      <p class="note2">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
+    cls = 'qr';
+    R = `<div class="ppqr"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
+      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
-    if(pay.method === 'promptpay') h += `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>`;
-    h += `<p style="color:var(--mute);margin:14px 0">ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน</p>`;
+    R = (pay.method === 'promptpay' ? `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>` : '') +
+      amt(`ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
   }
-  const foot = `<div class="row payrow"><button class="tbtn" id="payCancel">ยกเลิก</button>
-    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? 'ยืนยันการชำระเงิน' : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'mid'});   // X = ยกเลิก
+  const h = `<div class="paygrid ${cls}"><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
+  const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
+    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? `ยืนยันรับเงิน ${baht(total)}` : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
+  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
+  fitPayQr();
   const r = $('recv');
   if(r){
     r.oninput = () => { pay.received = Number(r.value.replace(/\D/g, '')) || 0; renderPay(); const n = $('recv'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
     if(hadFocus){ r.focus(); r.setSelectionRange(r.value.length, r.value.length); }
   }
 }
+/* QR โตเท่าที่ที่เหลือในหน้าต่าง (ไม่เกิน 360 · ไม่ต่ำกว่า 200 ให้สแกนได้) ไม่ดันอะไรตกจอ · เริ่มที่ 360 แล้วลดเท่าที่ล้น */
+const PAY_QR = {min:200, max:360};
+function fitPayQr(){
+  const q = document.querySelector('#modal .paybox svg.qr'), mb = document.querySelector('#modal .mbody'); if(!q || !mb) return;
+  const set = s => { q.setAttribute('width', s); q.setAttribute('height', s); };
+  set(PAY_QR.max);
+  const over = mb.scrollHeight - mb.clientHeight;
+  if(over > 0) set(Math.max(PAY_QR.min, Math.floor(PAY_QR.max - over)));
+}
+window.addEventListener('resize', fitPayQr);
 function confirmPay(){
   if(!pay.dining || !pay.method || !cart.length) return;
   if(STORE_MODE === 'loading'){ toast('กำลังโหลดข้อมูล รอสักครู่แล้วกดอีกครั้ง'); return; }

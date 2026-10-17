@@ -82,10 +82,10 @@ const MONEY_MAX = 7;   // สูงสุด 9,999,999 บาท
 function moneyField(id, value, cur, cls = 'num'){
   return `<input class="${cls} moneyin ${cur ? 'cur' : ''}" id="${id}" readonly inputmode="none" data-money autocomplete="off" placeholder="0" value="${value === null || value === undefined ? '' : value}" aria-label="ช่องเงิน แตะแล้วใช้แป้นตัวเลขด้านข้าง">`;
 }
-function moneyPadHtml(){
+function moneyPadHtml(withClear = true){   // ชำระเงิน: ไม่มีปุ่มล้างในแป้น (× อยู่ในช่องรับเงินแทน · Tee 2026-10-18)
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '00', '0', 'back'];
   return `<div class="mpad" role="group" aria-label="แป้นตัวเลข">` + keys.map(k => `<button type="button" data-mk="${k}"${k === 'back' ? ' aria-label="ลบ"' : ''}>${k === 'back' ? '⌫' : k}</button>`).join('') +
-    `<button type="button" data-mk="clear" class="mclear">ล้าง</button></div>`;
+    (withClear ? `<button type="button" data-mk="clear" class="mclear">ล้าง</button>` : '') + `</div>`;
 }
 document.addEventListener('click', e => {
   const t0 = e.target.closest && e.target.closest('input[data-money]');

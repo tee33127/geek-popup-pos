@@ -115,7 +115,6 @@ main > .cart{min-width:0}   /* แนวตั้ง: บรรทัดตะ�
 .qty{display:flex;align-items:center;gap:var(--s2)}
 .qty button{width:44px;height:44px;padding:0;font-size:max(12px, calc(22px * var(--ui-scale)));font-weight:700}
 .qty .rm{margin-left:auto;display:grid;place-items:center;color:var(--bad)}
-.qty .rm:active{background:#fdecea;border-radius:var(--r-btn)}
 .total{display:flex;justify-content:space-between;font-size:max(12px, calc(24px * var(--ui-scale)));font-weight:700;padding:calc(14px * var(--ui-scale)) 0 calc(10px * var(--ui-scale))}
 .pay{width:100%;font-size:max(12px, calc(20px * var(--ui-scale)));padding:var(--s3) var(--s4)}
 .clear{width:100%;margin-top:var(--s2);padding:var(--s2) var(--s4)}
@@ -518,24 +517,24 @@ input.moneyin.cur{border-color:var(--sel-bd);background:var(--sel-bg);box-shadow
 .base.out,.opt:disabled,.popt:disabled,.promo:disabled,.tab:disabled,.chip:disabled,.tops .topw.out .top,.tops .topw .top:disabled{
   background:var(--off-bg);color:var(--off-fg);border-color:var(--border);box-shadow:none;cursor:not-allowed}
 /* 2) ปุ่ม 3 แบบ (ทุกแบบสูง ≥ 44px) · หลัก = พื้นทึบน้ำเงิน ไม่มีกรอบ · อันตราย = หลักสีแดง */
-.pay,.add,.bar button,.pfbtn,.clear,.vbtn,.ghost.danger,.ghost.accent{
+.pay,.add,.bar button,.pfbtn,.ghost.accent{
   background:var(--blue);color:#fff;border:0;border-radius:var(--r-btn);font-weight:700;min-height:44px}
-.clear,.vbtn,.ghost.danger,.pay.danger{background:var(--bad);color:#fff}
+.pay.danger{background:var(--bad);color:#fff}   /* แดงทึบ = เฉพาะปุ่มยืนยันในหน้าต่างถามซ้ำ (ล้าง / ยกเลิกบิล / ออกจากระบบ / ลบ) */
 .pay.okay{background:var(--ok)}
 .pay:disabled,.add.off,.bar button:disabled,.clear:disabled,.ghost:disabled,.donebtns button:disabled{background:var(--off-bg);color:var(--off-fg);border-color:var(--border);cursor:not-allowed}
-.clear:disabled{background:var(--off-bg)}
-/* รอง = พื้นขาว กรอบ 1px ตัวน้ำเงิน */
-.ghost,.quick button,.qty button,.comp button,.keypad button,.mpad button,.sbtn,.rbtn,.addsum{
+/* รอง = พื้นขาว กรอบ 1px ตัวน้ำเงิน · กลับ / ยกเลิก / ปิด ทุกปุ่มใช้แบบนี้ (.tbtn = .ghost) (Tee 2026-10-18: ปุ่มขาวบนพื้นขาวไม่มีกรอบ มองไม่ออก) */
+.ghost,.tbtn,.quick button,.qty button,.comp button,.keypad button,.mpad button,.sbtn,.rbtn,.addsum{
   background:#fff;border:var(--bw) solid var(--border);color:var(--blue);border-radius:var(--r-btn);font-weight:700;min-height:44px}
-.ghost.danger,.ghost.accent{border:0;color:#fff}
-.ghost.danger{background:var(--bad)}
-.ghost.accent{background:var(--blue)}
+.ghost.accent{border:0;color:#fff;background:var(--blue)}
+/* อันตรายแบบรอง: พื้นแดงอ่อน กรอบแดง 1px ตัวแดง (ล้างออเดอร์ · ยกเลิกบิล · ลบพนักงาน · ลบแก้วในตะกร้า) · กดแล้วมีหน้าต่างถามซ้ำที่เป็นแดงทึบ */
+.clear,.vbtn,.ghost.danger,.qty .rm{background:#fdf2f2;border:var(--bw) solid var(--bad);color:var(--bad);border-radius:var(--r-btn);font-weight:700;min-height:44px}
+.clear:active,.vbtn:active,.ghost.danger:active,.qty .rm:active{background:#fbe2e2}
+.clear:disabled{background:var(--off-bg);border-color:var(--border);color:var(--off-fg)}
 .keypad button:active,.mpad button:active,.quick button:active,.qty button:active,.ghost:active,.sbtn:active,.rbtn:active,.comp button:not(.skip):active{background:var(--sel-bg)}
-/* ข้อความ = ไม่มีพื้น ไม่มีกรอบ ตัวน้ำเงิน */
-.tbtn,.linkbtn,.comp button.skip,.mx,.qty .rm,.codein .eye{background:none;border:0;color:var(--blue);min-height:44px;box-shadow:none}
-.tbtn{padding:0 var(--s4);font-weight:700;border-radius:var(--r-btn)}
-.tbtn:active,.linkbtn:active,.comp button.skip:active{background:var(--sel-bg)}
-.qty .rm{color:var(--bad)}
+/* ข้อความ = ไม่มีพื้น ไม่มีกรอบ ตัวน้ำเงิน · ใช้ได้เฉพาะลิงก์ในประโยค/ข้างรายการ (+ หมายเหตุ, ลืมรหัส, ไม่รับ/คืนค่า) · ไอคอน X ปิด / ตา (ในช่อง) ไม่มีกรอบ */
+.linkbtn,.comp button.skip,.mx,.codein .eye{background:none;border:0;color:var(--blue);min-height:44px;box-shadow:none}
+.tbtn{padding:0 var(--s4)}
+.linkbtn:active,.comp button.skip:active{background:var(--sel-bg)}
 .mx,.codein .eye{color:var(--mute)}
 .codein .eye.on{color:var(--blue);background:var(--sel-bg)}
 /* แถบหัว (พื้นน้ำเงิน): ปุ่มรองแบบกลับสี กรอบ 1px สีขาวโปร่ง */
@@ -554,7 +553,7 @@ input.note:focus,input.num:focus,.cnum:focus,.lgform input:focus,.codein input:f
 .navrow > .ic{color:var(--blue)}
 .navrow:active{background:var(--sel-bg)}
 /* หัวหน้าต่าง: ปุ่ม ‹ กลับ (หน้าย่อย) ซ้าย · ปุ่มเครื่องมือ (สรุปยอด) ก่อน X */
-.mhead .mback{flex:none;display:inline-flex;align-items:center;padding:0 var(--s2) 0 0;margin-left:calc(-1 * var(--s3));font-size:max(12px, calc(15px * var(--ui-scale)))}
+.mhead .mback{flex:none;display:inline-flex;align-items:center;padding:0 var(--s3) 0 var(--s1);margin-left:calc(-1 * var(--s3));font-size:max(12px, calc(15px * var(--ui-scale)))}
 .mtools{flex:none;display:flex;align-items:center;gap:var(--s2)}
 .mtools .ghost{padding:0 var(--s3);font-size:max(12px, calc(15px * var(--ui-scale)));white-space:nowrap}
 .mtools .ghost .ic{vertical-align:-3px}
@@ -564,3 +563,35 @@ main > .card:first-child{padding-top:var(--s2)}
 #builder .sec{padding:var(--s2) var(--s3);margin-bottom:var(--s2)}
 #builder .tcat .gt{margin:0}
 #builder .sep{margin-top:var(--s2)}
+/* ---------- หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ ----------
+   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = แป้น (เงินสด) / ยอด + QR (PromptPay) / ยอด + ข้อความ · แนวตั้ง = ซ้อนกัน */
+.box.paybox{max-width:min(980px, 100%)}
+.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);gap:var(--s5);align-items:start}
+.payl .row{margin:0 0 var(--s3)}
+.payl .opt[data-method]{min-width:0}
+.payr{display:flex;flex-direction:column;align-items:stretch;gap:var(--s3);min-width:0}
+.payamt{display:flex;flex-direction:column;align-items:center;background:var(--sec-bg);border-radius:var(--r-card);padding:var(--s3)}
+.payamt small{color:var(--mute);font-size:max(12px, calc(14px * var(--ui-scale)))}
+.payamt .ppamt{margin:0;font-size:max(12px, calc(36px * var(--ui-scale)));line-height:1.3}
+.payhint{margin:0;text-align:center}
+.paybox .ppqr{margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
+.paybox .ppqr .payamt{align-self:stretch}
+.paybox .ppqr .qr{width:auto;max-width:100%;height:auto}
+.paybox .ppwarn{margin:0}
+/* เงินสด: ช่องรับเงิน + × ในช่อง · เงินด่วนตัดแถวได้ · เงินทอนตัวใหญ่ */
+.paybox .recvrow{margin:var(--s4) 0 var(--s3)}
+.mfield{position:relative;flex:1 !important;min-width:0;display:block}
+.mfield input.num{width:100%;padding-right:52px}
+.mfield .mfx{position:absolute;top:50%;right:var(--s1);transform:translateY(-50%);width:44px;height:44px;display:grid;place-items:center}
+.paybox .quick{margin:0}
+.paybox .quick button{flex:1 0 calc(64px * var(--ui-scale))}
+.paybox .change{margin:var(--s3) 0 0;min-height:1.4em;line-height:1.4}
+.paybox .mpad{grid-template-columns:repeat(3, 1fr);gap:var(--s2)}
+.paybox .mpad button{height:max(44px, calc(60px * var(--ui-scale)));font-size:max(12px, calc(24px * var(--ui-scale)))}
+@media(max-width:900px){
+  .paygrid{grid-template-columns:1fr;gap:var(--s4)}
+  .paygrid.cash .payr{width:min(100%, 420px);margin:0 auto}
+}
+/* หน้าต่างยืนยัน (askConfirm / askOwner): ปุ่มคู่กว้างเท่ากันคนละครึ่ง · ซ้าย = กลับ/ยกเลิก (รอง) · ขวา = หลัก หรือแดงทึบ (Tee 2026-10-18) */
+.confirmrow{display:grid;grid-template-columns:1fr 1fr;margin-top:var(--s4)}
+.confirmrow > *{flex:1 1 0;min-width:0;width:auto}
