@@ -1,7 +1,7 @@
 // หน้าเลือกออเดอร์ (Tee 2026-10-13 v3): ขั้นที่เปิดแล้วเปิดค้าง ไม่ยุบ · ครบแล้ววงกลมเป็นเครื่องหมายถูก
 // Greek เมนู → ขนาด → (ท็อปปิ้ง + น้ำผึ้ง) · Acai เมนู → (ท็อปปิ้งตามสูตร + น้ำผึ้ง) · Banana Choco เมนู → ท็อปปิ้งตามสูตร
 // ปุ่มหลักหน้าที่เดียว · ยังไม่ครบ = สีเทา กดแล้วพาไปขั้นที่ขาด + กรอบกะพริบ · ช่องสรุปแก้วตรงกับราคาบนปุ่ม (P01–P23)
-const {eq, done, open, wait} = require('../qa/qa-helper');
+const {eq, done, open} = require('../qa/qa-helper');
 
 (async () => {
   const scrolls = [];   // นับการเลื่อนจออัตโนมัติ (jsdom ไม่เลื่อนจริง)
@@ -10,7 +10,7 @@ const {eq, done, open, wait} = require('../qa/qa-helper');
     w.Element.prototype.scrollIntoView = function(o){ scrolls.push([this.dataset.step, o && o.behavior]); };
     w.matchMedia = q => ({matches: /reduce/.test(q) && reduced, addEventListener(){}, removeEventListener(){}});
   }});
-  await wait(30); p.signIn();
+  await p.ready(); p.signIn();
   const {$, $$, click, ev, menu, size, off} = p;
   const btn = () => $('#btnAdd').textContent, price = () => Number((btn().match(/฿([\d,]+)/) || [])[1]);
   const steps = () => $$('#builder .sec').map(s => s.dataset.step);

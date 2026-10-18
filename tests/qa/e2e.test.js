@@ -28,6 +28,18 @@ const server = http.createServer((q, r) => {
   const watch = (page, tag) => { page.on('pageerror', e => consoleErrors.push(`${tag}: ${e.message}`)); page.on('console', m => { if(m.type() === 'error') consoleErrors.push(`${tag}: ${m.text()}`); }); };
   const enter = async (page, code) => { for(const c of code) await page.click(`[data-kp="${c}"]`); await page.click('#lgGo'); };
   const skipFloat = async page => { if(await page.$('#floatSkip')) await page.click('#floatSkip'); };
+  /* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง)
+     settle = จอนิ่งแล้ว: ไม่มี animation/transition กำลังเล่น (ทุกตัวในแอปจบในตัว) + ตำแหน่งเลื่อน (หน้า และทุกกล่องที่เลื่อนได้) ขนาดจอ visualViewport เท่าเดิม 3 เฟรมติด (requestAnimationFrame)
+     vvFit = แอปจัดหน้าต่างตามจอที่มองเห็นแล้ว (--vvh = visualViewport.height · fitViewport ทำทันทีตอนจอเปลี่ยนขนาด ทำซ้ำได้ผลเดิม) แล้วรอจอนิ่ง */
+  const settle = pg => pg.evaluate(() => new Promise(done => {
+    const moving = () => document.getAnimations().some(a => a.playState === 'running');
+    const snap = () => JSON.stringify([scrollX, scrollY, innerWidth, innerHeight, window.visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.offsetTop] : 0,
+      [...document.querySelectorAll('body *')].filter(e => e.scrollTop || e.scrollLeft).map(e => [e.scrollTop, e.scrollLeft])]);
+    let last = '', same = 0;
+    const tick = () => { const s = snap(); same = s === last && !moving() ? same + 1 : 0; last = s; if(same >= 3) done(); else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }));
+  const vvFit = async pg => { await pg.waitForFunction(() => !window.visualViewport || document.documentElement.style.getPropertyValue('--vvh') === Math.round(visualViewport.height) + 'px'); await settle(pg); };
 
   // ---------- UI01 / UI02 สองทิศทางจอ ----------
   const small = new Map();
@@ -138,7 +150,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'v3-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    const nap = ms => page.waitForTimeout(ms || 120);
+    const nap = () => settle(page);
     const barH = () => page.evaluate(() => Math.round(document.getElementById('actBar').getBoundingClientRect().height));
     /* UI14 ทุกปุ่มที่เห็น: ข้อความไม่ล้น (scrollWidth/Height) และไม่มี … (text-overflow: ellipsis ที่ตัดจริง) */
     const clipped = (root) => page.evaluate(root => {
@@ -160,7 +172,7 @@ const server = http.createServer((q, r) => {
       const sep = document.querySelector('.sep');
       const targets = [row, sep].filter(Boolean), out = [];
       for(const t of targets){
-        scrollTo(0, scrollY + t.getBoundingClientRect().bottom - (bar.top - 6)); await new Promise(r => setTimeout(r, 60));
+        scrollTo(0, scrollY + t.getBoundingClientRect().bottom - (bar.top - 6)); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const b = t.getBoundingClientRect(), bt = document.getElementById('actBar').getBoundingClientRect().top;
         out.push(b.bottom <= bt + 0.5 && b.top >= hdr - 0.5);
       }
@@ -187,7 +199,7 @@ const server = http.createServer((q, r) => {
     /* กดปุ่มสีเทา (ยังไม่เลือกน้ำผึ้ง) → เลื่อนไปขั้นน้ำผึ้ง + กรอบกะพริบ ไม่เพิ่มลงออเดอร์ */
     await page.evaluate(() => scrollTo(0, 0)); await nap();
     const n0 = await page.evaluate(() => cart.length);
-    await page.click('#btnAdd'); await nap(400);
+    await page.click('#btnAdd'); await nap();
     const grey = await page.evaluate(() => { const h = document.querySelector('[data-step="honey"]'), r = h.getBoundingClientRect(), bar = document.getElementById('actBar').getBoundingClientRect();
       return [r.top >= document.querySelector('header').getBoundingClientRect().bottom - 1 && r.top < bar.top, h.classList.contains('flash'), cart.length]; });
     grey[2] -= n0;
@@ -238,7 +250,7 @@ const server = http.createServer((q, r) => {
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1234'); await skipFloat(page);
     await page.click('[data-menu="acai"]'); await page.click('[data-honey="normal"]'); await page.click('#btnAdd');
     await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]');
-    const nap = ms => page.waitForTimeout(ms || 150);
+    const nap = () => settle(page);
     const Y0 = await page.evaluate(() => { scrollTo(0, Math.min(400, document.documentElement.scrollHeight - innerHeight)); return Math.round(scrollY); }); await nap();
     const pageTop = () => page.evaluate(() => Math.round(document.getElementById('builder').getBoundingClientRect().top));
     const top0 = await pageTop();
@@ -251,18 +263,18 @@ const server = http.createServer((q, r) => {
     /* ปัดด้วย wheel ในกล่อง: ลงสุด → ลงต่อ (ห้ามส่งต่อหน้าหลัง) → ขึ้นสุด */
     const gesture = async () => {
       const b = await page.locator('#modal .mbody').boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-      for(let i = 0; i < 6; i++){ await page.mouse.wheel(0, 3000); await nap(80); }
-      await nap(500); const down = await mb(); const pDown = await pageTop();
-      for(let i = 0; i < 4; i++){ await page.mouse.wheel(0, 3000); await nap(80); }
-      await nap(300); const pMore = await pageTop();
-      for(let i = 0; i < 12; i++){ await page.mouse.wheel(0, -3000); await nap(80); }
-      await nap(600); const up = await mb();
+      for(let i = 0; i < 6; i++){ await page.mouse.wheel(0, 3000); await nap(); }
+      await nap(); const down = await mb(); const pDown = await pageTop();
+      for(let i = 0; i < 4; i++){ await page.mouse.wheel(0, 3000); await nap(); }
+      await nap(); const pMore = await pageTop();
+      for(let i = 0; i < 12; i++){ await page.mouse.wheel(0, -3000); await nap(); }
+      await nap(); const up = await mb();
       return [down.max > 0 && down.st >= down.max - 1, up.st, pDown === top0 && pMore === top0];
     };
     /* X อยู่ในจอและกดถึงได้ ที่ตำแหน่งเลื่อน บน / กลาง / ล่าง */
     const xVisible = () => page.evaluate(async () => {
       const m = document.querySelector('#modal .mbody'), max = m.scrollHeight - m.clientHeight, out = [];
-      for(const t of [0, max / 2, max]){ m.scrollTop = t; await new Promise(r => setTimeout(r, 30));
+      for(const t of [0, max / 2, max]){ m.scrollTop = t; await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const x = document.getElementById('closeX').getBoundingClientRect(), hit = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
         out.push(x.top >= 0 && x.bottom <= innerHeight && x.left >= 0 && x.right <= innerWidth && x.width >= 44 && x.height >= 44 && !!hit && !!hit.closest('#closeX')); }
       return out.every(Boolean);
@@ -296,9 +308,9 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui16-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    const nap = ms => page.waitForTimeout(ms || 200);
+    const nap = () => settle(page);
     /* ทุกขั้นอยู่ระหว่างแถบหัวกับแถบล่าง ตอนหน้าอยู่บนสุด */
-    const fits = async () => { await page.evaluate(() => scrollTo(0, 0)); await nap(120); return page.evaluate(() => {
+    const fits = async () => { await page.evaluate(() => scrollTo(0, 0)); await nap(); return page.evaluate(() => {
       const hdr = document.querySelector('header').getBoundingClientRect().bottom, bar = document.getElementById('actBar').getBoundingClientRect().top;
       const secs = [...document.querySelectorAll('#builder .sec')].map(s => s.getBoundingClientRect());
       return {ok: secs[0].top >= hdr - 1 && secs[secs.length - 1].bottom <= bar + 1, spare: Math.round(bar - secs[secs.length - 1].bottom)}; }); };
@@ -329,7 +341,7 @@ const server = http.createServer((q, r) => {
     F.close = await page.evaluate(() => { const m = document.querySelector('#modal .mbody'); return {ok: m.scrollHeight <= m.clientHeight + 1 && !!document.querySelector('#modal .mpad') && document.getElementById('clCount').readOnly, spare: m.clientHeight - m.scrollHeight}; });
     await page.screenshot({path:path.join(SHOTS, `${label}-16-fit-close.png`)});
     /* ช่องตัวอักษร (หมายเหตุ) ใช้แป้นระบบ: จอเหลือ 420px แล้วช่องที่พิมพ์ + ปุ่มบันทึกยังเห็น */
-    await page.focus('#clNote'); await page.setViewportSize({width:vp.width, height:420}); await nap(600);
+    await page.focus('#clNote'); await page.setViewportSize({width:vp.width, height:420}); await vvFit(page);
     F.textKeyboard = await page.evaluate(() => { const inView = id => { const r = document.querySelector(id).getBoundingClientRect(), vh = window.visualViewport ? visualViewport.height : innerHeight; return r.top >= 0 && r.bottom <= vh + 1; };
       return {ok: inView('#clNote') && inView('#clSave'), spare: 0}; });
     await page.screenshot({path:path.join(SHOTS, `${label}-16-fit-close-keyboard.png`)});
@@ -350,7 +362,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui17-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111');
-    const nap = ms => page.waitForTimeout(ms || 150);
+    const nap = () => settle(page);
     const check = () => page.evaluate(() => {
       const t = document.getElementById('toast'), shown = getComputedStyle(t).display !== 'none', modal = document.getElementById('modal').classList.contains('show');
       if(modal){ const m = document.querySelector('#modal .box > .mtoast');
@@ -363,7 +375,7 @@ const server = http.createServer((q, r) => {
       if(a.left < 0 || a.right > innerWidth || a.top < 0 || a.bottom > innerHeight) out.push('หลุดจอ');
       return out; });
     const T = {};
-    await nap(100); T.signIn = await page.evaluate(() => getComputedStyle(document.getElementById('toast')).display === 'none' ? [] : ['มี toast: ' + document.getElementById('toast').textContent]); await skipFloat(page);
+    await nap(); T.signIn = await page.evaluate(() => getComputedStyle(document.getElementById('toast')).display === 'none' ? [] : ['มี toast: ' + document.getElementById('toast').textContent]); await skipFloat(page);
     await page.click('[data-menu="greek"]'); await page.click('[data-size="g1"]'); for(const t of ['Banana', 'Mango', 'Kiwi', 'Granola']) await page.click(`[data-pick="${t}"]`);
     await page.click('[data-honey="lots"]'); await page.evaluate(() => toast('ส่งงานพิมพ์แล้ว', 'check')); T.greek = await check();
     if(await page.isVisible('#cartMini')){ await page.click('#cartMini'); await nap(); await page.evaluate(() => toast('ยกเลิกโปร 1 แถม 1 · ต้องมี Acai หรือ Banana Choco อย่างน้อย 2 แก้ว', 'alert')); T.cartOpen = await check(); await page.click('#cartBack'); }
@@ -376,7 +388,7 @@ const server = http.createServer((q, r) => {
     await page.evaluate(() => toast('ส่งงานพิมพ์แล้ว', 'check')); T.payPad = await check();
     T.payStill = await page.evaluate(() => { const m = document.querySelector('#modal .mbody'); return m.scrollHeight <= m.clientHeight + 1 ? [] : ['ข้อความในหน้าต่างทำให้ต้องเลื่อน']; });
     await page.screenshot({path:path.join(SHOTS, `${label}-17-toast-pay.png`)}); await page.click('#payCancel');
-    await page.evaluate(() => openClose()); await page.focus('#clNote'); await page.setViewportSize({width:vp.width, height:Math.round(vp.height * 0.52)}); await nap(600);
+    await page.evaluate(() => openClose()); await page.focus('#clNote'); await page.setViewportSize({width:vp.width, height:Math.round(vp.height * 0.52)}); await vvFit(page);
     await page.evaluate(() => toast('บันทึกไม่สำเร็จ', 'alert')); T.textKeyboard = await check();
     await page.setViewportSize(vp); await page.click('#closeX'); await nap();
     const hide = await page.evaluate(async () => { toast('ทดสอบ'); const t = document.getElementById('toast'); t.click(); return getComputedStyle(t).display; });
@@ -392,7 +404,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui18-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    const nap = ms => page.waitForTimeout(ms || 150);
+    const nap = () => settle(page);
     const sizes = sel => page.evaluate(sel => [...document.querySelectorAll(sel)].map(b => { const r = b.getBoundingClientRect(); return Math.round(r.height) + 'x' + Math.round(r.width); }), sel);
     /* ข้อความในปุ่มขึ้นบรรทัดใหม่เฉพาะที่ขอบคำ (Intl.Segmenter word) · ชื่อท็อปปิ้งต้องบรรทัดเดียว */
     const midWord = root => page.evaluate(root => {
@@ -460,7 +472,7 @@ const server = http.createServer((q, r) => {
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui21-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    const nap = ms => page.waitForTimeout(ms || 150), wide = vp.width > 900;
+    const nap = () => settle(page), wide = vp.width > 900;
     const st = () => page.evaluate(() => { const v = id => { const e = document.getElementById(id); if(!e) return false; const b = e.getBoundingClientRect(); return getComputedStyle(e).display !== 'none' && b.width > 0 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1 && b.top >= 0; };
       return {cls:['picking', 'cartopen'].filter(c => document.body.classList.contains(c)).join(' '), mini:v('cartMini'), pay:v('btnPay') || v('btnPay2'), back:v('cartBack'), card:Math.round(document.querySelector('main > .card').getBoundingClientRect().width)}; });
     const chips = () => page.evaluate(() => [...document.querySelectorAll('#builder .tops .topw')].map(w => { const b = w.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)].join(','); }).join(' '));
@@ -477,17 +489,17 @@ const server = http.createServer((q, r) => {
       return {ok: secs[0].top >= hdr - 1 && secs[secs.length - 1].bottom <= bar + 1, spare: Math.round(bar - secs[secs.length - 1].bottom)}; });
     if(label === 'landscape') await page.screenshot({path:path.join(SHOTS, `${label}-21-greek-collapsed.png`)});
     if(wide){
-      await page.click('#cartMini'); await nap(250); R.open = await st(); const c1 = await chips();
+      await page.click('#cartMini'); await nap(); R.open = await st(); const c1 = await chips();
       if(label === 'landscape') await page.screenshot({path:path.join(SHOTS, `${label}-21-cart-overlay.png`)});
       await page.click('#cartBack'); await nap(); R.closed = await st(); const c2 = await chips();
       R.chipsStill = [c0 === c1, c0 === c2]; R.selKept = (await page.evaluate(() => JSON.stringify(sel))) === sel0;
-      await page.click('#cartMini'); await nap(250); await page.click('#btnPay');
+      await page.click('#cartMini'); await nap(); await page.click('#btnPay');
     } else { R.chipsStill = [true, true]; R.selKept = true; await page.click(await page.isVisible('#btnPay2') ? '#btnPay2' : '#btnPay'); }
     await nap();
     R.ask = await page.evaluate(() => [document.querySelector('#modal h3') && document.querySelector('#modal h3').textContent.trim(), document.querySelector('#modal button.pay') && document.querySelector('#modal button.pay').textContent, !!document.getElementById('pendDrop')]);
     if(label === 'landscape') await page.screenshot({path:path.join(SHOTS, `${label}-21-pending-cup.png`)});
     await page.click('#pendBack'); await nap(); R.afterBack = [await st(), (await page.evaluate(() => JSON.stringify(sel))) === sel0];
-    if(wide){ await page.click('#cartMini'); await nap(250); await page.click('#btnPay'); } else await page.click(await page.isVisible('#btnPay2') ? '#btnPay2' : '#btnPay');
+    if(wide){ await page.click('#cartMini'); await nap(); await page.click('#btnPay'); } else await page.click(await page.isVisible('#btnPay2') ? '#btnPay2' : '#btnPay');
     await page.click('#pendDrop'); await nap(); R.dropped = [await page.evaluate(() => sel.menu), !!(await page.$('[data-dine]'))];
     await page.click('[data-dine="dinein"]'); await page.click('[data-method="cash"]'); await page.click('[data-q]'); await page.click('#payOk'); await page.click('#nextOrder'); await nap();
     R.afterPay = await st();
@@ -577,18 +589,18 @@ const server = http.createServer((q, r) => {
     const prep = async () => { await page.click('[data-menu="banana"]'); await page.click('#btnAdd'); await page.click('#btnPay'); await page.click('[data-dine="dinein"]'); await page.click('[data-method="cash"]'); await page.click('[data-q="500"]'); };
     const res = {};
     await prep(); let n0 = await bills();
-    await page.click('#payOk', {clickCount:2, delay:0}); await page.waitForTimeout(300);
+    await page.click('#payOk', {clickCount:2, delay:0}); await settle(page);   // คลิกทำงานทันทีตอนส่ง event · รอจอนิ่ง
     res.dbl = [await bills() - n0, await page.isVisible('#nextOrder')];
     if(await page.isVisible('#nextOrder')) await page.click('#nextOrder');
     await prep(); n0 = await bills();
     const box = await page.locator('#payOk').boundingBox();
     for(let i = 0; i < 5; i++) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(300);
+    await settle(page);
     res.tap5 = [await bills() - n0, await page.isVisible('#nextOrder')];
     if(await page.isVisible('#nextOrder')) await page.click('#nextOrder');
     await prep(); n0 = await bills();
     await page.evaluate(() => { const b = document.getElementById('payOk'); for(let i = 0; i < 5; i++) b.dispatchEvent(new MouseEvent('click', {bubbles:true})); });
-    await page.waitForTimeout(200);
+    await settle(page);
     res.dispatch5 = await bills() - n0;
     if(await page.isVisible('#nextOrder')) await page.click('#nextOrder');
     eq('C06 Chromium: ดับเบิลคลิก / แตะ 5 ครั้ง / dispatch 5 ครั้ง ได้บิลเดียวทุกแบบ', [res.dbl[0], res.tap5[0], res.dispatch5], [1, 1, 1]);
@@ -602,7 +614,7 @@ const server = http.createServer((q, r) => {
     await page.click('#csvBack'); await page.click('#closeX');
     await page.click('#btnSettings'); await page.click('#bkSet'); const dl3 = page.waitForEvent('download', {timeout:5000}).catch(() => null); await page.click('#csvDl'); const d3 = await dl3;
     let bom = null; if(d1){ const pth = await d1.path(); bom = fs.readFileSync(pth)[0] === 0xEF; }
-    await page.waitForTimeout(300);
+    await settle(page);
     eq('E01 CSV แท็บ / CSV ทั้งหมด / สำรองข้อมูล: ได้ไฟล์ ไม่ออกจากหน้า POS', [!!d1, !!d2, !!d3, page.url() === url0, await page.isVisible('#builder'), bom], [true, true, true, true, true, true]);
     await page.screenshot({path:path.join(SHOTS, 'e01-after-export.png')});
     await ctx.close();
@@ -612,6 +624,9 @@ const server = http.createServer((q, r) => {
   {
     const ctx = await browser.newContext({viewport:{width:1280, height:800}});
     await ctx.addInitScript(() => { window.print = () => {}; });
+    /* นับ transaction IndexedDB ที่ยังไม่จบ (UI08 รอบันทึก 5,000 บิลเสร็จจริงก่อนจับเวลา ไม่รอเวลา) */
+    await ctx.addInitScript(() => { const t0 = IDBDatabase.prototype.transaction; window.__idbOpen = 0;
+      IDBDatabase.prototype.transaction = function(...a){ const tx = t0.apply(this, a); window.__idbOpen++; let done = false; const end = () => { if(!done){ done = true; window.__idbOpen--; } }; ['complete', 'abort', 'error'].forEach(e => tx.addEventListener(e, end)); return tx; }; });
     const shown = pg => pg.evaluate(() => { const e = document.getElementById('tabLock'); return !!e && e.classList.contains('show') && getComputedStyle(e).display !== 'none'; });
     const settle = async pg => { await pg.waitForFunction(() => typeof TAB_STATE !== 'undefined' && TAB_STATE !== 'wait', null, {timeout:6000}); return pg.evaluate(() => TAB_STATE); };
     const A = await ctx.newPage(); watch(A, 'tabA');
@@ -662,7 +677,7 @@ const server = http.createServer((q, r) => {
       for(let i = 0; i < 5000; i++){ const t = base + i * 6 * 3600000; const P = priceItem(MENU.acai, {comps:MENU.acai.defaults.slice(), adds:[], sep:false});
         list.push({id:t, no:(i % 4) + 1, date:bizDate(new Date(t)), ts:new Date(t).toISOString(), dining:'dinein', items:[{menu:'acai', name:'Acai', sizeName:'', tops:P.tops, honey:'normal', note:'', unit:P.unit, qty:1}], total:P.unit, method:'cash', received:P.unit, change:0, void:false, staff:'เจ้าของ'}); }
       saveSales(list); });
-    await C.waitForTimeout(500);
+    await C.waitForFunction(() => window.__idbOpen === 0, null, {timeout:30000});   // บันทึกลง IndexedDB เสร็จจริง
     const ms = async fn => { const t = Date.now(); await fn(); return Date.now() - t; };
     const tAll = await ms(async () => { await C.click('#btnSummary'); await C.click('[data-range="all"]'); });
     const tBills = await ms(() => C.click('[data-tab="bills"]'));
@@ -722,7 +737,7 @@ const server = http.createServer((q, r) => {
       // H27 ยังไม่ได้เชื่อม: บิลบันทึก ไม่ส่ง ไม่เด้งหน้าพิมพ์ · บอกชัด + ปุ่มเชื่อม · กดเชื่อมแล้วตั๋วออกเอง
       await page.click('#nextOrder'); await page.evaluate(() => { usbPrinter.forget(); renderPrinterBtn(); });
       const n0 = await page.evaluate(() => loadSales().length);
-      await sellOne(page); await page.waitForTimeout(500);
+      await sellOne(page); await page.waitForTimeout(500);   // คงไว้ (ช่วงสังเกต "ไม่มีอะไรเกิด"): ต้องไม่มีหน้าพิมพ์ของระบบเด้งเอง ถ้าเด้งจะมาทางตัวจับเวลา 80 ms ของแอปหลังฟอนต์พร้อม รอเฟรมจับไม่ได้ · เครื่องช้าไม่ทำให้ล้มผิด
       const o3 = await out(page), st3 = await status(page);
       await page.screenshot({path:path.join(SHOTS, `h27-${label}-not-connected.png`)});
       eq(`H27 ${label} ยังไม่ได้เชื่อม: บิลบันทึก · ไม่ส่ง · ไม่เด้งหน้าพิมพ์ · ขึ้น "ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก" + ปุ่มเชื่อม + แถบส้ม`,
@@ -748,7 +763,7 @@ const server = http.createServer((q, r) => {
     await sellOne(page); await printedOk(page);
     const a2 = await out(page), acc = await page.evaluate(() => document.getElementById('prReceipt').classList.contains('accent'));
     await page.screenshot({path:path.join(SHOTS, 'h28-ask-mode-done.png')});
-    await page.click('#prReceipt'); await page.waitForTimeout(300); await printedOk(page);
+    await page.click('#prReceipt'); await page.waitForFunction(() => document.getElementById('prStatus').textContent.trim() === 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', null, {timeout:8000}).catch(() => {});   // รอสถานะที่เช็กจริง
     const a3 = await out(page);
     eq('H28 app/ ทุกบิล (ค่าเริ่มต้น) = 2 ใบ · ตั้ง "เมื่อลูกค้าขอ" → ตั๋วครัวอย่างเดียว ปุ่มพิมพ์ใบเสร็จเด่น · กดแล้วได้ใบเสร็จ 1 ใบ · ไม่เด้งหน้าพิมพ์',
       [a1.jobs, setOn, a2.jobs - a1.jobs, acc, a3.jobs - a2.jobs, await status(page), a3.printed], [2, [false, true], 1, true, 1, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', 0]);
@@ -792,7 +807,7 @@ const server = http.createServer((q, r) => {
       return [R(b.left - dx), R(b.top - dy), R(b.width), R(b.height), R(tb.left - dx), R(tb.top - dy)];
     }, sel);
     const steady = {}, A = {};
-    const pick = async (k, sel, before) => { if(before) await page.click(before); const a = await snap(sel); await page.click(sel); await page.waitForTimeout(60); const b = await snap(sel); steady[k] = a && b ? JSON.stringify(a) === JSON.stringify(b) || `${a} → ${b}` : 'missing'; };
+    const pick = async (k, sel, before) => { if(before) await page.click(before); const a = await snap(sel); await page.click(sel); await settle(page); const b = await snap(sel); steady[k] = a && b ? JSON.stringify(a) === JSON.stringify(b) || `${a} → ${b}` : 'missing'; };
     A.login = await audit();
     await enter(page, '1234'); await skipFloat(page);
     A.home = await audit();

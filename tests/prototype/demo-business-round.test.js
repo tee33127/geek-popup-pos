@@ -23,9 +23,10 @@ $('[data-range="7d"]').click(); console.log('   7 วัน KPI:', kpi());
 if(block) console.log('   banner:', !!d.body.firstElementChild.textContent.includes('ไม่ให้บันทึกข้อมูลถาวร'));
 // ขายใหม่ 1 บิลแล้วเปิดสรุปอีกครั้ง → ต้องเห็นบิลนี้
 $('#closeX').click(); F.menu(w, 'acai'); F.finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); $('#payOk').click();
-setTimeout(() => {
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18): โหลด/บันทึกเสร็จ (storeReady) + promise ที่ค้างทำครบ */
+w.eval('storeReady').then(require('../vclock').flush).then(() => {
   $('#nextOrder').click(); $('#btnSummary').click();
   console.log('   after new sale:', d.querySelector('.note2 b').textContent, '·', kpi());
   console.log('   errors:', errors.length ? errors : 'none');
   w.close();   // ปิด timer ของหน้า (เช็กรอบขายทุกนาที) ให้ node จบได้
-}, 200);
+});

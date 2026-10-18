@@ -3,6 +3,8 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs'), path = require('path'), vm = require('vm');
 const A = require('../auth-helper');
 const F = require('../flow-helper');
+const {flush} = require('../vclock');
+const {idbIdle} = require('../idb-track');   // รอ IndexedDB จำลองเขียนเสร็จทุก transaction
 const ROOT = path.join(__dirname, '../..');
 const HTML = {pos: fs.readFileSync(path.join(ROOT, 'prototype/pos.html'), 'utf8')};
 
@@ -32,10 +34,10 @@ function vmLoad(files){
 /* เปิด prototype/pos.html ใน jsdom · now = เวลาจำลอง (ms) เดินทีละ 1 ms ทุกครั้งที่ new Date() ไม่ให้ id บิลซ้ำ
    ls = ค่าใส่ localStorage ก่อนเปิดหน้า · seed=false = เครื่องเปล่า */
 function open(o = {}){
-  const errors = [];
+  const errors = [], PRINT_WAIT = [];
   const dom = new JSDOM(HTML.pos, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
     beforeParse(w){
-      w.__printed = 0; w.print = () => { w.__printed++; };
+      w.__printed = 0; w.print = () => { w.__printed++; PRINT_WAIT.splice(0).forEach(x => x.n <= w.__printed ? x.r() : PRINT_WAIT.push(x)); };
       w.addEventListener('error', e => errors.push(e.message));
       w.alert = w.confirm = w.prompt = () => { errors.push('native dialog'); };
       if(o.now !== undefined){
@@ -55,6 +57,12 @@ function open(o = {}){
   const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input', {bubbles:true})); };
   const P = {w, d, $, $$, click, ev, type, errors};
   P.signIn = (code = '1234') => A.signIn(w, code);
+  /* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง)
+     ready = โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ · idbIdle = IndexedDB เขียนเสร็จทุก transaction
+     printed(n) = หน้าเรียก window.print ครบ n ครั้ง (แอปตั้งเวลา 80 ms ก่อนเรียก หลังฟอนต์พร้อม) */
+  P.ready = async () => { await w.eval('storeReady'); await flush(); await P.idbIdle(); };
+  P.idbIdle = idbIdle;
+  P.printed = n => n <= w.__printed ? Promise.resolve() : new Promise(r => PRINT_WAIT.push({n, r}));
   P.keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));   // กดแป้นรหัสของแอป (codepad.js)
   P.enter = code => { P.keys(code); click('#lgGo'); };
   /* เพิ่มแก้วผ่านหน้าจอ: {menu, size, picks, comps:{slot:name|null}, adds, honey, sep, note, answer} · answer = id ปุ่มในหน้าต่างถาม */
@@ -89,9 +97,8 @@ function open(o = {}){
   P.close = () => w.close();
   return P;
 }
-const wait = ms => new Promise(r => setTimeout(r, ms));
 
 /* ตัวช่วยสร้างบิลโดยไม่ผ่านหน้าจอ (ใช้ราคาจาก priceItem ในหน้า) */
 const T = (y, m, d, h = 12, mi = 0) => new Date(y, m - 1, d, h, mi).getTime();
 
-module.exports = {eq, done, rng, vmLoad, open, wait, T, ROOT, J, counts: () => ({fails, bugs})};
+module.exports = {eq, done, rng, vmLoad, open, T, ROOT, J, flush, counts: () => ({fails, bugs})};

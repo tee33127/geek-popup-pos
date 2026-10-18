@@ -1,13 +1,16 @@
 const {JSDOM} = require('jsdom'); const fs = require('fs');
 const A = require('../auth-helper');
 const html = fs.readFileSync(require('path').join(__dirname,'../../prototype/pos.html'),'utf8');
-let printed = 0, errors = [], nativeCalls = 0;
+let printed = 0, errors = [], nativeCalls = 0, printWait = [];   // printWait = รอให้หน้าเรียก window.print ครบ n ครั้ง
 const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true,
-  beforeParse(w){ A.seed(w); w.print = () => printed++; w.confirm = () => { nativeCalls++; return false; }; w.prompt = () => { nativeCalls++; return null; }; w.addEventListener('error', e => errors.push(e.message)); }});
+  beforeParse(w){ A.seed(w); w.print = () => { printed++; printWait.splice(0).forEach(x => x.n <= printed ? x.r() : printWait.push(x)); }; w.confirm = () => { nativeCalls++; return false; }; w.prompt = () => { nativeCalls++; return null; }; w.addEventListener('error', e => errors.push(e.message)); }});
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
-const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง): โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ (1 macrotask) */
+const {flush} = require('../vclock');
+const ev = c => w.eval(c), ready = async () => { await w.eval('storeReady'); await flush(); };
+const printedN = n => n <= printed ? Promise.resolve() : new Promise(r => printWait.push({n, r}));   // แอปเรียก window.print หลังฟอนต์พร้อม + 80 ms (ตัวจับเวลาของแอป) จึงรอเหตุการณ์ ไม่รอเวลา
 let fails = 0; const eq = (name, got, exp) => { const ok = JSON.stringify(got) === JSON.stringify(exp); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, ok ? '' : `got ${JSON.stringify(got)} expected ${JSON.stringify(exp)}`); };
 /* เพิ่มลงออเดอร์: น้ำผึ้งไม่มีค่าเริ่มต้น จึงเลือก 'ราดปกติ' ให้ก่อนถ้ายังไม่เลือก (เทสต์เรื่องน้ำผึ้งเองอยู่ส่วน 0) */
 const F = require('../flow-helper');
@@ -192,18 +195,18 @@ const addPrice = () => { if($('[data-honey]') && !$('.hon.on')) click('[data-hon
   click('[data-method="cash"]'); eq('locked method tap ignored', ev('pay.method'), null);
   click('[data-dine="dinein"]');
   eq('pay: dining picked → methods unlocked, still none chosen', [$$('[data-method]').some(b => b.disabled), ev('pay.method'), $('#payOk').textContent], [false, null, 'เลือกวิธีชำระเงินก่อน']);
-  click('[data-method="cash"]'); click('[data-q="1000"]'); click('#payOk'); await wait(300);
+  click('[data-method="cash"]'); click('[data-q="1000"]'); click('#payOk'); await ready();
   const sale = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];
   eq('sale stores grouped tops', sale.items[0].tops, [{name:'Banana', n:2, extra:0, from:null}]);
   // jsdom ไม่มี WebUSB: หลังชำระเงินห้ามเด้งหน้าพิมพ์ของระบบเอง (Tee 2026-10-17) · บอกว่าตั๋วยังไม่ออก · พนักงานกดพิมพ์เองได้
   eq('no direct printing in this browser: no browser print popped by itself, status says slips not out', [printed, $('#prStatus').textContent.includes('ตั๋วยังไม่ออก'), $('#prStatus').className.includes('warn')], [0, true, true]);
   eq('success screen: one main button (next order) + print receipt + reprint kitchen', [$$('#modal button.pay').length, $('#modal button.pay').id, $('#prReceipt').textContent.trim(), $('#prKitchen').textContent.trim()], [1, 'nextOrder', 'พิมพ์ใบเสร็จ', 'พิมพ์ตั๋วครัวซ้ำ']);
-  click('#prKitchen'); await wait(150);
+  click('#prKitchen'); await printedN(1);
   let pa = $('#printArea').innerHTML;
   eq('staff taps kitchen: browser print, kitchen slip only', [printed, $$('#printArea .slip').length], [1, 1]);
   eq('kitchen shows Banana ×2 in bold', pa.includes('<span>กล้วย ×2</span>') && $$('#printArea .g.b').some(e => e.textContent.includes('กล้วย ×2')), true);
   eq('kitchen warns portion', pa.split('ลูกค้าเลือก 2 อย่าง · ตักปริมาณปกติ').length - 1, 1);
-  click('#prReceipt'); await wait(150); pa = $('#printArea').innerHTML;
+  click('#prReceipt'); await printedN(2); pa = $('#printArea').innerHTML;
   eq('staff taps receipt: receipt only, shows Banana ×2, no portion warning', [printed, $$('#printArea .slip').length, pa.includes('กล้วย ×2'), pa.includes('ตักปริมาณปกติ')], [2, 1, true, false]);
   eq('sale keeps fewTops', sale.items[0].fewTops, 2);
   const R = ev('buildReport(bizDate(new Date()), bizDate(new Date()))');

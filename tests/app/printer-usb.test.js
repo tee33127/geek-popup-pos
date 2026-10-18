@@ -7,6 +7,8 @@ const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = req
 const {finish} = require('../flow-helper');
 const {EscPosEmu} = require('../escpos-emu');   // ปริ้นเตอร์จำลองที่แปลคำสั่งจริง (H29)
 const A = require('../auth-helper');
+/* นาฬิกาจำลอง (tests/vclock.js): หน้า + ปริ้นเตอร์จำลอง + ฟอนต์จำลอง ใช้เวลาเดียวกัน · setTimeout/setInterval ในไฟล์นี้ = ของนาฬิกาจำลอง */
+const {VClock} = require('../vclock'), clock = new VClock(), {setTimeout, setInterval, clearInterval} = clock.api;
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 let errors = [], printed = 0, sent = [], failNext = false, usbListeners = {};
@@ -34,7 +36,7 @@ const fakeCtx = c => ({font:'', fillStyle:'', textAlign:'', textBaseline:'', mea
     for(let j = 0; j < h; j++) for(let i = 0; i < w; i++) if((i * 7 + j * 13) % 11 < 4){ const k = (j * w + i) * 4; d[k] = d[k + 1] = d[k + 2] = 0; }
     return {width:w, height:h, data:d}; }});
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
-  beforeParse(w){ A.seed(w);
+  beforeParse(w){ clock.install(w); A.seed(w);
     w.print = () => printed++; w.console.warn = () => {}; w.addEventListener('error', e => errors.push(e.message));
     w.HTMLCanvasElement.prototype.getContext = function(){ timeline.push('draw'); return fakeCtx(this); };
     Object.defineProperty(w.document, 'fonts', {value:{
@@ -44,13 +46,14 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       getDevices: async () => [dev], requestDevice: async () => dev,
       addEventListener: (t, f) => (usbListeners[t] = f)}});
   }}).then(dom => {
-  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
+  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => clock.advance(ms);   // wait = ช่วงสังเกตว่า "ไม่มีอะไรเกิดเพิ่ม" (เวลาจำลอง)
   /* รอจนงานพิมพ์จบจริง ไม่เดาเวลา (เทสต์เคยล้มบ้างผ่านบ้าง: เช็กที่ 250 ms หลังขาย แต่ฟอนต์จำลอง 200 ms + วาดตั๋ว + ส่ง ~76 KB จบที่ ~280 ms พอเครื่องช้าลงนิดเดียวก็เช็กก่อนพิมพ์จบ)
-     1 macrotask = microtask ที่ค้างทำครบก่อนเสมอ (เชื่อมปริ้นเตอร์ / กดปุ่ม → printSale เข้าคิวแล้ว) · แล้วรอ printQueue (promise ของคิวพิมพ์จริง) วนจนคิวไม่เปลี่ยน
-     printSale ผูก .then (renderDone) ก่อนเทสต์รอ จึงอัปเดตหน้าจอเสร็จก่อนเทสต์เช็กเสมอ */
-  const printDone = async () => { for(let p = null;;){ await new Promise(r => setTimeout(r, 0)); const q = w.eval('printQueue'); if(q === p) return; await (p = q); } };
+     เดินนาฬิกาจำลองจน printQueue (promise ของคิวพิมพ์จริง) จบและไม่มีงานใหม่ต่อคิว · printSale ผูก .then (renderDone) ก่อนเทสต์ จึงอัปเดตหน้าจอเสร็จก่อนเทสต์เช็กเสมอ */
+  let lastQ = null, qDone = true;
+  const queueIdle = () => { const q = w.eval('printQueue'); if(q !== lastQ){ lastQ = q; qDone = false; q.then(() => { if(lastQ === q) qDone = true; }); } return qDone; };
+  const printDone = async () => { if(!await clock.until(queueIdle, 60000)) eq('print queue finished within 60 s of simulated time', false, true); };
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
-  const sell = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
+  const sell = () => { clock.bump(); $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); };
   /* byte ข้อมูลพิมพ์ (ไม่นับคำถามสถานะ DLE EOT · เปิด ASB GS a · GS r ที่แอปส่งตอนเชื่อม/ท้ายงาน) */
   const dataOnly = a => { let n = 0; for(let i = 0; i < a.length; i++){ if((a[i] === 0x10 && a[i + 1] === 0x04) || (a[i] === 0x1D && (a[i + 1] === 0x61 || a[i + 1] === 0x72))){ i += 2; continue; } n++; } return n; };
   const count = (arr, seq) => { let n = 0; for(let i = 0; i + seq.length <= arr.length; i++) if(seq.every((b, k) => arr[i + k] === b)) n++; return n; };

@@ -9,6 +9,9 @@
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const {EscPosEmu} = require('../escpos-emu');
 const A = require('../auth-helper');
+/* นาฬิกาจำลอง (tests/vclock.js): หน้า + ปริ้นเตอร์จำลองใช้เวลาเดียวกัน ผลไม่ขึ้นกับความเร็วเครื่อง · setTimeout/setInterval ในไฟล์นี้ = ของนาฬิกาจำลอง
+   wait(ms) = เดินเวลาจำลอง ms (ทุกตัวจับเวลาถึงกำหนดทำตามลำดับ) · until(cond, ms) = เดินจน cond จริง เพดาน ms เป็นเวลาจำลอง */
+const {VClock} = require('../vclock'), clock = new VClock(), {setTimeout, setInterval, clearTimeout, clearInterval} = clock.api;
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 
@@ -22,7 +25,7 @@ const reset0 = () => {
   buf = []; pipe = []; accepting = true; streamTotal = 0; printedTotal = 0; jobStarts = []; jobAt = []; trigger = null; lidClosedAt = 0; maxStall = 0; fulls = 0; peak = 0;
 };
 reset0();
-const lid = ms => { emu.setCover(true); emu.loseRows = 40; setTimeout(() => { emu.setCover(false); lidClosedAt = Date.now(); }, ms); };   // เปิดแป๊บเดียวแล้วปิด
+const lid = ms => { emu.setCover(true); emu.loseRows = 40; setTimeout(() => { emu.setCover(false); lidClosedAt = clock.now; }, ms); };   // เปิดแป๊บเดียวแล้วปิด
 setInterval(() => {
   if(!emu.cover && emu.paper && buf.length){                 // หัวพิมพ์
     const out = buf.splice(0, Math.min(SIM.print, buf.length)); emu.feedParser(out); printedTotal += out.length;
@@ -57,7 +60,7 @@ const dev = {opened:false, productName:'XP-Q807K', configuration:null,
   transferIn(){ const me = this; return new Promise((ok, no) => { const t = setInterval(() => { if(!me.opened){ clearInterval(t); no(new Error('transfer cancelled')); return; } if(!emu.replies.length) return; clearInterval(t); ok({status:'ok', data:new DataView(new Uint8Array([].concat(emu.replies.shift())).buffer)}); }, 2); }); },
   transferOut(ep, data){
     if(!this.opened) return Promise.reject(new Error('device closed'));
-    if(data[0] === 0x1B && data[1] === 0x40){ jobStarts.push(streamTotal + pipe.reduce((a, p) => a + (p.data.length - p.i), 0)); jobAt.push(Date.now()); }
+    if(data[0] === 0x1B && data[1] === 0x40){ jobStarts.push(streamTotal + pipe.reduce((a, p) => a + (p.data.length - p.i), 0)); jobAt.push(clock.now); }
     return new Promise((ok, no) => pipe.push({data:data.slice(), i:0, ok, no})); }};
 
 /* ---------- canvas จำลอง: ข้อความ → แถวจุด (0xA5 len chk data) · อ่านกลับจากกระดาษ ---------- */
@@ -87,14 +90,14 @@ function readText(page){
 }
 
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
-  beforeParse(w){ A.seed(w);
+  beforeParse(w){ clock.install(w); A.seed(w);
     w.print = () => errors.push('window.print called'); w.console.warn = () => {}; w.addEventListener('error', e => errors.push(e.message));
     w.HTMLCanvasElement.prototype.getContext = function(){ return fakeCtx(this); };
     Object.defineProperty(w.navigator, 'usb', {value:{getDevices: async () => [dev], requestDevice: async () => dev, addEventListener(){}}});
   }}).then(dom => {
-  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
+  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => clock.advance(ms);
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
-  const until = async (fn, ms = 4000) => { const t = Date.now(); while(!fn() && Date.now() - t < ms) await wait(15); return fn(); };
+  const until = (fn, ms = 4000) => clock.until(fn, ms, 15);   // เช็กทุก 15 ms เวลาจำลอง (เท่าที่เทสต์เดิมเช็ก) · cond ถอดข้อความจากกระดาษ หนัก
   const idle = () => !w.eval('[...PRINTED.values()].some(s => s.kitchen === "wait" || s.receipt === "wait")') && !buf.length && !pipe.length;
   /* บิลยาวแบบ #026: Greek ท็อปปิ้งเยอะ + แยกท็อปปิ้ง ใส่ถ้วยแยก + หมายเหตุ · Greek · Banana Choco */
   let seq = 0;
@@ -130,7 +133,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       const id = sellLong(), K = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${id}))]).length`), R = w.eval(`slipBytes([receiptBlocks(loadSales().find(s => s.id === ${id}))]).length`);
       const job = want.startsWith('k') ? 2 : 1, len = job === 1 ? K : R;
       trigger = {on, job, at:Math.round(len * at), len, sent:on === 'head', ms}; const tr = trigger;
-      await until(() => emu.cover, 6000); const t0 = Date.now();
+      await until(() => emu.cover, 6000); const t0 = clock.now;
       if(during) await during();
       if(tap){ await until(() => !emu.cover, 3000); await wait(150); const b = $('#printFail .pfbtn'); if(b) b.click(); }   // พนักงานกดพิมพ์ซ้ำเองด้วย (แข่งกับที่แอปพิมพ์เอง)
       await until(() => idle() && !$('#printFail') && paper(id).replace(/f|x/g, '').endsWith(want), 12000); await wait(400);

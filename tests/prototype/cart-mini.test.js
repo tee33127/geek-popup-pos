@@ -1,9 +1,9 @@
 // กล่องออเดอร์ยุบ/ขยาย · toast ใหม่ · ไฮไลต์บรรทัดที่เพิ่งเพิ่ม (Tee 2026-10-15 Redmi จริง)
 // jsdom ไม่มี layout: ตรวจสถานะ (class บน body) และเนื้อหา · ตำแหน่ง/ขนาดจริงตรวจใน e2e UI21
-const {eq, done, open, wait} = require('../qa/qa-helper');
+const {eq, done, open} = require('../qa/qa-helper');
 
 (async () => {
-  const p = open(); await wait(30); p.signIn('1234');
+  const p = open(); await p.ready(); p.signIn('1234');
   const {$, $$, click, ev, menu, honey} = p;
   const body = () => ['picking', 'cartopen'].filter(c => $('body').classList.contains(c));
 

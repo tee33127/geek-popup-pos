@@ -18,7 +18,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     $('[data-honey="normal"]').click(); eq('price via pricing.js', $('#btnAdd').textContent.includes('฿99'), true);
     $('[data-honey="normal"]').click(); $('#btnAdd').click(); eq('few toppings asks first', $('#fewOk').textContent, 'ลูกค้าขอแค่ 1 อย่าง'); $('#fewOk').click();
     $('#btnPay').click(); $('[data-dine="takeaway"]').click(); $('[data-method="cash"]').click(); $('[data-q="100"]').click(); $('#payOk').click();
-    setTimeout(() => {
+    /* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18): บันทึกเสร็จ (storeReady) + promise ที่ค้างทำครบ */
+    w.eval('storeReady').then(require('../vclock').flush).then(() => {
       const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2'))[0];
       eq('sale saved', [s.no, s.total, s.change, s.dining], [1, 99, 1, 'takeaway']);
       eq('no WebUSB: nothing printed by itself, success screen says slips not out', [$('#printArea').querySelectorAll('.slip').length, $('#prStatus').textContent.includes('ตั๋วยังไม่ออก')], [0, true]);
@@ -27,6 +28,6 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       $('#nextOrder').click(); eq('next order number', $('#nextNo').textContent, 'ออเดอร์ #002');
       eq('no runtime errors', errors, []);
       console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED'); process.exit(fails ? 1 : 0);
-    }, 200);
+    });
   });
 }).catch(e => { console.error('CRASH', e); process.exit(2); });

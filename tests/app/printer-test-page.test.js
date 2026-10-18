@@ -1,6 +1,9 @@
 // หน้า printer-test กับปริ้นเตอร์ปลอม (jsdom ไม่มี canvas จึงทดสอบเฉพาะปุ่มที่ไม่ใช้ภาพ)
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '../..');
+/* นาฬิกาจำลอง (tests/vclock.js): หน้า + ปริ้นเตอร์จำลองใช้เวลาเดียวกัน ผลไม่ขึ้นกับความเร็วเครื่อง · setTimeout/setInterval ในไฟล์นี้ = ของนาฬิกาจำลอง
+   wait(ms) = เดินเวลาจำลอง ms (ทุกตัวจับเวลาถึงกำหนดทำตามลำดับ) · until(cond, ms) = เดินจน cond จริง เพดาน ms เป็นเวลาจำลอง */
+const {VClock} = require('../vclock'), clock = new VClock(), {setTimeout, setInterval, clearTimeout, clearInterval} = clock.api;
 class Files extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(ROOT, new URL(u).pathname))); } }
 let claimBusy = false, released = 0, asbQueue = null, asbOn = [];   // asbQueue = คำตอบที่เครื่องส่งเอง (ASB) · asbOn = คำสั่ง GS a ที่ได้รับ
 let errors = [], sent = [], permitted = [], usbEvents = new EventTarget(), stat = {2:0x12, 4:0x12}, lastAsk = 0, statHang = false;   // stat = ค่าที่เครื่องปลอมตอบ DLE EOT n
@@ -20,14 +23,14 @@ let inQ = [], ackReply = null, ackDelay = 200;   // ackReply = ค่าที�
 const asks = [];   // ตำแหน่ง (byte ที่ส่งไปแล้ว) ตอนถามสถานะ
 const dev = fakeDevice();
 JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerously', resources:new Files(), url:'http://localhost/printer-test/index.html', pretendToBeVisual:true,
-  beforeParse(w){
+  beforeParse(w){ clock.install(w);
     w.addEventListener('error', e => errors.push(e.message));
     w.HTMLCanvasElement.prototype.getContext = function(){ return {font:'', fillStyle:'', textAlign:'', measureText: s => ({width:String(s).length * 12}), fillRect(){}, fillText(){}, getImageData: (x, y, w2, h) => ({width:w2, height:h, data:new Uint8ClampedArray(w2 * h * 4).fill(255)})}; };   // canvas จำลอง (ภาพขาว)
     Object.defineProperty(w.navigator, 'usb', {value:{
       requestDevice: async () => { permitted = [dev]; return dev; }, getDevices: async () => permitted,
       addEventListener: (t, f) => usbEvents.addEventListener(t, f)}});
   }}).then(dom => {
-  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
+  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => clock.advance(ms);
   const logText = () => $('#log').textContent;
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   w.addEventListener('load', async () => {

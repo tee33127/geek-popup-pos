@@ -8,13 +8,13 @@ class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.read
 let errors = [];
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
   beforeParse(w){ A.seed(w); w.print = () => {}; w.addEventListener('error', e => errors.push(e.message)); }}).then(dom => {
-  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
+  const w = dom.window, d = w.document, $ = s => d.querySelector(s), ready = async () => { await w.eval('storeReady'); await require('../vclock').flush(); };   // รอเหตุการณ์จริง ไม่รอเวลา
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input')); };
   const toPay = () => { $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="promptpay"]').click(); };
   w.addEventListener('load', async () => {
     A.signIn(w);
-    await wait(50);
+    await ready();
     // ยังไม่ตั้งเลข → เตือน ไม่มี QR แต่ยังยืนยันได้
     toPay();
     eq('no id: warning, no QR', [!!$('.ppwarn'), !!$('#modal svg.qr')], [true, false]);
@@ -36,7 +36,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     toPay();
     eq('QR shown with amount', [!!$('#modal svg.qr'), $('.ppamt').textContent, !$('.ppwarn')], [true, '฿189', true]);
     eq('payload matches reference', w.eval("PP.payload(SETTINGS.promptpay, cartTotal())"), generatePayload('1234567890121', {amount:189}));
-    $('#payOk').click(); await wait(100);
+    $('#payOk').click(); await ready();
     eq('sale saved as promptpay', JSON.parse(w.localStorage.getItem('geek_popup_sales_v2')).slice(-1)[0].method, 'promptpay');
     // ลบเลข (บันทึกแบบว่าง)
     $('#nextOrder').click(); $('#btnSettings').click(); $('#ppOpen').click();

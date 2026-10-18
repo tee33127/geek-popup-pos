@@ -1,10 +1,10 @@
 // QA หมวด 11 พิมพ์ (H01, X02 ตัดบรรทัดตั๋ว USB) · 12 หน้าจอ (UI03 UI05 UI08)
-const {eq, done, open, wait, rng, T, ROOT} = require('./qa-helper');
+const {eq, done, open, rng, T, ROOT} = require('./qa-helper');
 const F = require('../flow-helper');
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
 (async () => {
-  const p = open({now: T(2026, 10, 12, 12)}); await wait(30); p.signIn();
+  const p = open({now: T(2026, 10, 12, 12)}); await p.ready(); p.signIn();
   const {ev, $, $$, click} = p;
 
   // ---------- H01 HTML กับ USB ต้องมีข้อความเดียวกัน (200 บิลสุ่ม seed 101) ----------

@@ -8,6 +8,9 @@ const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = req
 const {finish} = require('../flow-helper');
 const {EscPosEmu} = require('../escpos-emu');
 const A = require('../auth-helper');
+/* นาฬิกาจำลอง (tests/vclock.js): หน้า + ปริ้นเตอร์จำลองใช้เวลาเดียวกัน ผลไม่ขึ้นกับความเร็วเครื่อง · setTimeout/setInterval ในไฟล์นี้ = ของนาฬิกาจำลอง
+   wait(ms) = เดินเวลาจำลอง ms (ทุกตัวจับเวลาถึงกำหนดทำตามลำดับ) · until(cond, ms) = เดินจน cond จริง เพดาน ms เป็นเวลาจำลอง */
+const {VClock} = require('../vclock'), clock = new VClock(), {setTimeout, setInterval, clearTimeout, clearInterval} = clock.api;
 const APP = path.join(__dirname, '../../app');
 class AppFiles extends ResourceLoader { fetch(u){ return Promise.resolve(fs.readFileSync(path.join(APP, new URL(u).pathname))); } }
 
@@ -80,15 +83,15 @@ function readText(page){
 }
 
 JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resources:new AppFiles(), url:'http://localhost/index.html', pretendToBeVisual:true,
-  beforeParse(w){ A.seed(w);
+  beforeParse(w){ clock.install(w); A.seed(w);
     w.print = () => errors.push('window.print called'); w.console.warn = () => {}; w.addEventListener('error', e => errors.push(e.message));
     w.HTMLCanvasElement.prototype.getContext = function(){ return fakeCtx(this); };
     Object.defineProperty(w.navigator, 'usb', {value:{getDevices: async () => [dev], requestDevice: async () => dev, addEventListener(){}}});
   }}).then(dom => {
-  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => new Promise(r => setTimeout(r, ms));
+  const w = dom.window, d = w.document, $ = s => d.querySelector(s), wait = ms => clock.advance(ms);
   let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
   const toasts = [];
-  const until = async (fn, ms = 4000) => { const t = Date.now(); while(!fn() && Date.now() - t < ms) await wait(15); return fn(); };
+  const until = (fn, ms = 4000) => clock.until(fn, ms, 15);   // เช็กทุก 15 ms เวลาจำลอง (เท่าที่เทสต์เดิมเช็ก) · cond ถอดข้อความจากกระดาษ หนัก
   const bar = () => $('#printFail') ? $('#printFail').textContent : '';
   const idle = () => !w.eval('[...PRINTED.values()].some(s => s.kitchen === "wait" || s.receipt === "wait")') && !buf.length && !waiter;
   /* บิลยาวแบบ #017 (Greek ท็อปปิ้งเยอะ + Greek + Banana Choco กินเลย) บันทึกแล้วสั่งพิมพ์แบบหลังชำระเงิน */
@@ -103,7 +106,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     sales.push(s); saveSales(sales); lastSale = s;
     openModal(doneHtml(s)); printSale(s, receiptMode() === 'all' ? 'both' : 'kitchen');
     return s.id; })()`);
-  const sellShort = () => { if($('#nextOrder')) $('#nextOrder').click(); $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); return w.eval('lastSale.id'); };
+  const sellShort = () => { clock.bump(); if($('#nextOrder')) $('#nextOrder').click(); $('[data-menu="acai"]').click(); finish(w); $('#btnPay').click(); $('[data-dine="dinein"]').click(); $('[data-method="cash"]').click(); $('[data-q="500"]').click(); $('#payOk').click(); return w.eval('lastSale.id'); };
   /* ข้อความที่ใบควรมี (ปกติ / ใบแทน) จากบล็อกเดียวกับที่แอปส่ง ผ่านปริ้นเตอร์จำลองแบบไม่สะดุด */
   const expect = (id, k, redo) => readText(new EscPosEmu().feed(w.eval(`slipBytes([slipBlocks(loadSales().find(s => s.id === ${id}), '${k}', ${redo ? '{redo:{' + k + ':true}}' : 'null'})])`)).pages[0]);
   /* กระดาษที่ออกมาจริง → k ตั๋วครัว · K ตั๋วครัวใบแทน · r ใบเสร็จ · R ใบเสร็จใบแทน · f เศษ/ไม่ครบ · (ใบว่างไม่นับ) */
@@ -132,8 +135,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
         await settle(); reset0(); BP.cap = cap; BP.nak = nak; BP.per = 300; w.eval('PRINT_CONFIRM.ms = 1200; PRINT_RESUME.ms = 2000; PRINTER.statusMs = 500');
         id = sellLong(); const kLen = w.eval(`slipBytes([kitchenBlocks(loadSales().find(s => s.id === ${id}))]).length`);
         trigger = {job:1, at:Math.round(kLen * 0.4), what:'cover'};
-        await until(() => emu.cover, 5000); const t0 = Date.now();
-        await until(() => !!$('#printFail'), 20000); const tBar = Date.now() - t0;
+        await until(() => emu.cover, 5000); const t0 = clock.now;
+        await until(() => !!$('#printFail'), 20000); const tBar = clock.now - t0;
         const st1 = JSON.stringify(w.eval(`PRINTED.get(${id})`)), ns = w.eval('usbPrinter.noStatus');
         emu.cover = false; await wait(100); const b = d.querySelector('#printFail .pfbtn'); if(b) b.click();
         await until(() => idle() && !$('#printFail'), 8000); await wait(500);

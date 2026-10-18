@@ -1,10 +1,10 @@
 // หน้าต่าง (modal) แบบเดียวกันทุกหน้าต่าง (Tee 2026-10-13 · iPad ปัดในตั้งค่าแล้วหน้าขายข้างหลังเลื่อนแทน)
 // หัวติดบน (ชื่อ + X aria-label "ปิด") · ปุ่มหลักในแถบล่าง · ล็อกหน้าหลัง (body fixed + คืนตำแหน่ง) · แตะพื้นหลังปิดได้เฉพาะตั้งค่า/สรุปยอด
 // การเลื่อนจริงบน WebKit/Chromium อยู่ใน e2e (UI15)
-const {eq, done, open, wait} = require('../qa/qa-helper');
+const {eq, done, open} = require('../qa/qa-helper');
 
 (async () => {
-  const p = open({settings:{promptpay:'0812345678'}}); await wait(30); p.signIn('1234');
+  const p = open({settings:{promptpay:'0812345678'}}); await p.ready(); p.signIn('1234');
   const {$, $$, click, ev, w} = p;
   const head = () => [!!$('#modal .mhead #mdTitle'), !!$('#modal .mhead #closeX'), $('#modal #closeX') && $('#modal #closeX').getAttribute('aria-label'), $$('#modal #closeX').length];
   const foot = () => $('#modal .mfoot') ? [...$('#modal .mfoot').querySelectorAll('button')].map(b => b.id) : null;

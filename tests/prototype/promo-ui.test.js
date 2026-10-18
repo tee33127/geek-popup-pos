@@ -10,13 +10,15 @@ const dom = new JSDOM(html, {runScripts:'dangerously', url:'http://localhost/', 
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
-const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง): โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ (1 macrotask) */
+const {flush} = require('../vclock');
+const ev = c => w.eval(c), ready = async () => { await w.eval('storeReady'); await flush(); };
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const order = (menu, more) => { F.menu(w, menu); if(more) more(); F.finish(w); };
 const total = () => $('#total').textContent;
 
 (async () => {
-  await wait(50);
+  await ready();
   eq('no promo button with empty cart', $('#promoBox').innerHTML, '');
   // ---- ยังไม่เข้าเงื่อนไขโปรไหน: ปุ่มเทา กดไม่ได้ (Tee 2026-10-13) ----
   order('greek', () => { click('[data-size="g1"]'); ['Banana', 'Mango', 'Kiwi'].forEach(t => click(`[data-pick="${t}"]`)); });
@@ -63,7 +65,7 @@ const total = () => $('#total').textContent;
   // ---- ชำระเงินพร้อมโปร ----
   order('banana'); click('#promoOpen'); click(opt('b1g1')); click('#promoOk');
   click('#btnPay'); eq('pay modal shows net + promo note', [$('#modal h3').textContent, $('#modal .ppamt').textContent, $('#modal').textContent.includes('หักโปร 1 แถม 1 -฿149')], ['ชำระเงิน', '฿204', true]);
-  click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(100);
+  click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await ready();
   const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2')).slice(-1)[0];
   eq('sale stores promo + net total', [s.total, s.change, s.promo], [204, 296, {id:'b1g1', name:'1 แถม 1', discount:149, detail:'Banana Choco ฟรี 1 แก้ว'}]);
   eq('item prices stay full', s.items.map(i => i.unit * i.qty), [204, 149]);

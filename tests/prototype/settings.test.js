@@ -9,7 +9,9 @@ const open = stored => new JSDOM(html, {runScripts:'dangerously', url:'http://lo
 let w = open(), d = w.document; A.signIn(w);
 const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
-const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง): โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ (1 macrotask) */
+const {flush} = require('../vclock');
+const ev = c => w.eval(c), ready = async () => { await w.eval('storeReady'); await flush(); };
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const openSet = () => click('#btnSettings');
 const openStock = () => { openSet(); click('#stockOpen'); };   // ของหมดอยู่หน้าย่อย (Tee 2026-10-17)
@@ -18,7 +20,7 @@ const row = (kind, key) => sw(kind, key).closest('.srow');
 const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}').out;
 
 (async () => {
-  await wait(50);
+  await ready();
   eq('settings button in header, not in summary', [$('#btnSettings').textContent.trim(), (() => { click('#btnSummary'); const x = !!$('#setOpen') || !!$('#menuOpen'); click('#closeX'); return x; })()], ['ตั้งค่า', false]);
   openSet();
   eq('settings: owner settings first, stock list is one row "สินค้าหมด ›" near the end (no switches on the main page)',
@@ -63,7 +65,7 @@ const stored = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') ||
 
   // ---- เปิดแอปใหม่: ใช้ค่าที่เก็บไว้ ----
   w.close(); w = open({promptpay:'0812345678', out:{items:['Kiwi'], menus:['acai']}}); d = w.document; A.signIn(w);
-  await wait(50);
+  await ready();
   eq('stored sold-out applied at start', [ev('ITEM.Kiwi.out'), ev('MENU.acai.out'), !!$('[data-menu="acai"]'), ev('SETTINGS.promptpay')], [true, true, false, '0812345678']);
 
   eq('no runtime errors', errors, []);

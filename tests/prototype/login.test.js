@@ -15,7 +15,8 @@ const open = () => new JSDOM(html, {runScripts:'dangerously', url:'http://localh
 let w = open(), d = w.document;
 const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
-const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
+const {flush} = require('../vclock');
+const ev = c => w.eval(c);
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const keys = code => code.split('').forEach(c => click(`[data-kp="${c}"]`));
 const enter = code => { keys(code); click('#lgGo'); };
@@ -26,11 +27,11 @@ const secretOk = sel => { const i = $(sel); return !!i && [i.type, i.getAttribut
 const shown = () => $('#login').classList.contains('show');
 const save = () => { store = {}; for(let i = 0; i < w.localStorage.length; i++){ const k = w.localStorage.key(i); store[k] = w.localStorage.getItem(k); } };
 /* รอหน้าโหลดเสร็จจริง (storeReady → showLogin/renderUser) แทนการรอเวลาตายตัว 60 ms ที่ไม่พอตอนเครื่องช้า */
-const ready = async () => { await w.eval('storeReady'); await wait(10); };
+const ready = async () => { await w.eval('storeReady'); await flush(); };   // + promise ที่ค้างทำครบ (1 macrotask)
 const reopen = async () => { save(); w.close(); w = open(); d = w.document; await ready(); };
 const settings = () => JSON.parse(w.localStorage.getItem('geek_popup_settings') || '{}');
 const type = (sel, v) => { $(sel).value = v; };
-const sell = async menu => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
+const sell = async menu => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await ready(); click('#nextOrder'); };
 
 (async () => {
   await ready();

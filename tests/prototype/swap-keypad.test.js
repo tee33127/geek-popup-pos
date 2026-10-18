@@ -1,9 +1,9 @@
 // หน้าต่างเปลี่ยน / เพิ่มท็อปปิ้ง (Acai, Banana Choco) และแป้นตัวเลขเงินของแอป (Tee 2026-10-14 Redmi จริง)
 // ราคาและกติกาเดิมทุกอย่าง · เทสต์ราคาอยู่ใน pricing / toppings-and-cart · ที่นี่ตรวจหน้าตาและการทำงานของหน้าต่าง/แป้น
-const {eq, done, open, wait} = require('../qa/qa-helper');
+const {eq, done, open} = require('../qa/qa-helper');
 
 (async () => {
-  const p = open(); await wait(30); p.signIn('1234');
+  const p = open(); await p.ready(); p.signIn('1234');
   const {$, $$, click, ev, menu, honey} = p;
   const shown = () => $('#modal').classList.contains('show');
   const chipCnt = el => ((el.closest('.topw').querySelector('small').textContent.match(/(\d+) ชิ้น/) || [])[1] || '');   // จำนวนอยู่บรรทัดล่างของปุ่ม "n ชิ้น"

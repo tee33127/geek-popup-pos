@@ -1,8 +1,8 @@
 // QA หน้าจอขาย + ชำระเงิน (P03–P26 ส่วนหน้าจอ, PR09–PR13, C01–C14) · jsdom เปิด prototype/pos.html
-const {eq, done, open, wait, T} = require('./qa-helper');
+const {eq, done, open, T} = require('./qa-helper');
 
 (async () => {
-  let p = open({now: T(2026, 10, 12, 12, 0)}); await wait(30); p.signIn();
+  let p = open({now: T(2026, 10, 12, 12, 0)}); await p.ready(); p.signIn();
   let {$, $$, click, ev, add, pay, menu, size} = p;
   const addBtn = () => $('#btnAdd').textContent;
   const kitchen = s => ev(`(() => { const d = document.createElement('div'); d.innerHTML = kitchenHtml(${JSON.stringify(s)}); return d.textContent; })()`);
@@ -155,7 +155,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   p.close();
 
   // ---------- C09 / C14 ข้าม 23:00 ----------
-  p = open({now: T(2026, 10, 12, 22, 58)}); await wait(30); p.signIn(); ({$, click, ev, add, pay} = p);
+  p = open({now: T(2026, 10, 12, 22, 58)}); await p.ready(); p.signIn(); ({$, click, ev, add, pay} = p);
   add({menu:'acai'}); const a1 = pay('tcp');
   add({menu:'acai'}); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="tcp"]');
   p.w.__now = T(2026, 10, 12, 23, 0, 30);
@@ -169,7 +169,7 @@ const {eq, done, open, wait, T} = require('./qa-helper');
   // ---------- C11 บิลที่ 1000 ในรอบเดียว ----------
   const many = Array.from({length:999}, (_, i) => ({id:T(2026, 10, 12, 10) + i, no:i + 1, date:'2026-10-12', ts:new Date(T(2026, 10, 12, 10) + i).toISOString(), dining:'dinein',
     items:[{menu:'banana', name:'Banana Choco', sizeName:'', tops:[], note:'', unit:149, qty:1}], total:149, method:'cash', received:149, change:0, void:false, staff:'แพร', staffId:'u2'}));
-  p = open({now: T(2026, 10, 12, 18, 0), ls:{geek_popup_sales_v2: many}}); await wait(30); p.signIn();
+  p = open({now: T(2026, 10, 12, 18, 0), ls:{geek_popup_sales_v2: many}}); await p.ready(); p.signIn();
   eq('C11 ขายไปแล้ว 999 บิลในรอบ: บิลถัดไปได้เลข', p.ev('nextNo()'), 1);   // ⚠️ คำถาม: วนกลับเป็น 001 ซ้ำกับบิลแรกของวัน
   p.close();
   done();

@@ -1,5 +1,5 @@
 // QA หมวด 6 รายงาน (R01–R09) + 7 ส่งออก (E02–E05) + U02 พนักงานดูยอดวันอื่น · jsdom เปิด prototype/pos.html
-const {eq, done, open, wait, rng, T} = require('./qa-helper');
+const {eq, done, open, rng, T} = require('./qa-helper');
 
 /* แยก CSV ตาม RFC 4180 (รองรับ "" และขึ้นบรรทัดใหม่ในช่อง) */
 function parseCsv(t){
@@ -31,7 +31,7 @@ const SALE_FN = `window.mkSale = o => {
 
 (async () => {
   const NOW = T(2026, 10, 12, 14, 0);
-  let p = open({now: NOW}); await wait(30); p.signIn();
+  let p = open({now: NOW}); await p.ready(); p.signIn();
   let {$, $$, click, ev} = p;
   ev(SALE_FN);
 

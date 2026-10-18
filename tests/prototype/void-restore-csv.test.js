@@ -7,12 +7,14 @@ const dom = new JSDOM(fs.readFileSync(require('path').join(__dirname,'../../prot
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 A.signIn(w);
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing '+s); el.click(); };
-const wait = ms => new Promise(r => setTimeout(r, ms));
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง): โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ (1 macrotask) */
+const {flush} = require('../vclock');
+const ready = async () => { await w.eval('storeReady'); await flush(); };
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const stat = () => $$('.stat b').map(e => e.textContent);
 (async () => {
   // สร้าง 2 บิล
-  for(const m of ['acai','banana']){ F.menu(w, m); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await wait(150); click('#nextOrder'); }
+  for(const m of ['acai','banana']){ F.menu(w, m); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await ready(); click('#nextOrder'); }
   click('#btnSummary');
   eq('start KPI', stat().slice(0,2), ['฿338','2']);
   click('[data-tab="bills"]');
@@ -42,7 +44,7 @@ const stat = () => $$('.stat b').map(e => e.textContent);
   w.HTMLAnchorElement.prototype.click = orig;
   eq('page not navigated', w.location.href, href0);
   let copied = null; Object.defineProperty(w.navigator, 'clipboard', {value:{writeText: async t => { copied = t; }}, configurable:true});
-  click('#csvCopy'); await wait(20); eq('copy works', copied && copied.startsWith('"วันที่รอบขาย"'), true);
+  click('#csvCopy'); await flush();   // คัดลอก = promise ของ clipboard (จำลอง) ทำครบใน 1 macrotask eq('copy works', copied && copied.startsWith('"วันที่รอบขาย"'), true);
   click('#csvBack'); eq('back returns to summary bills tab', [$('#modal').textContent.includes('สรุปยอดขาย'), $('.tab.on').dataset.tab], [true, 'bills']);
   click('#csvAll'); eq('backup-all also via modal', $('#csvDl') !== null, true); click('#csvBack');
   click('[data-tab="ingr"]'); click('#csvTab'); eq('ingredient csv', $('#csvText').value.startsWith('"หมวด","วัตถุดิบ","จำนวน"'), true); click('#csvBack');

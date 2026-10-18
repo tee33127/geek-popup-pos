@@ -13,15 +13,17 @@ const open = seed => new JSDOM(html, {runScripts:'dangerously', url:'http://loca
 let w = open(true), d = w.document;
 const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 const click = s => { const el = typeof s === 'string' ? $(s) : s; if(!el) throw new Error('missing ' + s); el.click(); };
-const ev = c => w.eval(c), wait = ms => new Promise(r => setTimeout(r, ms));
+/* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง): โหลดยอดขายเสร็จ (storeReady) + promise ที่ค้างทำครบ (1 macrotask) */
+const {flush} = require('../vclock');
+const ev = c => w.eval(c), ready = async () => { await w.eval('storeReady'); await flush(); };
 let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.stringify(e); if(!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', n, ok ? '' : `got ${JSON.stringify(g)} expected ${JSON.stringify(e)}`); };
 const enter = code => { code.split('').forEach(c => click(`[data-kp="${c}"]`)); click('#lgGo'); };
 const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input')); };
-const sell = async (menu, method) => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click(`[data-method="${method}"]`); if(method === 'cash') click('[data-q="500"]'); click('#payOk'); await wait(80); click('#nextOrder'); };
+const sell = async (menu, method) => { F.menu(w, menu); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click(`[data-method="${method}"]`); if(method === 'cash') click('[data-q="500"]'); click('#payOk'); await ready(); click('#nextOrder'); };
 const today = () => ev('bizDate(new Date())');
 
 (async () => {
-  await wait(60);
+  await ready();
   // ---- เปิดร้าน: ถามเงินทอนตั้งต้นหลังเข้าระบบ ----
   enter('1111');
   eq('float asked after sign-in', [!!$('#floatIn'), $('#floatOk').disabled], [true, true]);
@@ -95,7 +97,7 @@ const today = () => ev('bizDate(new Date())');
 
   // ---- เครื่องใหม่: นำข้อมูลกลับก่อนตั้งเจ้าของ แล้วเข้าด้วยรหัสเดิม ----
   const full = ev('JSON.stringify(backupData())');
-  w.close(); w = open(false); d = w.document; await wait(60);
+  w.close(); w = open(false); d = w.document; await ready();
   eq('new device: setup screen with restore link', [!!$('#lgName'), !!$('#lgRestore')], [true, true]);
   click('#lgRestore'); eq('restore inside login screen', [!!$('#login #rsFile'), $('#login').classList.contains('show')], [true, true]);
   ev(`restoreText(${JSON.stringify(full)})`);

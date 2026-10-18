@@ -1,5 +1,5 @@
 // QA หมวด 4 สิทธิ์ (U01 U04–U06) · 8 เงินสด/สำรอง (K02–K07) · 9 ข้อมูลไม่หาย (D02 D04 D08) · 10 ข้อความที่แสดง (X01 X03) · UI04
-const {eq, done, open, wait, T} = require('./qa-helper');
+const {eq, done, open, T} = require('./qa-helper');
 const {IDBFactory} = require('fake-indexeddb');
 const KEY = 'geek_popup_sales_v2', SKEY = 'geek_popup_settings';
 const dump = p => Object.fromEntries(Object.keys(p.w.localStorage).map(k => [k, p.w.localStorage.getItem(k)]));
@@ -8,7 +8,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
 
 (async () => {
   const NOW = T(2026, 10, 12, 14, 0);
-  let p = open({now: NOW}); await wait(30); p.signIn();
+  let p = open({now: NOW}); await p.ready(); p.signIn();
   let {$, $$, click, ev, add, pay, type} = p;
 
   // ---------- U01 ตารางสิทธิ์ ----------
@@ -95,7 +95,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   p.close();
 
   // X01 ชื่อเจ้าของตอนตั้งครั้งแรก
-  p = open({now: NOW, seed:false}); await wait(30); ({$, click, ev, type} = p);
+  p = open({now: NOW, seed:false}); await p.ready(); ({$, click, ev, type} = p);
   $('#lgName').value = '<b class=inj>บอส</b>'; $('#lgCode').value = '9876'; $('#lgCode2').value = '9876'; click('#lgSave'); click('#lgDone');
   eq('X01 ชื่อเจ้าของตอนตั้งครั้งแรกที่เป็น HTML: แสดงเป็นข้อความ', [injected(p), $('#btnUser').textContent.includes('<b class=inj>')], [0, true]);
 
@@ -111,12 +111,12 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   p.close();
 
   // ---------- K04 / K05 / K06 / K07 สำรองและนำกลับ ----------
-  p = open({now: NOW, settings:{promptpay:'0812345678', out:{menus:['banana'], items:['Kiwi']}}}); await wait(30); p.signIn(); ({$, click, ev, add, pay} = p);
+  p = open({now: NOW, settings:{promptpay:'0812345678', out:{menus:['banana'], items:['Kiwi']}}}); await p.ready(); p.signIn(); ({$, click, ev, add, pay} = p);
   ev('newRecovery()'); ev(`addCash({type:'open', float:700})`);
   add({menu:'acai'}); pay('cash', 200); add({menu:'acai'}); pay('tcp');
   const file = ev('JSON.stringify(backupData())'), src = JSON.parse(file);
   p.close();
-  p = open({now: NOW + 600000, seed:false}); await wait(30); ({$, click, ev} = p);
+  p = open({now: NOW + 600000, seed:false}); await p.ready(); ({$, click, ev} = p);
   click('#lgRestore'); ev(`restoreText(${JSON.stringify(file)})`); click('#rsApply');
   p.enter('1111');
   eq('K04 สำรอง → นำกลับบนเครื่องเปล่า: บิล ผู้ใช้ รหัสกู้คืน PromptPay ของหมด เงินสด log ครบ · เข้าด้วยรหัสเดิมได้',
@@ -136,7 +136,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   eq('K06 ปฏิเสธแล้วไม่เปลี่ยนอะไรในเครื่อง', JSON.stringify(dump(p)), before);
   eq('K06 บิลขาดฟิลด์ (ไม่มี dining method total tops): ปฏิเสธ', reject(JSON.stringify(noFields)) !== 'ผ่าน', true);
   if(reject(JSON.stringify(noFields)) === 'ผ่าน'){
-    const p2 = open({now: NOW}); await wait(30); p2.signIn();
+    const p2 = open({now: NOW}); await p2.ready(); p2.signIn();
     p2.ev(`applyBackup(${JSON.stringify(noFields)}, false)`);
     let crash = ''; try{ p2.ev("REP.from = '2026-10-01'; REP.to = '2026-10-01'; REP.tab = 'items'; renderSummary()"); }catch(e){ crash = e.message; }
     eq('K06 หลังรับบิลขาดฟิลด์: หน้าสรุปยอดยังเปิดได้', crash, '');
@@ -155,7 +155,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   evil.sales[0].no = '<img src=x>'; evil.sales[0].items[0].name = '<img src=x>';
   evil.staffLog.push({at:new Date(NOW).toISOString(), date:'2026-10-12', id:'z', name:'z', role:'<img src=x>', act:'in'});
   evil.settings.users = evil.settings.users.concat([{id:'q"><img src=x>', name:'<img src=x>', role:'staff', salt:'s', hash:'h'}]);
-  p = open({now: NOW, seed:false}); await wait(30); ({$, click, ev} = p);
+  p = open({now: NOW, seed:false}); await p.ready(); ({$, click, ev} = p);
   click('#lgRestore'); ev(`restoreText(${JSON.stringify(JSON.stringify(evil))})`); click('#rsApply'); p.enter('1234');
   const xs = {};
   click('#btnSummary'); click('[data-tab="items"]'); xs.items = injected(p);
@@ -175,13 +175,13 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   const RC = '13572468', rcSalt = 'rs1', rcHash = require('crypto').createHash('sha256').update(rcSalt + ':' + RC).digest('hex');
   {
     // ยอดขายพัง + IndexedDB
-    const q = open({now: NOW, ls:{[KEY]:broken}, before: w => { w.indexedDB = new IDBFactory(); }}); await wait(60); q.signIn(); q.add({menu:'banana'}); q.pay('cash', 200);
+    const q = open({now: NOW, ls:{[KEY]:broken}, before: w => { w.indexedDB = new IDBFactory(); }}); await q.ready(); q.signIn(); q.add({menu:'banana'}); q.pay('cash', 200);
     eq('D02 ยอดขาย (JSON พัง) + IndexedDB: เปิดได้ ขายได้ ไม่เขียนทับของเดิม', [!!q.$('#builder'), q.errors.length, q.w.localStorage.getItem(KEY) === broken], [true, 0, true]);
     q.close();
   }
   {
     // settings พัง · มีรหัสกู้คืน
-    const q = open({now: NOW, seed:false, ls:{[SKEY]:broken, [KEY]:salesLs, [SKEY + '_recovery']:{salt:rcSalt, hash:rcHash}}}); await wait(40);
+    const q = open({now: NOW, seed:false, ls:{[SKEY]:broken, [KEY]:salesLs, [SKEY + '_recovery']:{salt:rcSalt, hash:rcHash}}}); await q.ready();
     const ck = corruptKeys(q, SKEY);
     eq('D02 settings พัง: เก็บข้อความเดิมไว้ที่ <key>_corrupt_<เวลา>', [ck.length, ck.length && q.w.localStorage.getItem(ck[0])], [1, broken]);
     eq('D02 settings พัง: ขึ้นหน้า "ข้อมูลตั้งค่าเสีย" ไม่ใช่ "ตั้งค่าครั้งแรก"', [q.$('#login').classList.contains('show'), !!q.$('#lgName'), q.$('#login').textContent.includes('ข้อมูลตั้งค่าเสีย'), !!q.$('#lgRestore'), q.$('#lgRebuild').disabled, q.$('#login').textContent.includes('ติดต่อผู้ดูแล (Tee)')],
@@ -198,7 +198,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   }
   {
     // settings พัง · ไม่มีรหัสกู้คืน
-    const q = open({now: NOW, seed:false, ls:{[SKEY]:'[1,2'}}); await wait(40);
+    const q = open({now: NOW, seed:false, ls:{[SKEY]:'[1,2'}}); await q.ready();
     q.ev("LG = {mode:'setup', msg:''}; renderLogin()"); q.$('#lgName').value = 'x'; q.$('#lgCode').value = '1111'; q.$('#lgCode2').value = '1111'; q.click('#lgSave');
     eq('D02 ไม่มีรหัสกู้คืน: ปุ่มเริ่มตั้งค่าใหม่กดไม่ได้ บอกให้ติดต่อผู้ดูแล · บังคับเข้าหน้าตั้งค่าครั้งแรกเองก็สร้างเจ้าของไม่ได้', [q.ev('owners().length'), q.$('#login').textContent.includes('ข้อมูลตั้งค่าเสีย'), !!q.$('#lgRebuild') && q.$('#lgRebuild').disabled, q.$('#login').textContent.includes('เครื่องนี้ไม่มีรหัสกู้คืน')],
       [0, true, true, true]);
@@ -208,7 +208,7 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
     // settings พัง · นำกลับจากไฟล์สำรอง
     const good = JSON.parse(file);
     const noOwner = {...good, settings:{...good.settings, users:good.settings.users.filter(u => u.role !== 'owner')}};
-    const q = open({now: NOW, seed:false, ls:{[SKEY]:broken, [KEY]:salesLs}}); await wait(40);
+    const q = open({now: NOW, seed:false, ls:{[SKEY]:broken, [KEY]:salesLs}}); await q.ready();
     q.click('#lgRestore'); q.ev(`restoreText(${JSON.stringify(JSON.stringify(noOwner))})`);
     eq('D02 นำกลับไฟล์ที่ไม่มีเจ้าของ: ไม่ยอม (กันสร้างเจ้าของใหม่)', [q.$('#rsApply').disabled, q.$('#login').textContent.includes('ไม่มีรายชื่อเจ้าของ')], [true, true]);
     q.ev('restoreApply()'); eq('D02 เรียก restoreApply ตรงก็ไม่ยอม', q.ev('SETTINGS_BROKEN'), true);
@@ -218,26 +218,26 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
     q.close();
   }
   for(const [k, label, banner] of [[SKEY + '_cash', 'เงินสด', 'cashBanner'], [SKEY + '_staff_log', 'เข้า/ออก', 'staffLogBanner']]){
-    const q = open({now: NOW, ls:{[k]:broken, [KEY]:salesLs}}); await wait(40);
+    const q = open({now: NOW, ls:{[k]:broken, [KEY]:salesLs}}); await q.ready();
     q.signIn('1111'); q.ev("addCash({type:'open', float:300})"); q.add({menu:'banana'}); q.pay('cash', 200);
     const ck = corruptKeys(q, k), cur = JSON.parse(q.w.localStorage.getItem(k));
     eq(`D02 ${label} พัง: เก็บของเดิมแยก · เริ่มรายการใหม่ · แถบแดงเตือน · ยอดขายไม่ถูกแตะ`,
       [ck.length, ck.length && q.w.localStorage.getItem(ck[0]), Array.isArray(cur) && cur.length > 0, !!q.d.getElementById(banner), q.ev('loadSales().length'), q.errors],
       [1, broken, true, true, 2, []]);
     q.close();
-    const q2 = open({now: NOW + 1000, ls:{[k]:broken, [k + '_corrupt_1']:broken}}); await wait(40); q2.signIn(); q2.ev('cashLog(); staffLog()');
+    const q2 = open({now: NOW + 1000, ls:{[k]:broken, [k + '_corrupt_1']:broken}}); await q2.ready(); q2.signIn(); q2.ev('cashLog(); staffLog()');
     eq(`D02 ${label} พังซ้ำแบบเดิม: ไม่เก็บสำเนาซ้ำ`, corruptKeys(q2, k).length, 1); q2.close();
   }
   {
     // คัดลอกของเสียไม่ได้ (พื้นที่เต็ม) → ห้ามทับของเดิม
-    const q = open({now: NOW, ls:{[SKEY + '_cash']:broken}, before: w => { const set = w.Storage.prototype.setItem; w.Storage.prototype.setItem = function(k, v){ if(/_corrupt_/.test(k)) throw new Error('QuotaExceededError'); return set.call(this, k, v); }; }}); await wait(40);
+    const q = open({now: NOW, ls:{[SKEY + '_cash']:broken}, before: w => { const set = w.Storage.prototype.setItem; w.Storage.prototype.setItem = function(k, v){ if(/_corrupt_/.test(k)) throw new Error('QuotaExceededError'); return set.call(this, k, v); }; }}); await q.ready();
     q.signIn(); const ok = q.ev("addCash({type:'open', float:300})");
     eq('D02 คัดลอกของเสียไม่ได้: ไม่เขียนทับข้อมูลเงินสดเดิม', [ok, q.w.localStorage.getItem(SKEY + '_cash')], [false, broken]);
     q.close();
   }
   {
     // migration รหัสกู้คืนจาก settings เวอร์ชันเก่า
-    const q = open({now: NOW, settings:{recovery:{salt:rcSalt, hash:rcHash}}}); await wait(40);
+    const q = open({now: NOW, settings:{recovery:{salt:rcSalt, hash:rcHash}}}); await q.ready();
     eq('D02 migration: รหัสกู้คืนย้ายไป key แยก ใช้ได้เหมือนเดิม · ไม่อยู่ใน settings แล้ว · ไฟล์สำรองยังมี recovery', [q.ev(`recoveryOk('${RC}')`), JSON.parse(q.w.localStorage.getItem(SKEY + '_recovery')).hash === rcHash, 'recovery' in JSON.parse(q.w.localStorage.getItem(SKEY)), q.ev('backupData().settings.recovery.hash') === rcHash],
       [true, true, false, true]);
     q.close();
@@ -246,14 +246,14 @@ const injected = p => p.d.querySelectorAll('img[src="x"], #modal b.inj, #printAr
   // ---------- D04 IndexedDB เขียนไม่สำเร็จ ----------
   {
     const idb = new IDBFactory();
-    const q = open({now: NOW, before: w => { w.indexedDB = idb; }}); await wait(60); q.signIn();
+    const q = open({now: NOW, before: w => { w.indexedDB = idb; }}); await q.ready(); q.signIn();
     eq('D04 โหมด IndexedDB', q.ev('STORE_MODE'), 'indexeddb');
     q.ev("(() => { const t = DB.transaction.bind(DB); DB.transaction = (...a) => { const tx = t(...a); const st = tx.objectStore('sales'); st.put = () => { throw new Error('write fail'); }; tx.objectStore = () => st; return tx; }; })()");
-    q.add({menu:'acai'}); const s = q.pay('tcp'); await wait(40);
+    q.add({menu:'acai'}); const s = q.pay('tcp'); await q.idbIdle();
     const inLs = JSON.parse(q.w.localStorage.getItem(KEY)).some(x => x.id === s.id);
     const r = {fails: q.ev('DB_FAILS'), inLs, banner: !!q.d.getElementById('dbBanner')};
     const ls = dump(q); q.close();
-    const q2 = open({now: NOW + 5000, seed:false, ls, before: w => { w.indexedDB = idb; }}); await wait(80);
+    const q2 = open({now: NOW + 5000, seed:false, ls, before: w => { w.indexedDB = idb; }}); await q2.ready();
     r.afterReload = q2.ev(`loadSales().some(x => x.id === ${s.id})`);
     const db = await new Promise(ok => { const o = idb.open(KEY); o.onsuccess = () => ok(o.result); });
     r.backInDb = await new Promise(ok => { const g = db.transaction('sales').objectStore('sales').get(s.id); g.onsuccess = () => ok(!!g.result); });

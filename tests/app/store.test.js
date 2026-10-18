@@ -31,7 +31,7 @@ async function boot({idb, ls, noIdb, blockLs} = {}){
   await ev('storeReady');
   return {ev, document, mode: ev('STORE_MODE')};
 }
-const settle = () => new Promise(r => setTimeout(r, 30));   // รอ transaction เขียนเสร็จ
+const {idbIdle: settle} = require('../idb-track');   // รอ transaction เขียนเสร็จจริง (complete / abort / error) ไม่รอเวลา
 async function dbRows(idb){
   const db = await new Promise((ok, no) => { const r = idb.open(KEY); r.onsuccess = () => ok(r.result); r.onerror = no; });
   const all = await new Promise(ok => { const r = db.transaction('sales').objectStore('sales').getAll(); r.onsuccess = () => ok(r.result); });
