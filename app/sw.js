@@ -3,7 +3,7 @@
    - ไฟล์ใน app/ เปลี่ยนเมื่อไร VERSION เปลี่ยน → เบราว์เซอร์โหลดชุดใหม่เบื้องหลังตอนออนไลน์
      หน้าที่เปิดอยู่ใช้ชุดเดิมต่อจนกว่าจะปิดแล้วเปิดใหม่ (ไม่สลับกลางการขาย)
    - ข้อมูลยอดขายอยู่ใน IndexedDB ไม่เกี่ยวกับ cache นี้ อัปเดตแอปแล้วข้อมูลไม่หาย */
-const VERSION = '584e33846268';
+const VERSION = 'f54388058f0f';
 const FILES = ["./","css/fonts.css","css/pos.css","fonts/OFL.txt","fonts/plex-thai-looped-400.woff2","fonts/plex-thai-looped-600.woff2","fonts/plex-thai-looped-700.woff2","icons/icon-192.png","icons/icon-512.png","img/acai.jpg","img/banana-choco.jpg","img/greek-yogurt.jpg","img/promptpay.png","img/thai-chuay-thai.png","index.html","js/auth.js","js/backup.js","js/cash.js","js/config.js","js/core.js","js/icons.js","js/pricing.js","js/printer.js","js/promo.js","js/promptpay.js","js/reports.js","js/settings.js","js/slips.js","js/store.js","js/ui/builder.js","js/ui/cart.js","js/ui/close-ui.js","js/ui/codepad.js","js/ui/login.js","js/ui/main.js","js/ui/modal.js","js/ui/pay.js","js/ui/print.js","js/ui/promo-ui.js","js/ui/settings-ui.js","js/ui/summary.js","js/ui/tablock.js","js/vendor/qrcode.js","js/version.js","manifest.webmanifest"];
 const CACHE = 'geek-pos-' + VERSION;
 

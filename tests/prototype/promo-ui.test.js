@@ -62,7 +62,7 @@ const total = () => $('#total').textContent;
   click('#promoOpen'); click('#promoNone'); eq('remove promo', [ev('promo'), total()], [null, '฿204']);
   // ---- ชำระเงินพร้อมโปร ----
   order('banana'); click('#promoOpen'); click(opt('b1g1')); click('#promoOk');
-  click('#btnPay'); eq('pay modal shows net + promo note', [$('#modal h3').textContent, $('#modal').textContent.includes('หักโปร 1 แถม 1 -฿149')], ['ชำระเงิน · ฿204', true]);
+  click('#btnPay'); eq('pay modal shows net + promo note', [$('#modal h3').textContent, $('#modal .ppamt').textContent, $('#modal').textContent.includes('หักโปร 1 แถม 1 -฿149')], ['ชำระเงิน', '฿204', true]);
   click('[data-dine="dinein"]'); click('[data-method="cash"]'); click('[data-q="500"]'); click('#payOk'); await wait(100);
   const s = JSON.parse(w.localStorage.getItem('geek_popup_sales_v2')).slice(-1)[0];
   eq('sale stores promo + net total', [s.total, s.change, s.promo], [204, 296, {id:'b1g1', name:'1 แถม 1', discount:149, detail:'Banana Choco ฟรี 1 แก้ว'}]);

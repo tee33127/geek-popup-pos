@@ -816,19 +816,28 @@ const server = http.createServer((q, r) => {
     await page.click(await page.isVisible('#btnPay') ? '#btnPay' : '#btnPay2'); if(await page.$('#pendDrop')) await page.click('#pendDrop');
     await pick('dine', '[data-dine="takeaway"]'); await pick('method', '[data-method="cash"]');
     A.pay = await audit();
-    /* UI32 หน้าต่างชำระเงินทุกวิธีจบในจอ ไม่ต้องเลื่อน (Tee 2026-10-18) · PromptPay QR ≥ 200px · เงินสดมีเงินทอนแล้ว */
+    /* UI32 หน้าต่างชำระเงินทุกวิธีจบในจอ ไม่ต้องเลื่อน (Tee 2026-10-18) · PromptPay QR ≥ 200px · เงินสดมีเงินทอนแล้ว
+       ยอดชำระจุดเดียวต่อหน้าต่าง (หัวไม่มียอด · ปุ่มยืนยันท้ายหน้าต่างไม่นับ) อยู่ตำแหน่งบนจอเดียวกัน ขนาดเท่ากันทุกวิธี (สลับไปมาไม่ขยับ) */
     const payFit = () => page.evaluate(() => { const m = document.querySelector('#modal .mbody'), q = document.querySelector('#modal svg.qr'), ok = document.getElementById('payOk').getBoundingClientRect();
-      return {fit: m.scrollHeight <= m.clientHeight + 1 && ok.bottom <= (window.visualViewport ? visualViewport.height : innerHeight) + 1, qr: q ? Math.round(q.getBoundingClientRect().width) : null}; });
+      const amt = document.querySelector('#modal .ppamt'), t = amt.textContent, R = x => Math.round(x * 2) / 2, b = amt.getBoundingClientRect(), st = getComputedStyle(amt);
+      const shown = (document.getElementById('mdTitle').textContent + '|' + m.textContent).split(t).length - 1;
+      return {fit: m.scrollHeight <= m.clientHeight + 1 && ok.bottom <= (window.visualViewport ? visualViewport.height : innerHeight) + 1, qr: q ? Math.round(q.getBoundingClientRect().width) : null,
+        amt: {n: document.querySelectorAll('#modal .payamt').length, shown, title: document.getElementById('mdTitle').textContent, at: [R(b.left), R(b.top), R(b.width), R(b.height), st.fontSize, st.color]}}; });
     const PF = {};
-    await page.click('[data-q="1000"]'); PF.cash = await payFit(); A.payCash = await audit();
+    await page.evaluate(() => { pay.method = null; pay.received = 0; renderPay(); }); PF.none = await payFit();   // เลือกกินเลย/กลับบ้านแล้ว ยังไม่เลือกวิธี → ยอดอยู่ที่เดียวกัน
+    await page.click('[data-method="cash"]'); await page.click('[data-q="1000"]'); PF.cash = await payFit(); A.payCash = await audit();
     await page.evaluate(() => { saveSettings({...SETTINGS, promptpay:'0812345678'}); renderPay(); });   // เลขสมมติ ไม่ใช่เลขจริง
     await page.click('[data-method="promptpay"]'); PF.promptpay = await payFit(); A.payPP = await audit();
     await page.screenshot({path:path.join(SHOTS, `${label}-32-pay-promptpay.png`)});
     await page.click('[data-method="tcp"]'); PF.tcp = await payFit();
-    await page.click('[data-method="cash"]'); await page.click('[data-q="1000"]');
+    await page.click('[data-method="cash"]'); await page.click('[data-q="1000"]'); PF.cash2 = await payFit();
+    await page.screenshot({path:path.join(SHOTS, `${label}-32-pay-cash.png`)});
     eq(`UI32 ${label}: หน้าต่างชำระเงินทุกวิธี (เงินสด PromptPay ไทยช่วยไทย) ไม่ต้องเลื่อน ปุ่มยืนยันอยู่ในจอ · QR ≥ 200px`,
-      [PF.cash.fit, PF.promptpay.fit, PF.promptpay.qr >= 200, PF.tcp.fit], [true, true, true, true]);
-    console.log(`INFO UI32 ${label}: ${JSON.stringify(PF)}`); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
+      [PF.cash.fit, PF.promptpay.fit, PF.promptpay.qr >= 200, PF.tcp.fit, PF.cash2.fit], [true, true, true, true, true]);
+    const PM = ['none', 'cash', 'promptpay', 'tcp', 'cash2'];
+    eq(`UI32 ${label}: ยอดชำระมีจุดเดียวต่อหน้าต่าง ทุกวิธี (หัวหน้าต่าง = "ชำระเงิน" ไม่มียอด)`, PM.map(k => [PF[k].amt.n, PF[k].amt.shown, PF[k].amt.title]), PM.map(() => [1, 1, 'ชำระเงิน']));
+    eq(`UI32 ${label}: ยอดชำระตำแหน่ง ขนาด สไตล์เดียวกันทุกวิธี (สลับ เงินสด → PromptPay → ไทยช่วยไทย → เงินสด ไม่ขยับ)`, PM.map(k => JSON.stringify(PF[k].amt.at)), PM.map(() => JSON.stringify(PF.cash.amt.at)));
+    console.log(`INFO UI32 ${label}: ${JSON.stringify(Object.fromEntries(PM.map(k => [k, {fit:PF[k].fit, qr:PF[k].qr, at:PF[k].amt.at.slice(0, 4)}])))}`); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
     await page.click('#btnSettings'); A.settings = await audit(); await pick('receipt', '[data-rcpt="ask"]');
     await page.click('#stockOpen'); A.stock = await audit(); await page.click('#closeX');
     await page.click('#btnSummary'); A.summary = await audit(); await pick('tab', '[data-tab="pay"]'); await pick('range', '[data-range="7d"]');

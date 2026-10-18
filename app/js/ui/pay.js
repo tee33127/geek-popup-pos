@@ -16,7 +16,9 @@ function askPendingCup(){
 }
 /* หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ · แนวตั้งเรียงซ้อน (ซ้ายบน ขวาล่าง)
    ซ้าย = กินเลย/กลับบ้าน → วิธีชำระ → (เงินสด) ช่องรับเงินมา + × ล้างในช่อง → ปุ่มเงินด่วน → เงินทอนตัวใหญ่
-   ขวา = เงินสด: แป้น 4×3 · PromptPay: ยอดตัวใหญ่ → QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ยอด + ข้อความ
+   ขวา = ยอดตัวใหญ่ (จุดเดียวในหน้าต่าง · ทุกวิธีที่เดียวกัน ไม่ขยับตอนสลับ · Tee 2026-10-18) แล้วตามด้วย
+         เงินสด: แป้น 4×3 · PromptPay: QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ข้อความ
+   หัวหน้าต่าง "ชำระเงิน" ไม่มียอด
    ล่างติดหน้าต่าง: [ยกเลิก] [ยืนยันรับเงิน ฿x / สิ่งที่ยังขาด] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม */
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
@@ -30,8 +32,8 @@ function renderPay(){
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
     <div class="row">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
   let R = '', cls = '';
-  const amt = sub => `<div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${sub ? `<p class="note2 payhint">${sub}</p>` : ''}`;
-  if(!pay.method) R = amt(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
+  const hint = sub => `<p class="note2 payhint">${sub}</p>`;
+  if(!pay.method) R = hint(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
   else if(pay.method === 'cash'){
     cls = 'cash';
     L += `<label class="recvrow"><span>รับเงินมา</span><span class="mfield">${moneyField('recv', pay.received || '', true)}${pay.received ? `<button type="button" class="mx mfx" data-mk="clear" aria-label="ล้างช่องรับเงิน">${icon('x', 22)}</button>` : ''}</span></label>
@@ -40,16 +42,16 @@ function renderPay(){
     R = moneyPadHtml(false);
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
     cls = 'qr';
-    R = `<div class="ppqr"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
-      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
+    R = `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
+      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอดนี้โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
     R = (pay.method === 'promptpay' ? `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>` : '') +
-      amt(`ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
+      hint(`ตรวจสอบว่ายอดนี้ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
   }
-  const h = `<div class="paygrid ${cls}"><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
+  const h = `<div class="paygrid ${cls}"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
   const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? `ยืนยันรับเงิน ${baht(total)}` : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
+  openModal(h, {title:'ชำระเงิน', key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
   fitPayQr();
   const r = $('recv');
   if(r){

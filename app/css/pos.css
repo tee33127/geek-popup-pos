@@ -564,9 +564,14 @@ main > .card:first-child{padding-top:var(--s2)}
 #builder .tcat .gt{margin:0}
 #builder .sep{margin-top:var(--s2)}
 /* ---------- หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ ----------
-   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = แป้น (เงินสด) / ยอด + QR (PromptPay) / ยอด + ข้อความ · แนวตั้ง = ซ้อนกัน */
+   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = ยอด (ทุกวิธี) + แป้น (เงินสด) / QR (PromptPay) / ข้อความ · แนวตั้ง = ซ้อนกัน ยอดบนสุด */
 .box.paybox{max-width:min(980px, 100%)}
-.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);gap:var(--s5);align-items:start}
+.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);grid-template-areas:"l amt" "l r";grid-template-rows:auto 1fr;gap:var(--s3) var(--s5);align-items:start}
+/* ยอดจุดเดียว ทุกวิธีที่เดียวกัน (Tee 2026-10-18): ช่องของตัวเองบนสุดคอลัมน์ขวา (แนวตั้ง = บนสุดของหน้าต่าง) · หน้าต่างชิดบน ไม่จัดกลาง ความสูงที่ต่างกันแต่ละวิธีจึงไม่ดันยอดขยับ */
+.paygrid > .payamt{grid-area:amt}
+.paygrid > .payl{grid-area:l}
+.paygrid > .payr{grid-area:r}
+.box.paybox{align-self:flex-start}
 .payl .row{margin:0 0 var(--s3)}
 .payl .opt[data-method]{min-width:0}
 .payr{display:flex;flex-direction:column;align-items:stretch;gap:var(--s3);min-width:0}
@@ -575,7 +580,6 @@ main > .card:first-child{padding-top:var(--s2)}
 .payamt .ppamt{margin:0;font-size:max(12px, calc(36px * var(--ui-scale)));line-height:1.3}
 .payhint{margin:0;text-align:center}
 .paybox .ppqr{margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
-.paybox .ppqr .payamt{align-self:stretch}
 .paybox .ppqr .qr{width:auto;max-width:100%;height:auto}
 .paybox .ppwarn{margin:0}
 /* เงินสด: ช่องรับเงิน + × ในช่อง · เงินด่วนตัดแถวได้ · เงินทอนตัวใหญ่ */
@@ -589,7 +593,7 @@ main > .card:first-child{padding-top:var(--s2)}
 .paybox .mpad{grid-template-columns:repeat(3, 1fr);gap:var(--s2)}
 .paybox .mpad button{height:max(44px, calc(60px * var(--ui-scale)));font-size:max(12px, calc(24px * var(--ui-scale)))}
 @media(max-width:900px){
-  .paygrid{grid-template-columns:1fr;gap:var(--s4)}
+  .paygrid{grid-template-columns:1fr;grid-template-areas:"amt" "l" "r";grid-template-rows:none;gap:var(--s4)}
   .paygrid.cash .payr{width:min(100%, 420px);margin:0 auto}
 }
 /* หน้าต่างยืนยัน (askConfirm / askOwner): ปุ่มคู่กว้างเท่ากันคนละครึ่ง · ซ้าย = กลับ/ยกเลิก (รอง) · ขวา = หลัก หรือแดงทึบ (Tee 2026-10-18) */

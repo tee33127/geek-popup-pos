@@ -583,9 +583,14 @@ main > .card:first-child{padding-top:var(--s2)}
 #builder .tcat .gt{margin:0}
 #builder .sep{margin-top:var(--s2)}
 /* ---------- หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ ----------
-   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = แป้น (เงินสด) / ยอด + QR (PromptPay) / ยอด + ข้อความ · แนวตั้ง = ซ้อนกัน */
+   ซ้าย = ตัวเลือก + ช่องรับเงิน + เงินด่วน + เงินทอน · ขวา = ยอด (ทุกวิธี) + แป้น (เงินสด) / QR (PromptPay) / ข้อความ · แนวตั้ง = ซ้อนกัน ยอดบนสุด */
 .box.paybox{max-width:min(980px, 100%)}
-.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);gap:var(--s5);align-items:start}
+.paygrid{display:grid;grid-template-columns:minmax(0, 1fr) calc(300px * var(--ui-scale) + 24px);grid-template-areas:"l amt" "l r";grid-template-rows:auto 1fr;gap:var(--s3) var(--s5);align-items:start}
+/* ยอดจุดเดียว ทุกวิธีที่เดียวกัน (Tee 2026-10-18): ช่องของตัวเองบนสุดคอลัมน์ขวา (แนวตั้ง = บนสุดของหน้าต่าง) · หน้าต่างชิดบน ไม่จัดกลาง ความสูงที่ต่างกันแต่ละวิธีจึงไม่ดันยอดขยับ */
+.paygrid > .payamt{grid-area:amt}
+.paygrid > .payl{grid-area:l}
+.paygrid > .payr{grid-area:r}
+.box.paybox{align-self:flex-start}
 .payl .row{margin:0 0 var(--s3)}
 .payl .opt[data-method]{min-width:0}
 .payr{display:flex;flex-direction:column;align-items:stretch;gap:var(--s3);min-width:0}
@@ -594,7 +599,6 @@ main > .card:first-child{padding-top:var(--s2)}
 .payamt .ppamt{margin:0;font-size:max(12px, calc(36px * var(--ui-scale)));line-height:1.3}
 .payhint{margin:0;text-align:center}
 .paybox .ppqr{margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
-.paybox .ppqr .payamt{align-self:stretch}
 .paybox .ppqr .qr{width:auto;max-width:100%;height:auto}
 .paybox .ppwarn{margin:0}
 /* เงินสด: ช่องรับเงิน + × ในช่อง · เงินด่วนตัดแถวได้ · เงินทอนตัวใหญ่ */
@@ -608,7 +612,7 @@ main > .card:first-child{padding-top:var(--s2)}
 .paybox .mpad{grid-template-columns:repeat(3, 1fr);gap:var(--s2)}
 .paybox .mpad button{height:max(44px, calc(60px * var(--ui-scale)));font-size:max(12px, calc(24px * var(--ui-scale)))}
 @media(max-width:900px){
-  .paygrid{grid-template-columns:1fr;gap:var(--s4)}
+  .paygrid{grid-template-columns:1fr;grid-template-areas:"amt" "l" "r";grid-template-rows:none;gap:var(--s4)}
   .paygrid.cash .payr{width:min(100%, 420px);margin:0 auto}
 }
 /* หน้าต่างยืนยัน (askConfirm / askOwner): ปุ่มคู่กว้างเท่ากันคนละครึ่ง · ซ้าย = กลับ/ยกเลิก (รอง) · ขวา = หลัก หรือแดงทึบ (Tee 2026-10-18) */
@@ -659,7 +663,7 @@ main > .card:first-child{padding-top:var(--s2)}
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'584e33846268', built:'2026-10-17T18:25:45.349Z'};
+const APP_VERSION = {v:'f54388058f0f', built:'2026-10-18T14:01:22.252Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -5384,7 +5388,9 @@ function askPendingCup(){
 }
 /* หน้าต่างชำระเงิน (Tee 2026-10-18 เครื่องจริง): 2 คอลัมน์ ไม่ต้องเลื่อนทุกจอ · แนวตั้งเรียงซ้อน (ซ้ายบน ขวาล่าง)
    ซ้าย = กินเลย/กลับบ้าน → วิธีชำระ → (เงินสด) ช่องรับเงินมา + × ล้างในช่อง → ปุ่มเงินด่วน → เงินทอนตัวใหญ่
-   ขวา = เงินสด: แป้น 4×3 · PromptPay: ยอดตัวใหญ่ → QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ยอด + ข้อความ
+   ขวา = ยอดตัวใหญ่ (จุดเดียวในหน้าต่าง · ทุกวิธีที่เดียวกัน ไม่ขยับตอนสลับ · Tee 2026-10-18) แล้วตามด้วย
+         เงินสด: แป้น 4×3 · PromptPay: QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ข้อความ
+   หัวหน้าต่าง "ชำระเงิน" ไม่มียอด
    ล่างติดหน้าต่าง: [ยกเลิก] [ยืนยันรับเงิน ฿x / สิ่งที่ยังขาด] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม */
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
@@ -5398,8 +5404,8 @@ function renderPay(){
     <div class="q2">วิธีชำระเงิน${pay.dining ? '' : ' <small>(เลือกกินเลย / กลับบ้านก่อน)</small>'}</div>
     <div class="row">${CONFIG.methods.map(x => `<button class="opt ${pay.method === x.id ? 'on':''}" data-method="${x.id}" ${pay.dining ? '' : 'disabled'}>${x.logo ? `<img class="mlogo" src="${x.logo}" alt="">` : `<span class="mlogo">${icon(x.icon, 36)}</span>`}<span>${esc(x.name)}</span></button>`).join('')}</div>`;
   let R = '', cls = '';
-  const amt = sub => `<div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${sub ? `<p class="note2 payhint">${sub}</p>` : ''}`;
-  if(!pay.method) R = amt(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
+  const hint = sub => `<p class="note2 payhint">${sub}</p>`;
+  if(!pay.method) R = hint(pay.dining ? 'เลือกวิธีชำระเงินทางซ้าย' : 'เลือกกินเลย / กลับบ้าน แล้วเลือกวิธีชำระเงิน');
   else if(pay.method === 'cash'){
     cls = 'cash';
     L += `<label class="recvrow"><span>รับเงินมา</span><span class="mfield">${moneyField('recv', pay.received || '', true)}${pay.received ? `<button type="button" class="mx mfx" data-mk="clear" aria-label="ล้างช่องรับเงิน">${icon('x', 22)}</button>` : ''}</span></label>
@@ -5408,16 +5414,16 @@ function renderPay(){
     R = moneyPadHtml(false);
   } else if(pay.method === 'promptpay' && SETTINGS.promptpay && !PP.problem(SETTINGS.promptpay)){
     cls = 'qr';
-    R = `<div class="ppqr"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div>${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
-      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอด ${baht(total)} โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
+    R = `<div class="ppqr">${qrSvg(PP.payload(SETTINGS.promptpay, total), 200)}
+      <p class="note2 payhint">ให้ลูกค้าสแกน แล้ว<b>ดูสลิปว่ายอดนี้โอนสำเร็จ</b> จึงกดยืนยัน</p></div>`;
   } else {
     R = (pay.method === 'promptpay' ? `<div class="ppwarn">${icon('alert', 18)} ยังไม่ได้ตั้งเลข PromptPay จึงแสดง QR ไม่ได้ · เจ้าของร้านตั้งได้ที่ ตั้งค่า</div>` : '') +
-      amt(`ตรวจสอบว่ายอด <b>${baht(total)}</b> ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
+      hint(`ตรวจสอบว่ายอดนี้ผ่านเรียบร้อย (${esc(METHOD[pay.method].name)}) แล้วจึงกดยืนยัน`);
   }
-  const h = `<div class="paygrid ${cls}"><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
+  const h = `<div class="paygrid ${cls}"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
   const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
     <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? `ยืนยันรับเงิน ${baht(total)}` : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
-  openModal(h, {title:`ชำระเงิน · ${baht(total)}`, key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
+  openModal(h, {title:'ชำระเงิน', key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
   fitPayQr();
   const r = $('recv');
   if(r){
