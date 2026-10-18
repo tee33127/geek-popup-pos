@@ -131,6 +131,14 @@ eq('B8 dine-in = single thick frame · take-away = double frame + lead text', [[
 const frames = c => c.rects.filter(r => r.color === '#000' && r.w >= 540 && (r.h === 4 || r.h === 2)).length;   // กรอบป้าย (เส้นคั่นหนา 3 · กรอบหมายเหตุ 5)
 eq('B8 take-away draws twice the frame lines of dine-in', [frames(kc), frames(render(`kitchenBlocks({...sale, dining:'takeaway'})`))], [2, 4]);
 
+eq('B8 take-away lead text = "ใส่ถุง" (เจ้าของร้านยืนยัน 2026-10-19)', tk.lead, 'ใส่ถุง');
+
+// ---------- B12 หัวใบเสร็จ + ไม่มี VAT (เจ้าของร้าน 2026-10-19) ----------
+eq('B12 receipt header = shop name / Pop-up Store', rLines.slice(0, 2), ['Geek Yogurt & Smoothie Bar', 'Pop-up Store']);
+const takeR = ev(`slipLines(receiptBlocks({...sale, dining:'takeaway'}))`), takeK = ev(`slipLines(kitchenBlocks({...sale, dining:'takeaway'}))`);
+eq('B12 no VAT / tax line on any slip', [rLines, kLines, takeR, takeK].map(ls => ls.filter(l => /VAT|ภาษี/i.test(l)).length), [0, 0, 0, 0]);
+eq('B12 HTML (window.print) slips have no VAT either', /VAT|ภาษี/i.test(ev(`slipHtml(receiptBlocks(sale)) + slipHtml(kitchenBlocks(sale))`)), false);
+
 // ---------- B9 คงเดิม ----------
 eq('B9 order number still big, changed/removed lines bold', [kb[0].size >= 100, kb.filter(b => b.tag && /เปลี่ยนจาก|ไม่รับ|เพิ่ม/.test(b.text)).every(b => b.bold)], [true, true]);
 

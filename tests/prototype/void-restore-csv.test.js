@@ -14,7 +14,10 @@ let fails = 0; const eq = (n, g, e) => { const ok = JSON.stringify(g) === JSON.s
 const stat = () => $$('.stat b').map(e => e.textContent);
 (async () => {
   // สร้าง 2 บิล
-  for(const m of ['acai','banana']){ F.menu(w, m); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); click('#payOk'); await ready(); click('#nextOrder'); }
+  const screens = [];   // ข้อความบนจอตอนชำระเงิน + หน้าสำเร็จ ไว้เช็กว่าไม่มี VAT
+  for(const m of ['acai','banana']){ F.menu(w, m); F.finish(w); click('#btnPay'); click('[data-dine="dinein"]'); click('[data-method="promptpay"]'); screens.push($('#modal').textContent + $('#cart').textContent); click('#payOk'); await ready(); screens.push($('#modal').textContent + $('#cart').textContent); click('#nextOrder'); }
+  /* ร้านไม่จด VAT (เจ้าของร้าน 2026-10-19): ไม่มีบรรทัด VAT / ภาษี บนจอ */
+  eq('no VAT line on pay / done screens', screens.filter(t => /VAT|ภาษี/i.test(t)).length, 0);
   click('#btnSummary');
   eq('start KPI', stat().slice(0,2), ['฿338','2']);
   click('[data-tab="bills"]');
@@ -39,6 +42,7 @@ const stat = () => $$('.stat b').map(e => e.textContent);
   const href0 = w.location.href;
   click('#csvTab'); eq('csv modal opens (no immediate nav)', [$('#csvDl') !== null, blobs], [true, 0]);
   eq('csv text shown with history column', $('#csvText').value.split('\r\n')[0].includes('ประวัติ') && $('#csvText').value.includes('นำกลับ'), true);
+  eq('csv has no VAT column / line', /VAT|ภาษี/i.test($('#csvText').value), false);
   let clicked = null; const orig = w.HTMLAnchorElement.prototype.click; w.HTMLAnchorElement.prototype.click = function(){ clicked = {download:this.download, target:this.target, inDom:d.body.contains(this)}; };
   click('#csvDl'); eq('download anchor safe', clicked && [clicked.download.endsWith('.csv'), clicked.target, clicked.inDom], [true, '_blank', true]);
   w.HTMLAnchorElement.prototype.click = orig;
