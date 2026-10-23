@@ -278,6 +278,7 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 #login.show{display:flex}
 /* พิมพ์ไม่สำเร็จ (print.js) · แถบบนสุดของหน้าจนกดพิมพ์ซ้ำ · อยู่ในลำดับปกติ ไม่ลอยทับปุ่มบนแถบหัว */
 #printFail{position:relative;z-index:5;background:#fff3e0;color:#7a3e00;border-bottom:var(--bw) solid var(--orange);display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);padding:var(--s2) var(--s3);font-weight:700;line-height:1.4}
+#printFail[hidden]{display:none}   /* หน้าสำเร็จเปิดอยู่: เตือนในหน้าต่างที่เดียว */
 #printFail>span{flex:1 1 320px}
 #printFail small{display:block;font-weight:400;color:#7a3e00}
 #printFail .pfbtn{padding:0 var(--s4)}

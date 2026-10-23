@@ -69,6 +69,9 @@ JSDOM.fromFile(path.join(ROOT, 'printer-test/index.html'), {runScripts:'dangerou
     eq('drawer bytes', sent[0].data, [0x1B, 0x70, 0, 25, 250]);
     sent = []; $('#optPin').value = '1'; $('[data-test="drawer"]').click(); await wait(50);
     eq('drawer pin 5 option', sent[0].data[2], 1);
+    sent = []; $('#optT2').value = '100'; $('[data-test="drawer"]').click(); await wait(50);
+    eq('drawer rest time option (t2): ESC p 1 25 100 = rest 200 ms · app value unchanged (250)', [sent[0].data, w.eval('PRINTER.drawerT2')], [[0x1B, 0x70, 1, 25, 100], 250]);
+    $('#optT2').value = '250'; $('#optPin').value = '0';
     $('#optChunk').value = '256'; sent = []; $('[data-test="text"]').click(); await wait(50);
     eq('chunk size respected', sent.every(s => s.data.length <= 256), true);
     // ถอดสาย แล้วเสียบใหม่ → เชื่อมเองโดยไม่ต้องเลือก

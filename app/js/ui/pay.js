@@ -19,7 +19,18 @@ function askPendingCup(){
    ขวา = ยอดตัวใหญ่ (จุดเดียวในหน้าต่าง · ทุกวิธีที่เดียวกัน ไม่ขยับตอนสลับ · Tee 2026-10-18) แล้วตามด้วย
          เงินสด: แป้น 4×3 · PromptPay: QR (ขนาดตามที่เหลือ ≥ 200px) → ข้อความสั้น · อื่นๆ: ข้อความ
    หัวหน้าต่าง "ชำระเงิน" ไม่มียอด
-   ล่างติดหน้าต่าง: [ยกเลิก] [ยืนยันรับเงิน ฿x / สิ่งที่ยังขาด] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม */
+   ล่างติดหน้าต่าง: [ยกเลิก] [ปุ่มยืนยัน] · แสดงผลอย่างเดียว การคิดเงินเหมือนเดิม
+   ปุ่มยืนยัน (Tee 2026-10-23 · เครื่องจริง: รับ 1000 ยอด 144 ปุ่ม "ยืนยันรับเงิน ฿144" พนักงานงงว่ารับเท่าไร):
+     เงินสด = บอกเงินทอน "ยืนยัน · ทอน ฿x" / "ยืนยัน · ไม่ต้องทอน" · ยังไม่ครบ = เทา "ขาดอีก ฿x" · ยังไม่กรอก = เทา "กรอกเงินที่รับมา"
+     PromptPay / ไทยช่วยไทย = "ยืนยันรับเงิน ฿x" (เช็กยอดซ้ำตอนกด) */
+function payOkLabel(total){
+  if(!pay.dining) return 'เลือกกินเลย / กลับบ้านก่อน';
+  if(!pay.method) return 'เลือกวิธีชำระเงินก่อน';
+  if(pay.method !== 'cash') return `ยืนยันรับเงิน ${baht(total)}`;
+  if(!pay.received) return 'กรอกเงินที่รับมา';
+  const change = pay.received - total;
+  return change < 0 ? `ขาดอีก ${baht(-change)}` : change ? `ยืนยัน · ทอน ${baht(change)}` : 'ยืนยัน · ไม่ต้องทอน';
+}
 function renderPay(){
   const total = cartTotal(), change = pay.received - total;
   const cashOk = pay.method !== 'cash' || pay.received >= total;
@@ -50,7 +61,7 @@ function renderPay(){
   }
   const h = `<div class="paygrid ${cls}"><div class="payamt"><small>ยอดที่ต้องรับ</small><b class="ppamt">${baht(total)}</b></div><div class="payl">${L}</div><div class="payr">${R}</div></div>`;
   const foot = `<div class="row payrow"><button class="ghost" id="payCancel">ยกเลิก</button>
-    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${ok ? `ยืนยันรับเงิน ${baht(total)}` : !pay.dining ? 'เลือกกินเลย / กลับบ้านก่อน' : !pay.method ? 'เลือกวิธีชำระเงินก่อน' : 'รับเงินยังไม่ครบ'}</button></div>`;
+    <button class="pay" id="payOk" ${ok ? '' : 'disabled'}>${payOkLabel(total)}</button></div>`;
   openModal(h, {title:'ชำระเงิน', key:'pay', foot, cls:'paybox'});   // X = ยกเลิก
   fitPayQr();
   const r = $('recv');

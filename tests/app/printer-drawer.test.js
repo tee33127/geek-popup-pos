@@ -3,6 +3,8 @@
 //   - บัฟเฟอร์เล็ก (จำลอง 40 KB): ตั๋วยาวสองใบ 172,830 byte ส่งครบใน ~3.5 วิ (เฉลี่ย ~50 KB/วิ) = เต็มแล้วรับได้เท่าที่พิมพ์ออก · ห้ามนับเป็นสะดุด
 //   - ASB ค่าจริง: ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F / 3C 00 0C 0F · กระดาษหมด (ฝาปิด) 1C 00 0C 0F · GS r 1 ตอบ 0x00 เมื่อพิมพ์ + ตัดจบ
 //   - ESC p 0 25 250 (ขา 2) ลิ้นชักเปิด · ปริ้นเตอร์จำลองบันทึกว่าเปิดตอนตัดไปแล้วกี่ใบ (ต้องก่อนตั๋วครัวของบิลนั้น)
+//   - ระหว่างดีดลิ้นชัก (ดีด 50 + พัก 500 ms) เครื่องออฟไลน์: ASB 1C 00 00 0F แล้ว 14 00 00 0F (เครื่องจริง 2026-10-23 · บั๊ก: ตั๋วครัวกลายเป็นใบแทนทุกบิลเงินสด)
+//     ปริ้นเตอร์จำลองหัวพิมพ์หยุดช่วงนี้ด้วย
 // เทสต์: ขายปกติ 10 บิลไม่มีใบแทน + ทุกกรณีลิ้นชัก (เงินสดเท่านั้น · ไม่เปิดซ้ำตอนพิมพ์ซ้ำ/ใบแทน/พิมพ์ต่อ · ไม่ได้เชื่อม · ฝาเปิด · ปุ่มบนแถบหัว + log · เปิด/ปิดร้าน · ตั้งค่า)
 // เวลาเดินด้วยนาฬิกาจำลอง (tests/vclock.js) ค่าเวลาในแอปเป็นค่าจริงทั้งหมด (ไม่ย่อ)
 const {JSDOM, ResourceLoader} = require('jsdom'), fs = require('fs'), path = require('path');
@@ -18,12 +20,13 @@ const errors = [];
 let emu, buf, pipe, accepting, streamTotal, maxStall, fulls, trigger, sendLog;
 const reset0 = () => {
   emu = new EscPosEmu(); emu.asbCapable = true; emu.initClearsAsb = true; emu.asbMode = 0x0E;   // เชื่อมอยู่แล้ว ASB เปิดค้าง
+  emu.drawerOffline = true; emu.timer = (f, ms) => setTimeout(f, ms);   // ES-8805U: ออฟไลน์ระหว่างพัลส์ลิ้นชัก
   if(pipe) pipe.forEach(p => p.no(new Error('reset')));
   buf = []; pipe = []; accepting = true; streamTotal = 0; maxStall = 0; fulls = 0; trigger = null; sendLog = [];
 };
 reset0(); emu.asbMode = 0;
 setInterval(() => {
-  if(!emu.cover && emu.paper && buf.length){ const out = buf.splice(0, Math.min(SIM.print, buf.length)); emu.feedParser(out); if(trigger && trigger.at <= emu.pages.length && emu.page.rows.length >= trigger.rows){ const t = trigger; trigger = null; t.fire(); } }
+  if(!emu.cover && emu.paper && !emu.pulsing && buf.length){ const out = buf.splice(0, Math.min(SIM.print, buf.length)); emu.feedParser(out); if(trigger && trigger.at <= emu.pages.length && emu.page.rows.length >= trigger.rows){ const t = trigger; trigger = null; t.fire(); } }
   if(accepting && SIM.cap - buf.length < 512){ accepting = false; fulls++; }
   if(!accepting && buf.length <= SIM.low) accepting = true;
   let room = accepting ? Math.min(SIM.usb, SIM.cap - buf.length) : 0;
@@ -88,7 +91,10 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const until = (fn, ms = 8000) => clock.until(fn, ms, 20);
   const busy = () => w.eval('[...PRINTED.values()].some(s => s.kitchen === "wait" || s.receipt === "wait")');
   const idle = () => !busy() && !buf.length && !pipe.length;
-  const settle = async () => { await until(() => idle() && w.eval('UNCONF.length') === 0, 30000); await wait(50); };
+  /* คิวพิมพ์ว่างจริง (งานลิ้นชักรอเครื่องพร้อมอยู่ในคิว) · เหมือน printer-usb.test.js */
+  let lastQ = null, qDone = true;
+  const queueIdle = () => { const q = w.eval('printQueue'); if(q !== lastQ){ lastQ = q; qDone = false; q.then(() => { if(lastQ === q) qDone = true; }); } return qDone; };
+  const settle = async () => { await until(() => queueIdle() && idle() && w.eval('UNCONF.length') === 0, 30000); await wait(50); };
   const sell = (method = 'cash') => { clock.bump(); return w.eval(`(() => {
     if(document.getElementById('nextOrder')) document.getElementById('nextOrder').click(); else closeModal();
     cart = ${JSON.stringify(ITEMS)}; promo = null; pay = {dining:'dinein', method:'${method}', received:${method === 'cash' ? 1000 : 0}};
@@ -101,8 +107,13 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
   const drawerLog = () => w.eval('JSON.stringify(cashLog().filter(c => c.type === "drawer").map(c => [c.reason, c.ok, c.by, c.why || null]))');
   const drText = () => (($('#drStatus') || {}).textContent || '').trim();
 
+  /* นับคำเตือนที่พนักงานเห็น: ข้อความลอยเรื่องปริ้นเตอร์ (failToast) + บิลเข้าแถบส้ม (addFail) */
+  let warnN = 0, barN = 0;
   w.addEventListener('load', async () => {
     A.signIn(w);
+    const ft = w.failToast, af = w.addFail;
+    w.failToast = why => { if(!w.eval("typeof doneOpen === 'function' && doneOpen()")) warnN++; return ft(why); };   // หน้าสำเร็จเปิดอยู่ แอปไม่แสดงข้อความลอย (นับเฉพาะที่แสดงจริง)
+    w.addFail = s => { barN++; return af(s); };
     await until(() => w.eval('!!usbPrinter.asbSeen'), 3000); await settle();
     eq('connect (ES-8805U · board 0483:5743): ASB on by itself, printer ready · header shows "เปิดลิ้นชัก" (drawer on by default)',
       [$('#btnPrinter').textContent.trim(), emu.asbMode, w.eval('asbLive()'), $('#btnDrawer').style.display, $('#btnDrawer').textContent.trim(), w.eval('drawerOn()'), w.eval('drawerPin()')],
@@ -123,6 +134,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     // ---------- ขายเงินสด 10 บิลติดกัน: ลิ้นชักเปิดก่อนตั๋วครัวทุกบิล · ไม่มีใบแทน ----------
     {
       reset0(); w.eval('PLOG.length = 0; usbPrinter.ackMode = "unknown"; usbPrinter.ackMiss = 0'); const ack0 = w.eval('usbPrinter.ackSent');
+      warnN = 0; barN = 0;
       const ids = [], t0 = clock.now;
       for(let i = 0; i < 10; i++){ ids.push(sell()); await wait(250); }   // ขายเร็ว: บิลใหม่ก่อนบิลก่อนพิมพ์จบ (บัฟเฟอร์เต็ม รับช้าเป็นช่วงๆ)
       await until(() => idle() && w.eval('UNCONF.length') === 0 && emu.pages.filter(p => readText(p).length).length >= 20, 90000); await wait(300);
@@ -130,11 +142,43 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
       console.log(`INFO 10 บิล ES-8805U จำลอง: ส่ง ${streamTotal} byte · เฉลี่ย ${Math.round(streamTotal / secs / 1000)} KB/วิ ทั้งช่วง · บัฟเฟอร์เต็ม ${fulls} ครั้ง · ก้อนค้างนานสุด ${maxStall} ms`);
       eq('10 cash bills in a row on a small-buffer printer (~50 KB/s): USB chunks wait longer than PRINT_WATCH.stall, yet with ASB that is NOT a stumble · every slip once, kitchen then receipt · no replacement · no orange bar · no stall/stumble in the log',
         [maxStall > w.eval('PRINT_WATCH.stall'), paperOf(ids), /ใบแทน|stumble|stall|slow|asb →/.test(log), !!$('#printFail'), w.eval(`[${ids}].filter(id => (PRINTED.get(id) || {}).redo).length`)], [true, 'kr'.repeat(10), false, false, 0]);
+      eq('ES-8805U drawer pulse (ASB 1C 00 00 0F for ~0.5 s each bill) is expected: no warning toast, no orange bar entry, no recover / no paper fragment, no replacement · one kitchen + one receipt per bill',
+        [/1c 00 00 0f = ออฟไลน์ชั่วคราว/.test(log), warnN, barN, /recover/.test(log), paperOf(ids)], [true, 0, 0, false, 'kr'.repeat(10)]);
+      eq('after each drawer kick the app waits until the printer is ready again (ASB back to 14) before sending the kitchen ticket',
+        [(log.match(/รอเครื่องพร้อม \d+ ms/g) || []).length, /รอเครื่องพร้อม \d+ ms \(ready\)/.test(log), Math.min(...(log.match(/รอเครื่องพร้อม (\d+) ms/g) || ['0']).map(x => Number(x.match(/\d+/)[0]))) >= 500], [10, true, true]);   // บิลหลังๆ ESC p รอในบัฟเฟอร์หลังใบของบิลก่อน = ไม่เห็นออฟไลน์ทันที รอตามเวลาพัลส์
       eq('10 cash bills: drawer opened exactly once per bill (pin 2 = ESC p 0 25 250), each time BEFORE that bill\'s kitchen ticket',
         [pulses().length, emu.drawers.map(x => x.pages), pulses().every(p => JSON.stringify(p) === '[0,25,250]')], [10, ids.map((_, i) => i * 2), true]);
       eq('drawer command is not a slip: GS r only on the 20 slips (all answered) · no drawer entry in PRINTED/UNCONF · sales do not add drawer log rows',
         [w.eval('usbPrinter.ackSent') - ack0, emu.acks, w.eval('UNCONF.length'), w.eval(`[${ids}].every(id => Object.keys(PRINTED.get(id)).sort().join() === 'kitchen,receipt,sent')`), drawerLog()], [20, 20, 0, true, '[]']);
       eq('success screen of a cash bill: drawer opened fine = no drawer warning', [!!$('#drStatus'), drText()], [true, '']);
+    }
+
+    // ---------- ASB ออฟไลน์ล้วน (ไม่มีฝา/กระดาษ/ผิดพลาด): สั้นไม่นับ · ค้าง > 2 วิ = สะดุด ----------
+    const offMid = async ms => {
+      await settle(); reset0(); w.eval('PLOG.length = 0'); warnN = 0;
+      const id = w.eval(`(() => { const s = {...loadSales().slice(-1)[0], id:Date.now() * 100 + 7, method:'promptpay', no:${900 + ms % 97}}; const all = loadSales(); all.push(s); saveSales(all); lastSale = s; openModal(doneHtml(s)); printSale(s, 'both'); return s.id; })()`);
+      trigger = {at:0, rows:300, fire: () => { emu.pulsing = true; emu.sendAsb(); setTimeout(() => { emu.pulsing = false; emu.sendAsb(); }, ms); }};
+      await until(() => emu.pulsing, 10000); await until(() => !emu.pulsing, ms + 500);
+      await until(() => idle() && !$('#printFail') && /r$/.test(paperOf([id]).replace(/f/g, '')), 20000); await settle();
+      return {got:paperOf([id]).replace(/f/g, '').replace(/^k(?=K)/, ''), log:w.eval('PLOG.join(" | ")')};
+    };
+    {
+      const a = await offMid(1200);
+      eq('ASB offline-only for 1.2 s mid kitchen ticket (head paused, no lid/paper/error): not a stumble · no replacement, no warning', [a.got, /stumble|ใบแทน/.test(a.log), warnN], ['kr', false, 0]);
+      const b = await offMid(3000);
+      eq('ASB offline-only for 3 s (> PRINTER.offlineMs 2 s): counts as a stumble → one full replacement kitchen ticket by itself + receipt', [b.got, /stumble → ใบแทน · kitchen|asb → ใบแทน/.test(b.log) || /ASB · 1c 00 00 0f = offline/.test(b.log)], ['Kr', true]);
+    }
+
+    // ---------- เตือนที่เดียว: หน้าสำเร็จเปิดอยู่ = กล่องในหน้าต่าง · ปิดหน้าต่างแล้วยังค้าง = แถบบน ----------
+    {
+      await settle(); reset0(); warnN = 0;
+      emu.setCover(true); await until(() => w.eval('UsbPrinter.asbTrouble(usbPrinter.asb)') === 'cover', 2000);
+      const id = sell('promptpay'); await wait(300);
+      eq('lid open with the success screen up: warning only in the window box · top bar kept but hidden · no floating toast',
+        [$('#prStatus').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่'), !!$('#printFail') && $('#printFail').hidden, warnN], [true, true, 0]);
+      $('#nextOrder').click();
+      eq('close the success screen while slips are still missing: top bar shows', [!!$('#printFail') && !$('#printFail').hidden, $('#printFail') && $('#printFail').textContent.includes('ฝาปริ้นเตอร์เปิดอยู่')], [true, true]);
+      emu.setCover(false); await until(() => idle() && !$('#printFail') && paperOf([id]).includes('r'), 15000); await settle();
     }
 
     // ---------- PromptPay / ไทยช่วยไทย ไม่เปิดลิ้นชัก ----------

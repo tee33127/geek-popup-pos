@@ -91,7 +91,7 @@ function fitViewport(){
 }
 if(window.visualViewport){ visualViewport.addEventListener('resize', fitViewport); visualViewport.addEventListener('scroll', fitViewport); fitViewport(); }
 document.addEventListener('focusin', e => { if(e.target.closest && e.target.closest('#modal')) setTimeout(fitViewport, 300); });   // แป้นพิมพ์ขึ้นหลัง focus นิดหน่อย
-function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML = ''; MD = null; unlockPage(); }
+function closeModal(){ $('modal').classList.remove('show'); $('modal').innerHTML = ''; MD = null; unlockPage(); if(typeof renderFailBar === 'function' && $('printFail')) renderFailBar(); }   // ปิดหน้าสำเร็จแล้วยังมีใบค้าง = แถบบนขึ้น
 /* ปุ่ม X / แตะพื้นหลัง: ใช้ onClose ของหน้าต่างนั้น (ล้างข้อมูลที่ค้าง) ถ้ามี */
 function modalClose(){ const f = MD && MD.onClose; if(f) f(); else closeModal(); }
 $('modal').addEventListener('click', e => { if(e.target === $('modal') && MD && MD.backdrop) modalClose(); });

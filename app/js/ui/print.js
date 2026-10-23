@@ -33,9 +33,11 @@ const FAIL_HINT = {stuck:a => a ? 'ปิดฝา/ใส่กระดาษ�
   offline:a => `ปริ้นเตอร์ไม่พร้อม เช็กฝาและกระดาษ${a ? ' แล้วจะพิมพ์ต่อให้' : ' แล้วกดพิมพ์ซ้ำ'}`};
 const STOP = ['timeout', 'cover', 'paper', 'pause', 'offline'];   // ผลที่แปลว่าปริ้นเตอร์สะดุด (พิมพ์ต่อเองได้เมื่อพร้อม)
 const BLOCKS = ['cover', 'paper', 'offline'];                      // รู้สาเหตุจากสถานะ: บอกครั้งหนึ่งแล้ว พนักงานกดซ้ำ = ส่งเลย
-/* แจ้งเหตุพิมพ์ไม่ออก (ข้อความเดียวกันไม่ขึ้นซ้ำใน 3 วิ: ASB กับงานพิมพ์อาจแจ้งเหตุเดียวกัน) */
+/* แจ้งเหตุพิมพ์ไม่ออก (ข้อความเดียวกันไม่ขึ้นซ้ำใน 3 วิ: ASB กับงานพิมพ์อาจแจ้งเหตุเดียวกัน)
+   หน้าสำเร็จเปิดอยู่ = เตือนที่กล่องในหน้าต่างที่เดียว ไม่มีข้อความลอย ไม่มีแถบบน (Tee 2026-10-23 · เครื่องจริงเตือนพร้อมกัน 3 ที่) */
+const doneOpen = () => !!$('prStatus');
 let failToastAt = 0, failToastWhy = '';
-function failToast(why){ if(why === failToastWhy && Date.now() - failToastAt < 3000) return; failToastWhy = why; failToastAt = Date.now(); toast(FAIL_MSG[why](canAuto()), 'alert', 6000); }
+function failToast(why){ if(doneOpen() || (why === failToastWhy && Date.now() - failToastAt < 3000)) return; failToastWhy = why; failToastAt = Date.now(); toast(FAIL_MSG[why](canAuto()), 'alert', 6000); }
 let printWhy = 'stuck', nearWarned = false;   // nearWarned = เตือนกระดาษใกล้หมดแล้ว (ครั้งเดียวต่อการเปิดแอป)
 let printGen = 0;            // เพิ่มเมื่อล้างคิว · งานที่เข้าคิวก่อนหน้านั้นจะไม่ถูกส่ง
 const PRINTED = new Map();   // sale.id → {receipt, kitchen}: wait = รอ/กำลังส่ง · ok = ส่งครบ · fail = ไม่ได้ส่งหรือส่งไม่ครบ · nocon = ยังไม่ได้เชื่อมปริ้นเตอร์ ไม่ได้ส่ง · unknown = ใช้หน้าพิมพ์ของระบบ (แอปไม่รู้ผล) · ไม่มีค่า = ไม่ได้สั่งพิมพ์ (ใบเสร็จโหมด "เมื่อลูกค้าขอ")
@@ -336,6 +338,7 @@ function renderFailBar(){
   resumeWatch();
   if(!PRINT_FAILS.length){ if(bar) bar.remove(); return; }
   if(!bar){ bar = document.createElement('div'); bar.id = 'printFail'; bar.setAttribute('role', 'alert'); document.body.prepend(bar); }
+  bar.hidden = doneOpen();   // หน้าสำเร็จเปิดอยู่: กล่องในหน้าต่างบอกแล้ว · ปิดหน้าต่างแล้วยังมีใบค้าง = แถบขึ้น (closeModal เรียก renderFailBar)
   const auto = canAuto();
   bar.innerHTML = (noconOnly() ? `<span>${icon('alert', 18)} ${esc(NOCON_MSG)}<small>เชื่อมปริ้นเตอร์แล้วกดพิมพ์ซ้ำ</small></span>`
     : printWhy !== 'stuck' ? `<span>${icon('alert', 18)} ${esc(FAIL_MSG[printWhy](auto))}<small>ตอนพิมพ์ต่อ เศษใบเก่า (ถ้ามี) จะออกมาเป็นชิ้นสั้นก่อน ทิ้งได้</small></span>`
@@ -403,7 +406,7 @@ function resumePoll(){
    กลับมาปกติ = เครื่องพร้อม → ตัดเศษ + พิมพ์ใบแทนทันที (resumeKick) */
 function asbChanged(s, prev){
   const why = UsbPrinter.asbTrouble(s), was = UsbPrinter.asbTrouble(prev);
-  if(why !== was || !prev) plog('ASB', null, `${s.raw.map(v => v.toString(16).padStart(2, '0')).join(' ')} = ${why || 'พร้อม'}`);
+  if(why !== was || !prev || String(s.raw) !== String(prev.raw)) plog('ASB', null, `${s.raw.map(v => v.toString(16).padStart(2, '0')).join(' ')} = ${why || (UsbPrinter.asbSoftOff(s) ? 'ออฟไลน์ชั่วคราว (ยังไม่นับเป็นปัญหา)' : 'พร้อม')}`);
   if(s.near && !nearWarned){ nearWarned = true; toast('กระดาษใกล้หมด เตรียมม้วนใหม่ไว้', 'alert', 4000); }
   if(why && !was){
     asbLastWhy = why; printWhy = why; resumeArmed = true;
@@ -487,7 +490,23 @@ function printTest(){
    ไม่ใช่ "ใบ": ไม่มี GS r ไม่อยู่ใน PRINTED / UNCONF ไม่มีใบแทน ไม่พิมพ์ต่อเอง · พิมพ์ซ้ำ/ใบแทน/พิมพ์ต่อ ไม่เรียกที่นี่ = ไม่เปิดซ้ำ
    ASB บอกฝาเปิด/กระดาษหมด = ไม่ส่ง (เครื่องหยุดทำคำสั่ง ลิ้นชักจะเด้งเองตอนปิดฝาทีหลัง) ให้ใช้กุญแจ
    คืน ok / nocon (ไม่ได้เชื่อม หรือเบราว์เซอร์ไม่มี WebUSB) / trouble / timeout / error */
-const DRAWER = {timeout:3000};   // ส่ง 5 byte ปกติ 11–16 ms (ES-8805U) · ค้างนานกว่านี้ = บอกพนักงานให้ใช้กุญแจ ไม่ถือคิวต่อ (งานพิมพ์ที่ตามมามีเวลาหมดของตัวเอง)
+const DRAWER = {timeout:3000, readyMax:1500, extra:100};   // timeout: ส่ง 5 byte ปกติ 11–16 ms (ES-8805U) ค้างนานกว่านี้ = บอกพนักงานให้ใช้กุญแจ ไม่ถือคิวต่อ (งานพิมพ์ที่ตามมามีเวลาหมดของตัวเอง)
+/* หลังดีดลิ้นชัก รอเครื่องพร้อมก่อนงานถัดไป (Tee 2026-10-23 บั๊กเครื่องจริง: ES-8805U แจ้ง ASB ออฟไลน์ 1C 00 00 0F ตลอดช่วงพัลส์ ~0.5 วิ)
+   มี ASB: รอจนเห็นออฟไลน์แล้วกลับเป็นพร้อม · ไม่เห็นออฟไลน์เลย = รอเวลาพัลส์ + extra · นานสุด readyMax · ไม่มี ASB: รอเวลาพัลส์ + extra
+   ออฟไลน์ช่วงนี้ไม่นับเป็นสะดุด (ออฟไลน์ล้วนนับเมื่อค้าง > PRINTER.offlineMs เท่านั้น · printer.js) */
+const drawerPulseMs = () => (PRINTER.drawerT1 + PRINTER.drawerT2) * 2 + DRAWER.extra;
+async function drawerSettle(t0){
+  if(!asbLive()){ await sleep(Math.max(0, t0 + drawerPulseMs() - Date.now())); return 'time'; }
+  let saw = false;
+  for(;;){
+    const a = usbPrinter.asb, off = !!(a && a.offline), dt = Date.now() - t0;
+    if(off) saw = true;
+    if(!usbPrinter.connected || UsbPrinter.asbTrouble(a)) return 'trouble';   // ฝาเปิด/กระดาษหมด/ผิดพลาด: งานถัดไปจัดการเอง
+    if(!off && (saw || dt >= drawerPulseMs())) return saw ? 'ready' : 'time';
+    if(dt >= DRAWER.readyMax) return 'max';
+    await sleep(5);
+  }
+}
 const DRAWER_MSG = 'ลิ้นชักไม่เปิด — ใช้กุญแจเปิด';
 const drawerOn = () => SETTINGS.drawer !== false;           // ค่าเริ่มต้น = ใช้
 const drawerPin = () => SETTINGS.drawerPin === 5 ? 5 : 2;   // ขา 2 = ปกติ (ESC p 0) · ขา 5 = ESC p 1
@@ -499,8 +518,9 @@ function kickDrawer(why){
     const bad = asbLive() && UsbPrinter.asbTrouble(usbPrinter.asb);
     if(bad){ plog('ลิ้นชัก', null, `${why} · ไม่ส่ง (${bad})`); return 'trouble'; }
     if(usbPrinter.dirty){ const r = await recoverFirst(null); if(r !== 'ok'){ plog('ลิ้นชัก', null, `${why} · ล้างคำสั่งค้างไม่ได้ (${r})`); return r; } }
-    const pin = drawerPin(), r = await sendJob(jobBytes([ESCPOS.drawer(pin === 5 ? 1 : 0)]), null, DRAWER.timeout);
+    const pin = drawerPin(), t0 = Date.now(), r = await sendJob(jobBytes([ESCPOS.drawer(pin === 5 ? 1 : 0)]), null, DRAWER.timeout);
     plog('ลิ้นชัก', null, `${why} · ขา ${pin} · ${r === true ? 'ส่งแล้ว' : r === 'timeout' ? 'ไม่ตอบ' : 'ส่งไม่ได้'}`);
+    if(r === true){ const w = await drawerSettle(t0); plog('ลิ้นชัก', null, `รอเครื่องพร้อม ${Date.now() - t0} ms (${w})`); }
     return r === true ? 'ok' : r === 'timeout' ? 'timeout' : 'error';
   }).catch(e => { console.warn('drawer', e); return 'error'; });
 }

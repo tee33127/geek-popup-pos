@@ -9,6 +9,8 @@ const PRINTER = {
   band: 24,         // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 · สั้นไว้ (Tee 2026-10-17 · เดิม 256): ส่งขาดกลางแถบ เครื่องค้างรอข้อมูลไม่เกินแถบเดียว ล้างได้ด้วย ESCPOS.recover
   statusMs: 500,    // รอคำตอบสถานะ (DLE EOT) ไม่เกินเท่านี้ ไม่ตอบ = ข้าม พิมพ์ตามปกติ
   asb: 0x0E,        // GS a n: ให้เครื่องแจ้งเองเมื่อ ออนไลน์/ออฟไลน์ (ฝา) · ผิดพลาด · กระดาษ เปลี่ยน (เครื่องจริงแจ้งภายใน ~1 วิ · printer-test 2026-10-17)
+  offlineMs: 2000,  // ASB ออฟไลน์ล้วน (ไม่มีฝาเปิด/กระดาษหมด/ผิดพลาด) นับเป็นปัญหาเมื่อค้างต่อเนื่องนานกว่านี้ · ES-8805U แจ้งออฟไลน์ ~0.5 วิ ทุกครั้งที่ดีดลิ้นชัก (เครื่องจริง 2026-10-23)
+  drawerT1: 25, drawerT2: 250,   // ESC p m t1 t2: ดีด t1 × 2 ms · พัก t2 × 2 ms (เปลี่ยน t2 เมื่อ Tee ยืนยันบนเครื่องจริงว่า CD330 ยังเด้ง · ลองค่าได้ใน printer-test)
 };
 
 const ESCPOS = {
@@ -16,7 +18,7 @@ const ESCPOS = {
   feed:    n => [0x1B, 0x64, n],                       // ESC d n  เลื่อนกระดาษ n บรรทัด
   cut:     () => [0x1D, 0x56, 0x42, 0x00],             // GS V 66 0  เลื่อนถึงใบมีดแล้วตัด (เหลือติดนิดหน่อย)
   fullCut: () => [0x1D, 0x56, 0x41, 0x00],             // GS V 65 0  เลื่อนถึงใบมีดแล้วตัดขาด
-  drawer:  (pin = 0) => [0x1B, 0x70, pin, 25, 250],    // ESC p m 25 250  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5) · ES-8805U + CD330 ขา 2 เปิดจริง (printer-test 2026-10-23)
+  drawer:  (pin = 0, t1 = PRINTER.drawerT1, t2 = PRINTER.drawerT2) => [0x1B, 0x70, pin, t1, t2],   // ESC p m t1 t2  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5) · ES-8805U + CD330 ขา 2 เปิดจริง (printer-test 2026-10-23)
   text:    s => [...String(s)].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 0x3F).concat(0x0A), // ASCII เท่านั้น
   /* ล้างคำสั่งภาพที่ค้าง (Tee 2026-10-17 · บั๊ก H23): ส่งขาดกลาง GS v 0 เครื่องจะรอข้อมูลภาพที่เหลือ แล้วกินงานถัดไปเป็นภาพ ที่เหลือพิมพ์เป็นตัวมั่ว
      0x00 ยาวเกินหนึ่งแถบ + header = ปิดคำสั่งภาพที่ค้างเป็นแถวขาว (ไม่ค้าง = เครื่องข้าม 0x00 ไม่มีอะไรออก) → ESC @
@@ -284,15 +286,28 @@ class UsbPrinter {
     if(this.eotGot < this.eotSent){ const n = ++this.eotGot, w = this.eotWait.findIndex(x => x.n === n); if(w >= 0) this.eotWait.splice(w, 1)[0].ok(b); }
   }
   /* ASB: {offline, cover, paper, near, error} · ฝาเปิด เซนเซอร์กระดาษ (ใต้ฝา) บอกว่าหมดด้วย → ฝาเปิด = บอกแค่ฝาเปิด (เหมือน DLE EOT)
-     trouble = ฝาเปิด / กระดาษหมด / ผิดพลาด / ออฟไลน์ (เหตุอื่น) · asbSeq เพิ่มทุกครั้งที่เปลี่ยนจากพร้อมเป็นมีปัญหา (แอปดูว่าระหว่างใบมีปัญหาเกิดขึ้นไหม แม้ปิดฝาไปแล้ว) */
+     trouble = ฝาเปิด / กระดาษหมด / ผิดพลาด ทันที · ออฟไลน์ล้วน (เหตุอื่น) เฉพาะเมื่อค้างต่อเนื่อง > PRINTER.offlineMs (long)
+       (Tee 2026-10-23 บั๊กเครื่องจริง: ES-8805U ส่ง 1C 00 00 0F ระหว่างดีดลิ้นชัก ~0.5 วิ แอปนับเป็นสะดุด ตั๋วครัวกลายเป็นใบแทนทุกบิลเงินสด)
+     asbSeq เพิ่มทุกครั้งที่เปลี่ยนจากพร้อมเป็นมีปัญหา (แอปดูว่าระหว่างใบมีปัญหาเกิดขึ้นไหม แม้ปิดฝาไปแล้ว) */
   static parseAsb(a){
     const [b0, b1, b2] = a, cover = !!(b0 & 0x20);
     return {raw:a, offline:!!(b0 & 0x08), cover, paper:!cover && !!(b2 & 0x0C), near:!cover && !!(b2 & 0x03), error:!!(b1 & 0x6C)};
   }
-  static asbTrouble(s){ return !s ? null : s.cover ? 'cover' : s.paper ? 'paper' : s.error || s.offline ? 'offline' : null; }
+  static asbTrouble(s){ return !s ? null : s.cover ? 'cover' : s.paper ? 'paper' : s.error || (s.offline && s.long) ? 'offline' : null; }
+  static asbSoftOff(s){ return !!s && s.offline && !s.cover && !s.paper && !s.error; }   // ออฟไลน์ล้วน: ยังไม่ใช่ปัญหาจนค้างนาน (เช่นระหว่างดีดลิ้นชัก)
   gotAsb(a){
-    const prev = this.asb, s = UsbPrinter.parseAsb(a);
-    s.at = Date.now(); this.asb = s; this.asbSeen = true;
+    const prev = this.asb, s = UsbPrinter.parseAsb(a), now = Date.now();
+    s.at = now; this.asb = s; this.asbSeen = true;
+    clearTimeout(this.offTimer); this.offTimer = null;
+    if(UsbPrinter.asbSoftOff(s)){
+      const keep = UsbPrinter.asbSoftOff(prev);
+      s.since = keep ? prev.since : now; s.long = keep && !!prev.long;
+      if(!s.long) this.offTimer = setTimeout(() => {   // ยังออฟไลน์อยู่ครบเวลา (ไม่มี ASB ใหม่มาแทน) = ปัญหาจริง
+        if(this.asb !== s) return;
+        const was = {...s}; s.long = true; this.asbSeq++;
+        if(this.onAsb) this.onAsb(s, was);
+      }, Math.max(0, s.since + PRINTER.offlineMs - now));
+    }
     if(UsbPrinter.asbTrouble(s) && !UsbPrinter.asbTrouble(prev)) this.asbSeq++;
     if(this.onAsb) this.onAsb(s, prev);
   }

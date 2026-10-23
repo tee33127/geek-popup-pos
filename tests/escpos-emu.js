@@ -6,7 +6,9 @@
 class EscPosEmu {
   constructor(){ this.pages = []; this.page = this.newPage(); this.st = 'idle'; this.cmd = []; this.need = 0; this.img = null; this.cover = false; this.paper = true; this.replies = []; this.asbMode = 0; this.acks = 0; this.drawers = []; }
   /* ASB ค่าจริง (ES-8805U printer-test 2026-10-23 · XP-Q807K 2026-10-17 เหมือนกัน): ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F แล้ว 3C 00 0C 0F (เซนเซอร์กระดาษใต้ฝา) · กระดาษหมดฝาปิด 1C 00 0C 0F (วัดแล้วบน ES-8805U) */
-  asbBytes(){ const noPaper = !this.paper || (this.cover && this.coverSensed); return [0x14 | (this.cover || !this.paper ? 0x08 : 0) | (this.cover ? 0x20 : 0), 0x00, (noPaper ? 0x0C : 0) | (this.near ? 0x03 : 0), 0x0F]; }
+  asbBytes(){ const noPaper = !this.paper || (this.cover && this.coverSensed); return [0x14 | (this.cover || !this.paper || this.pulsing ? 0x08 : 0) | (this.cover ? 0x20 : 0), 0x00, (noPaper ? 0x0C : 0) | (this.near ? 0x03 : 0), 0x0F]; }
+  /* drawerOffline = แบบ ES-8805U (เครื่องจริง 2026-10-23): ระหว่างดีดลิ้นชัก (t1 + t2) × 2 ms เครื่องออฟไลน์ ASB 1C 00 00 0F แล้วกลับเป็น 14 00 00 0F
+     timer = setTimeout ของเทสต์ (นาฬิกาจำลอง) · pulsing = ระหว่างนี้หัวพิมพ์ไม่ทำงาน (ให้เทสต์เช็กก่อนป้อนข้อมูล) */
   sendAsb(){ if(this.asbCapable && this.asbMode) this.replies.push(this.asbBytes()); }
   setCover(v){ if(this.cover === v) return; this.cover = v; this.coverSensed = false; this.sendAsb(); if(v){ this.coverSensed = true; this.sendAsb(); } }
   setPaper(v){ if(this.paper === v) return; this.paper = v; this.sendAsb(); }
@@ -60,7 +62,11 @@ class EscPosEmu {
     this.st = 'idle';
     const [a, k] = c;
     if(a === 0x1B && k === 0x40){ this.page.inits++; if(this.initClearsAsb) this.asbMode = 0; return; }   // initClearsAsb = ESC @ ปิด ASB (ยังไม่รู้ว่าเครื่องจริงทำไหม แอปเปิดซ้ำหลัง ESC @ ทุกงาน)
-    if(a === 0x1B && k === 0x70){ this.drawers.push({pin:c[2], t1:c[3], t2:c[4], pages:this.pages.length}); if(this.onDrawer) this.onDrawer(c[2]); return; }   // ESC p m t1 t2: pages = จำนวนใบที่ตัดออกไปก่อนลิ้นชักเปิด
+    if(a === 0x1B && k === 0x70){
+      this.drawers.push({pin:c[2], t1:c[3], t2:c[4], pages:this.pages.length}); if(this.onDrawer) this.onDrawer(c[2]);
+      if(this.drawerOffline && this.timer){ this.pulsing = true; this.sendAsb(); this.timer(() => { this.pulsing = false; this.sendAsb(); }, (c[3] + c[4]) * 2); }
+      return;
+    }   // ESC p m t1 t2: pages = จำนวนใบที่ตัดออกไปก่อนลิ้นชักเปิด
     if(a === 0x1D && k === 0x61){ const was = this.asbMode; this.asbMode = c[2]; if(c[2] && !was) this.sendAsb(); return; }   // เปิด ASB = ส่งสถานะปัจจุบันทันที
     if(a === 0x1D && k === 0x72){ this.acks++; if(!this.noAck) this.replies.push(0x00); if(this.onAck) this.onAck(); return; }
     if(a === 0x1D && k === 0x76){

@@ -84,6 +84,7 @@
         <label>ส่งข้อมูลครั้งละ <select id="optChunk"><option value="4096">4096 byte</option><option value="1024">1024 byte</option><option value="256">256 byte</option></select></label>
         <label>วิธีตัด <select id="optCut"><option value="partial">เหลือติดนิดหน่อย (GS V 66)</option><option value="full">ตัดขาด (GS V 65)</option></select></label>
         <label>ขาลิ้นชัก <select id="optPin"><option value="0">ขา 2 (ปกติ)</option><option value="1">ขา 5</option></select></label>
+        <label>พักหลังดีดลิ้นชัก (t2) <select id="optT2"><option value="250">500 ms (ค่าในแอปตอนนี้)</option><option value="200">400 ms</option><option value="150">300 ms</option><option value="100">200 ms</option><option value="50">100 ms</option></select></label>
       </details>
     </section>
 
@@ -122,7 +123,7 @@ function log(msg, kind){
   const el = $('log'); el.textContent += line + '\n'; el.scrollTop = el.scrollHeight;
 }
 const opt = () => ({dots: Number($('optDots').value), thr: Number($('optThr').value), chunk: Number($('optChunk').value),
-  cut: $('optCut').value === 'full' ? ESCPOS.fullCut() : ESCPOS.cut(), pin: Number($('optPin').value)});
+  cut: $('optCut').value === 'full' ? ESCPOS.fullCut() : ESCPOS.cut(), pin: Number($('optPin').value), t2: Number($('optT2').value)});
 
 /* ---------- 1) สภาพแวดล้อม ---------- */
 function showEnv(){
@@ -257,7 +258,8 @@ const TESTS = {
   },
   ruler: async () => { await slipFontsReady(); const o = opt(), c = rulerCanvas(o.dots); showPreview([c]); return send(`ความกว้าง ${o.dots} จุด`, bytes(ESCPOS.init(), canvasCmds(c, o.thr), ESCPOS.feed(4))); },
   cut: () => send('ตัดกระดาษ', bytes(ESCPOS.feed(1), opt().cut)),
-  drawer: () => send(`เปิดลิ้นชัก (ขา ${opt().pin ? 5 : 2})`, bytes(ESCPOS.drawer(opt().pin))),
+  /* ลองเวลาพัก t2 สั้นลง (Tee 2026-10-23): ES-8805U ออฟไลน์ตลอดพัลส์ (ASB 1C) · สั้นลง = ตั๋วครัวเริ่มเร็วขึ้น ถ้าลิ้นชัก CD330 ยังเด้งทุกครั้ง แจ้งค่าที่ใช้ได้ */
+  drawer: () => { const o = opt(); return send(`เปิดลิ้นชัก (ขา ${o.pin ? 5 : 2} · ดีด ${PRINTER.drawerT1 * 2} ms พัก ${o.t2 * 2} ms)`, bytes(ESCPOS.drawer(o.pin, PRINTER.drawerT1, o.t2))); },
   /* อ่านสถานะ DLE EOT 2 / 4 (ตัวเดียวกับที่แอปเช็กก่อนพิมพ์) · แสดง byte ดิบ + บิต + ความหมาย ให้เทียบกับของจริง (เปิดฝา / ถอดกระดาษ) */
   status: async () => {
     const hx = a => a.length ? a.map(v => `0x${v.toString(16).padStart(2, '0').toUpperCase()} (${v.toString(2).padStart(8, '0')})`).join(' ') : 'ไม่มีข้อมูล';

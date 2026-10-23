@@ -740,9 +740,9 @@ const server = http.createServer((q, r) => {
       await sellOne(page); await page.waitForTimeout(500);   // คงไว้ (ช่วงสังเกต "ไม่มีอะไรเกิด"): ต้องไม่มีหน้าพิมพ์ของระบบเด้งเอง ถ้าเด้งจะมาทางตัวจับเวลา 80 ms ของแอปหลังฟอนต์พร้อม รอเฟรมจับไม่ได้ · เครื่องช้าไม่ทำให้ล้มผิด
       const o3 = await out(page), st3 = await status(page);
       await page.screenshot({path:path.join(SHOTS, `h27-${label}-not-connected.png`)});
-      eq(`H27 ${label} ยังไม่ได้เชื่อม: บิลบันทึก · ไม่ส่ง · ไม่เด้งหน้าพิมพ์ · ขึ้น "ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก" + ปุ่มเชื่อม + แถบส้ม`,
-        [await page.evaluate(() => loadSales().length) - n0, o3.jobs - o2.jobs, o3.printed, st3.includes('ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก'), await page.isVisible('#prConnect'), await page.isVisible('#printFail')],
-        [1, 0, 0, true, true, true]);
+      eq(`H27 ${label} ยังไม่ได้เชื่อม: บิลบันทึก · ไม่ส่ง · ไม่เด้งหน้าพิมพ์ · ขึ้น "ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก" + ปุ่มเชื่อม · เตือนในหน้าต่างที่เดียว (แถบส้มมีแต่ซ่อนไว้จนปิดหน้าต่าง · Tee 2026-10-23)`,
+        [await page.evaluate(() => loadSales().length) - n0, o3.jobs - o2.jobs, o3.printed, st3.includes('ยังไม่ได้เชื่อมปริ้นเตอร์ — ตั๋วยังไม่ออก'), await page.isVisible('#prConnect'), await page.evaluate(() => !!document.getElementById('printFail')), await page.isVisible('#printFail')],
+        [1, 0, 0, true, true, true, false]);
       await page.click('#prConnect'); await printedOk(page);
       const o4 = await out(page);
       eq(`H27 ${label} กดเชื่อมปริ้นเตอร์บนหน้าสำเร็จ → ตั๋วที่ค้างออกเอง 2 ใบ · แถบส้มหาย`, [o4.jobs - o3.jobs, await status(page), await page.isVisible('#printFail')], [2, 'พิมพ์แล้ว ✓ ตั๋วครัว + ใบเสร็จ', false]);
@@ -852,7 +852,20 @@ const server = http.createServer((q, r) => {
     const PM = ['none', 'cash', 'promptpay', 'tcp', 'cash2'];
     eq(`UI32 ${label}: ยอดชำระมีจุดเดียวต่อหน้าต่าง ทุกวิธี (หัวหน้าต่าง = "ชำระเงิน" ไม่มียอด)`, PM.map(k => [PF[k].amt.n, PF[k].amt.shown, PF[k].amt.title]), PM.map(() => [1, 1, 'ชำระเงิน']));
     eq(`UI32 ${label}: ยอดชำระตำแหน่ง ขนาด สไตล์เดียวกันทุกวิธี (สลับ เงินสด → PromptPay → ไทยช่วยไทย → เงินสด ไม่ขยับ)`, PM.map(k => JSON.stringify(PF[k].amt.at)), PM.map(() => JSON.stringify(PF.cash.amt.at)));
-    console.log(`INFO UI32 ${label}: ${JSON.stringify(Object.fromEntries(PM.map(k => [k, {fit:PF[k].fit, qr:PF[k].qr, at:PF[k].amt.at.slice(0, 4)}])))}`); await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
+    console.log(`INFO UI32 ${label}: ${JSON.stringify(Object.fromEntries(PM.map(k => [k, {fit:PF[k].fit, qr:PF[k].qr, at:PF[k].amt.at.slice(0, 4)}])))}`);
+    /* UI33 ปุ่มยืนยันเงินสดบอกเงินทอน (Tee 2026-10-23 · เครื่องจริง: รับ 1000 ยอด 144 ปุ่ม "ยืนยันรับเงิน ฿144" พนักงานงง) · กดจากปุ่มจริง: × ล้าง / 20 / พอดี / 1000 */
+    const okBtn = () => page.evaluate(() => { const b = document.getElementById('payOk'); return [b.textContent.trim(), b.disabled]; });
+    const tot = await page.evaluate(() => cartTotal()), bt = n => '฿' + n.toLocaleString('th-TH');
+    const U = {};
+    if(await page.$('#modal [data-mk="clear"]')) await page.click('#modal [data-mk="clear"]'); U.empty = await okBtn();
+    await page.click('[data-q="20"]'); U.short = await okBtn();
+    await page.click(`[data-q="${tot}"]`); U.exact = await okBtn();
+    await page.click('[data-q="1000"]'); U.change = await okBtn();
+    await page.click('[data-method="promptpay"]'); U.pp = await okBtn(); await page.click('[data-method="tcp"]'); U.tcp = await okBtn();
+    await page.click('[data-method="cash"]');
+    eq(`UI33 ${label}: ปุ่มยืนยันเงินสด 4 สถานะ (ยังไม่กรอก / ขาด / พอดี / ทอน) · PromptPay และไทยช่วยไทย คงยอด`, [U.empty, U.short, U.exact, U.change, U.pp, U.tcp],
+      [['กรอกเงินที่รับมา', true], [`ขาดอีก ${bt(tot - 20)}`, true], ['ยืนยัน · ไม่ต้องทอน', false], [`ยืนยัน · ทอน ${bt(1000 - tot)}`, false], [`ยืนยันรับเงิน ${bt(tot)}`, false], [`ยืนยันรับเงิน ${bt(tot)}`, false]]);
+    await page.click('[data-q]'); await page.click('#payOk'); A.done = await audit(); await page.click('#nextOrder');
     await page.click('#btnSettings'); A.settings = await audit(); await pick('receipt', '[data-rcpt="ask"]');
     await page.click('#stockOpen'); A.stock = await audit(); await page.click('#closeX');
     await page.click('#btnSummary'); A.summary = await audit(); await pick('tab', '[data-tab="pay"]'); await pick('range', '[data-range="7d"]');
