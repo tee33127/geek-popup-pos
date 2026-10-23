@@ -49,6 +49,9 @@ header h1 span{color:var(--orange)}
 #nextNo b{font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700;margin-left:2px}
 .hbtn{background:transparent;color:#fff;border:var(--bw) solid rgba(255,255,255,.55);padding:var(--s2) var(--s3);border-radius:var(--r-btn);font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)))}
 .hbtn .ic{vertical-align:-3px}
+.hbtn{white-space:nowrap}   /* ข้อความในปุ่มห้ามตัดกลางคำ ("สรุป/ยอด") */
+/* แท็บเล็ตแนวตั้ง (800px · มีปุ่มเปิดลิ้นชักเพิ่ม Tee 2026-10-23): ระยะห่างและขอบในปุ่มแคบลง ปุ่มทั้งหมดยังอยู่บรรทัดเดียว */
+@media(max-width:900px){ header{gap:var(--s1);padding:var(--s2) var(--s3)} .hbtn{padding:var(--s2)} }
 .hbtn.off{background:var(--orange);border-color:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
 main{display:grid;grid-template-columns:1fr calc(390px * var(--ui-scale));gap:var(--s4);padding:var(--s3) var(--s4) var(--s4);max-width:1440px;margin:0 auto;align-items:start}
 .card{background:#fff;border-radius:var(--r-card);padding:var(--s3) var(--s4);box-shadow:0 1px 3px rgba(20,0,120,.08)}
@@ -627,6 +630,7 @@ main > .card:first-child{padding-top:var(--s2)}
   <span id="nextNo"></span>
   <button class="hbtn" id="btnUser"></button>
   <button class="hbtn" id="btnPrinter"></button>
+  <button class="hbtn" id="btnDrawer"></button>
   <button class="hbtn" id="btnSummary">สรุปยอด</button>
   <button class="hbtn" id="btnSettings">ตั้งค่า</button>
 </header>
@@ -663,7 +667,7 @@ main > .card:first-child{padding-top:var(--s2)}
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'f54388058f0f', built:'2026-10-18T14:01:22.252Z'};
+const APP_VERSION = {v:'981e0283fe50', built:'2026-10-23T07:09:55.193Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -860,8 +864,8 @@ function csvText(rows){
    รหัส 4 หลักเก็บเป็น sha256(salt:รหัส) ไม่เก็บตัวเลข · ใส่รหัสใครก็เข้าเป็นคนนั้น รหัสจึงห้ามซ้ำกัน
    ตำแหน่งมี 2 แบบ สิทธิ์กำหนดที่ CAN ในโค้ดเท่านั้น (Tee 2026-10-12) */
 const CAN = {
-  owner: {pastReports:true,  void:true,  promptpay:true,  users:true,  printMode:true},
-  staff: {pastReports:false, void:false, promptpay:false, users:false, printMode:false},
+  owner: {pastReports:true,  void:true,  promptpay:true,  users:true,  printMode:true,  drawer:true},
+  staff: {pastReports:false, void:false, promptpay:false, users:false, printMode:false, drawer:false},   // drawer = ตั้งค่าลิ้นชัก (ปุ่มเปิดลิ้นชักบนแถบหัว ทุกคนกดได้)
 };
 const ROLE_NAME = {owner:'เจ้าของ', staff:'พนักงาน'};
 const CODE_LEN = 4, RECOVERY_LEN = 8;
@@ -1173,6 +1177,7 @@ function nextNo(){ const biz = bizDate(new Date()); return (loadSales().filter(s
 /* ===== js/cash.js ===== */
 /* เงินในลิ้นชัก (ไม่แตะ DOM): เงินทอนตั้งต้นตอนเปิดร้าน + นับเงินตอนปิดร้าน · เก็บต่อท้ายอย่างเดียว ไม่แก้ของเดิม
    รายการ = {type:'open', date, at, by, float} หรือ {type:'close', date, at, by, float, cashSales, cashBills, expected, counted, diff, note}
+   หรือ {type:'drawer', date, at, by, reason, ok, why} แอปสั่งเปิดลิ้นชัก (drawer.js · ไม่มี float จึงไม่กระทบเงินทอนตั้งต้น)
    ใช้ค่าล่าสุดของแต่ละรอบขาย (นับซ้ำได้ เช่นขายต่อหลังนับ) */
 const CASH_KEY = SETTINGS_KEY + '_cash';
 let CASH_MEM = [];   // เบราว์เซอร์บล็อกที่เก็บข้อมูล
@@ -1332,7 +1337,7 @@ function buildReport(from, to){
 </script>
 <script>
 /* ===== js/printer.js ===== */
-/* ปริ้นเตอร์ความร้อน ESC/POS (Xprinter XP-Q807K 80 มม. ผ่าน USB)
+/* ปริ้นเตอร์ความร้อน ESC/POS 80 มม. ผ่าน USB · เครื่องที่ใช้: EasyPrint ES-8805U (เดิม Xprinter XP-Q807K · บอร์ดเดียวกัน vendor 0x0483 product 0x5743)
    - ESCPOS / rasterize / rasterCmds / bytes : สร้าง byte ล้วน ไม่แตะ DOM (เทสต์ใน node ได้)
    - renderSlip : วาดตั๋วลง canvas · ภาษาไทยส่งเป็นภาพเสมอ ไม่พึ่งฟอนต์ในปริ้นเตอร์
    - UsbPrinter : เชื่อมและส่งข้อมูลผ่าน WebUSB (ต้องเปิดหน้าผ่าน https หรือ localhost) */
@@ -1342,7 +1347,7 @@ const PRINTER = {
   threshold: 160,   // ความสว่างต่ำกว่านี้ = จุดดำ (สูงขึ้น = เข้มขึ้น)
   band: 24,         // แบ่งภาพเป็นแถบละกี่แถว ต่อ 1 คำสั่ง GS v 0 · สั้นไว้ (Tee 2026-10-17 · เดิม 256): ส่งขาดกลางแถบ เครื่องค้างรอข้อมูลไม่เกินแถบเดียว ล้างได้ด้วย ESCPOS.recover
   statusMs: 500,    // รอคำตอบสถานะ (DLE EOT) ไม่เกินเท่านี้ ไม่ตอบ = ข้าม พิมพ์ตามปกติ
-  asb: 0x0E,        // GS a n: ให้เครื่องแจ้งเองเมื่อ ออนไลน์/ออฟไลน์ (ฝา) · ผิดพลาด · กระดาษ เปลี่ยน (XP-Q807K แจ้งภายใน ~1 วิ · printer-test 2026-10-17)
+  asb: 0x0E,        // GS a n: ให้เครื่องแจ้งเองเมื่อ ออนไลน์/ออฟไลน์ (ฝา) · ผิดพลาด · กระดาษ เปลี่ยน (เครื่องจริงแจ้งภายใน ~1 วิ · printer-test 2026-10-17)
 };
 
 const ESCPOS = {
@@ -1350,12 +1355,12 @@ const ESCPOS = {
   feed:    n => [0x1B, 0x64, n],                       // ESC d n  เลื่อนกระดาษ n บรรทัด
   cut:     () => [0x1D, 0x56, 0x42, 0x00],             // GS V 66 0  เลื่อนถึงใบมีดแล้วตัด (เหลือติดนิดหน่อย)
   fullCut: () => [0x1D, 0x56, 0x41, 0x00],             // GS V 65 0  เลื่อนถึงใบมีดแล้วตัดขาด
-  drawer:  (pin = 0) => [0x1B, 0x70, pin, 25, 250],    // ESC p m 25 250  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5)
+  drawer:  (pin = 0) => [0x1B, 0x70, pin, 25, 250],    // ESC p m 25 250  เปิดลิ้นชัก (pin 0 = ขา 2, 1 = ขา 5) · ES-8805U + CD330 ขา 2 เปิดจริง (printer-test 2026-10-23)
   text:    s => [...String(s)].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 0x3F).concat(0x0A), // ASCII เท่านั้น
   /* ล้างคำสั่งภาพที่ค้าง (Tee 2026-10-17 · บั๊ก H23): ส่งขาดกลาง GS v 0 เครื่องจะรอข้อมูลภาพที่เหลือ แล้วกินงานถัดไปเป็นภาพ ที่เหลือพิมพ์เป็นตัวมั่ว
      0x00 ยาวเกินหนึ่งแถบ + header = ปิดคำสั่งภาพที่ค้างเป็นแถวขาว (ไม่ค้าง = เครื่องข้าม 0x00 ไม่มีอะไรออก) → ESC @
      cut = รู้ว่าเพิ่งล้มกลางงาน: เลื่อนแล้วตัด เศษใบเก่าแยกเป็นชิ้นทิ้งได้ ไม่ติดหัวใบใหม่
-     ไม่ใช้ DLE DC4 ล้างบัฟเฟอร์: ยังไม่ยืนยันว่า XP-Q807K รองรับ และ fn อื่นในชุดเดียวกันคือปิดเครื่อง */
+     ไม่ใช้ DLE DC4 ล้างบัฟเฟอร์: ยังไม่ยืนยันว่าเครื่องที่ใช้รองรับ และ fn อื่นในชุดเดียวกันคือปิดเครื่อง */
   recover: (cut, wb = Math.ceil(PRINTER.dots / 8), band = PRINTER.band) => bytes(new Uint8Array(8 + wb * band + 64), [0x1B, 0x40], cut ? [0x1B, 0x64, 3, 0x1D, 0x56, 0x42, 0x00] : []),
   /* GS a n: ASB เครื่องส่งสถานะ 4 byte มาเองทาง bulk IN เมื่อเปลี่ยน (ไม่ต้องถาม ไม่ติดคิวข้อมูล) · ทำงานตามลำดับในบัฟเฟอร์ จึงส่งซ้ำหลัง ESC @ ทุกงาน (ESC @ อาจปิด ASB) */
   asb:     on => [0x1D, 0x61, on ? PRINTER.asb : 0],
@@ -1607,7 +1612,7 @@ class UsbPrinter {
     if(this.reading === dev) this.reading = null;
   }
   /* แยก byte ที่เครื่องส่งกลับ (ESC/POS กำหนดบิตไว้ให้แยกกันได้):
-     ASB 4 byte: byte แรก bit 4 = 1, bit 0-1 = 0 (v & 0x93 = 0x10) · XP-Q807K ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F / 3C 00 0C 0F
+     ASB 4 byte: byte แรก bit 4 = 1, bit 0-1 = 0 (v & 0x93 = 0x10) · ค่าจริง (ES-8805U 2026-10-23 = XP-Q807K 2026-10-17): ปกติ 14 00 00 0F · ฝาเปิด 3C 00 00 0F / 3C 00 0C 0F · กระดาษหมด (ฝาปิด) 1C 00 0C 0F
      GS r: bit 4 = 0 (เช่น 0x00) · นับเฉพาะตอนมี GS r ที่ยังไม่ได้คำตอบ
      DLE EOT: bit 4 = 1, bit 1 = 1 (0x12 …) · ค่าอื่นตอนมีคำถามรออยู่ก็ส่งให้คำถามนั้น (ค่าผิดรูปแอปจัดการเอง) */
   inByte(b){
@@ -1633,10 +1638,10 @@ class UsbPrinter {
   /* ส่งคำสั่งสั้นๆ (ไม่ใช่งานพิมพ์) */
   async out(arr){ if(!this.connected) throw new Error('ยังไม่ได้เชื่อมปริ้นเตอร์'); return this.dev.transferOut(this.ep, new Uint8Array(arr)); }
   async setAsb(on){ await this.out(ESCPOS.asb(on)); this.asbEnabled = on; }
-  /* สถานะเครื่อง DLE EOT 2 (สาเหตุออฟไลน์) และ 4 (เซนเซอร์กระดาษ) ผ่าน bulk IN · XP-Q807K มี ep2 IN (log printer-test 15 ต.ค.)
+  /* สถานะเครื่อง DLE EOT 2 (สาเหตุออฟไลน์) และ 4 (เซนเซอร์กระดาษ) ผ่าน bulk IN · เครื่องที่ใช้มี ep2 IN (log printer-test 15 + 23 ต.ค.)
      แปลความหมาย: รูปแบบถูกต้อง = bit 1, 4 เป็น 1 · bit 0, 7 เป็น 0 (v & 0x93 = 0x12)
      2: bit 2 ฝาเปิด · bit 5 หยุดเพราะกระดาษหมด · bit 6 ผิดพลาด   4: bit 2-3 กระดาษใกล้หมด · bit 5-6 กระดาษหมด
-     ค่าจริง XP-Q807K (printer-test 2026-10-17): ปกติ 0x12/0x12 · เปิดฝา 0x36/0x72 · ไม่มีกระดาษ (ฝาปิด) 0x32/0x72
+     ค่าจริงบอร์ด 0483:5743 (XP-Q807K printer-test 2026-10-17): ปกติ 0x12/0x12 · เปิดฝา 0x36/0x72 · ไม่มีกระดาษ (ฝาปิด) 0x32/0x72
      ฝาเปิด เซนเซอร์กระดาษ (อยู่ใต้ฝา) บอกว่ากระดาษหมดเสมอ → ฝาเปิด = บอกแค่ฝาเปิด · กระดาษหมด/ใกล้หมด เชื่อได้เฉพาะตอนฝาปิด */
   static parseStatus(s2, s4){
     const ok = v => v !== null && v !== undefined && (v & 0x93) === 0x12, v2 = ok(s2), v4 = ok(s4);
@@ -4447,9 +4452,10 @@ function slipBytes(blockSets, talk = printerTalks()){
    แล้วเชื่อมใหม่เอง · แถบแจ้งพร้อมปุ่มพิมพ์ซ้ำเฉพาะใบที่ยังไม่ออก · ข้อมูลที่ปริ้นเตอร์รับไปแล้วบางส่วนแอปล้างไม่ได้ (อาจออกมาตอนเติมกระดาษ) */
 const usbPrinter = UsbPrinter.supported() ? new UsbPrinter() : null;
 let printQueue = Promise.resolve();
-/* เวลาหมดต่องาน: ไม่ต่ำกว่า 15 วิ · งานใหญ่คิดตามขนาด (อัตราที่วัดจริง 109,434 byte ≈ 2.1 วิ → ~52 KB/วิ) เผื่อ 3 เท่า
-   ตั๋วครัวบิลยาว 5 แก้ว ≈ 141 KB ≈ 2.7 วิ จึงได้ 15 วิ ไม่โดนตัดผิด */
-const PRINT_TIMEOUT = {min:15000, rate:52000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
+/* เวลาหมดต่องาน: ไม่ต่ำกว่า 15 วิ · งานใหญ่คิดตามขนาด เผื่อ 3 เท่า
+   rate = ช้าสุดที่เครื่องรับได้ตอนบัฟเฟอร์เต็ม = ความเร็วหัวพิมพ์ (ES-8805U 2026-10-23: พิมพ์จริง ≈ 40 KB/วิ · รับ 172,830 byte ใน ~3.5 วิ ≈ 50 KB/วิ · เดิม XP-Q807K ~52 KB/วิ)
+   ตั๋วครัวบิลยาว 5 แก้ว ≈ 141 KB ≈ 3.5 วิ → ได้ 15 วิ ไม่โดนตัดผิด · ใบที่ยาวกว่า ~200 KB ได้เวลาเพิ่มตามขนาด */
+const PRINT_TIMEOUT = {min:15000, rate:40000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
 const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.rate * 1000 * PRINT_TIMEOUT.factor));
 const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
 /* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ (ep2 IN) จึงไม่ส่งงาน (Tee 2026-10-17)
@@ -4565,11 +4571,7 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
     };
     if(PRINT_EST.lost){ PRINT_EST.end = Math.max(PRINT_EST.end, Date.now() + PRINT_EST.lost / PRINT_WATCH.rate * 1000); PRINT_EST.lost = 0; }   // หลังสะดุด เครื่องอาจยังพิมพ์ของเก่าที่ค้างในบัฟเฟอร์
     if(usbPrinter.connected && gen === printGen){
-      if(usbPrinter.dirty){
-        plog('recover', sid, usbPrinter.dirty);
-        const r = await sendJob(jobBytes([ESCPOS.recover(usbPrinter.dirty === 'fail'), ...(printerTalks() ? [ESCPOS.asb(true)] : [])]));
-        if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error';
-      }
+      if(usbPrinter.dirty) res = await recoverFirst(sid);
       if(res === 'ok') res = await check();
     }
     for(const [i, [k, bl]] of jobs.entries()){
@@ -4613,15 +4615,23 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
     return res;
   }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
 }
+/* เครื่องอาจค้างกลางคำสั่งภาพ (usbPrinter.dirty): ส่ง ESCPOS.recover ก่อนงานถัดไป (ใบ หรือคำสั่งลิ้นชัก) · ESC @ ในนั้นอาจปิด ASB จึงเปิดซ้ำ · คืน ok / timeout / error */
+async function recoverFirst(sid){
+  plog('recover', sid, usbPrinter.dirty);
+  const r = await sendJob(jobBytes([ESCPOS.recover(usbPrinter.dirty === 'fail'), ...(printerTalks() ? [ESCPOS.asb(true)] : [])]));
+  if(r === true){ usbPrinter.dirty = null; return 'ok'; }
+  return r === 'timeout' ? 'timeout' : 'error';
+}
 /* ---------- ใบที่สะดุดกลางคัน → พิมพ์ใหม่ทั้งใบเป็น "ใบแทน" (Tee 2026-10-17 · บั๊ก H33 เครื่องจริง) ----------
    ส่งครบ ≠ ออกแล้ว: เครื่องรับข้อมูลเข้าบัฟเฟอร์แล้วยังพิมพ์ไม่เสร็จ ถ้าฝาเปิด/หมดเวลา/สายหลุดตอนนั้น ท้ายใบหายได้ (ตั๋วครัว #017 จบที่หัวข้อ Banana Choco)
    UNCONF = ใบที่ส่งครบแต่ยังไม่ยืนยัน · ยืนยัน = อ่านสถานะได้ "พร้อม" เมื่อผ่านไป ≥ PRINT_CONFIRM.ms หลังส่งครบ
    สะดุด (หมดเวลา / ฝาเปิด / กระดาษหมด / สายหลุด) → ใบที่ยังไม่ยืนยันและส่งไม่นานก่อนจุดสะดุด = fail + redo (ใบแทน) · ใบที่ไม่สะดุดไม่พิมพ์ซ้ำ
    อ่านสถานะได้: ใบที่ยังไม่ถูกยืนยันทุกใบ (ไม่เกิน stale ms) · อ่านสถานะไม่ได้: ยืนยันด้วยเวลา (ส่งครบนานกว่า PRINT_CONFIRM.ms ก่อนจุดสะดุด = ถือว่าออกแล้ว) */
 const PRINT_CONFIRM = {ms:500, stale:20000};   // ms = เผื่อหลังเวลาพิมพ์จบที่คาด (PRINT_WATCH.rate)
-/* เฝ้าระหว่างพิมพ์: ถามสถานะทุก ms · ก้อน 4 KB ปกติ ~80 ms (วัดจริง 109 KB ≈ 2.1 วิ) ค้างเกิน stall ms = เครื่องหยุดรับ
-   rate = ความเร็วหัวพิมพ์โดยประมาณ (byte/วิ ต่ำกว่าที่วัดได้ 52 KB/วิ เผื่อไว้) ใช้คาดว่าใบไหนพิมพ์จบเมื่อไร */
-const PRINT_WATCH = {ms:300, stall:500, rate:45000};
+/* เฝ้าระหว่างพิมพ์ (ไม่มี ASB เท่านั้น): ถามสถานะทุก ms · ก้อน 4 KB ปกติ ~80–100 ms ค้างเกิน stall ms = เครื่องหยุดรับ
+   rate = ความเร็วหัวพิมพ์โดยประมาณ (byte/วิ) ใช้คาดว่าใบไหนพิมพ์จบเมื่อไร · ต่ำกว่าที่วัดได้ เผื่อไว้ (ES-8805U GS r 2026-10-23: 57,884 byte ตอบหลังเริ่มส่ง 1,444 ms ≈ 40 KB/วิ · เดิม XP-Q807K 52 KB/วิ → 45000)
+   ES-8805U รับข้อมูลช้ากว่าเครื่องเดิม (บัฟเฟอร์เล็กกว่า ตอนเต็มรับได้เท่าที่พิมพ์ออก) = ปกติ ไม่ใช่สะดุด: มี ASB ไม่ดูก้อนค้างเลย (watch) · ไม่มี ASB ก้อนค้างตอนเครื่องยังพิมพ์ของเก่าไม่นับ (PRINT_EST) */
+const PRINT_WATCH = {ms:300, stall:500, rate:36000};
 /* GS r (Tee 2026-10-17): ใบที่ส่งครบนับว่า "ออกแล้ว" เมื่อเครื่องตอบ GS r ท้ายใบ (พิมพ์ + ตัดจบจริง ไม่ต้องเดาเวลา)
    เครื่องไม่ตอบ (ไม่รองรับ) = นับด้วยเวลาพิมพ์จบที่คาด + grace โดยระหว่างนั้น ASB ไม่แจ้งปัญหา · ไม่ตอบ 2 ใบ = เลิกส่ง GS r จนเชื่อมใหม่
    max = เครื่องเคยตอบแล้วแต่ใบนี้ยังไม่ตอบ รอได้นานสุดเท่านี้หลังเวลาที่คาด (ช้ากว่าที่คาด) */
@@ -4820,7 +4830,7 @@ function resumePoll(){
     PRINT_FAILS.slice().forEach(f => { const ks = failedSlips(f), s = all.find(x => x.id === f.id); if(s && ks.length) printSale(s, ks.length === 2 ? 'both' : ks[0], false, true); });
   }, e => { resumeBusy = false; console.warn('resume status', e); });
 }
-/* ---------- ASB: เครื่องแจ้งสถานะเอง (Tee 2026-10-17 · XP-Q807K ยืนยันแล้ว: ฝาเปิด/ปิด แจ้งภายใน ~1 วิ) ----------
+/* ---------- ASB: เครื่องแจ้งสถานะเอง (Tee 2026-10-17 · ยืนยันบนเครื่องจริงทั้ง XP-Q807K และ ES-8805U: ฝาเปิด/ปิด แจ้งภายใน ~1 วิ) ----------
    เปิดตอนเชื่อม (ล้างคำสั่งค้างก่อน) · อ่านแยกจากคิวส่งข้อมูล จึงรู้แม้ช่องส่งค้างตอนฝาเปิด
    มีปัญหา (ฝาเปิด / กระดาษหมด / ออฟไลน์) ตอนมีใบที่ยังพิมพ์ไม่จบ → ใบนั้นสะดุด (ส่งครบแล้ว = ใบแทนทันที · กำลังส่ง = printJobs หยุดเองที่ก้อนถัดไป)
    กลับมาปกติ = เครื่องพร้อม → ตัดเศษ + พิมพ์ใบแทนทันที (resumeKick) */
@@ -4904,6 +4914,28 @@ function printTest(){
   printJobs([['test', [{text:CONFIG.shopName, size:32, bold:true, align:'center'}, {box:'single', text:'ทดสอบปริ้นเตอร์', size:40, bold:true},
     {text:fmtDT(new Date().toISOString()), align:'center'}, {rule:'dash'}, {text:'ภาษาไทย: กี่ ปู่ ญี่ปุ่น ปั๊ม น้ำ ๑๒๓', align:'center'}]]], {})
     .then(res => { if(res === 'ok') toast('ส่งงานพิมพ์แล้ว', 'check'); });
+}
+/* ---------- ลิ้นชักเก็บเงิน (Tee 2026-10-23 · CD330 ต่อช่อง RJ11 ของปริ้นเตอร์) ----------
+   ESC p ต่อคิวเดียวกับงานพิมพ์: เรียกก่อน printSale = ออกก่อนตั๋วครัวของบิลนั้นเสมอ (ล้างคำสั่งค้างก่อนถ้าต้อง)
+   ไม่ใช่ "ใบ": ไม่มี GS r ไม่อยู่ใน PRINTED / UNCONF ไม่มีใบแทน ไม่พิมพ์ต่อเอง · พิมพ์ซ้ำ/ใบแทน/พิมพ์ต่อ ไม่เรียกที่นี่ = ไม่เปิดซ้ำ
+   ASB บอกฝาเปิด/กระดาษหมด = ไม่ส่ง (เครื่องหยุดทำคำสั่ง ลิ้นชักจะเด้งเองตอนปิดฝาทีหลัง) ให้ใช้กุญแจ
+   คืน ok / nocon (ไม่ได้เชื่อม หรือเบราว์เซอร์ไม่มี WebUSB) / trouble / timeout / error */
+const DRAWER = {timeout:3000};   // ส่ง 5 byte ปกติ 11–16 ms (ES-8805U) · ค้างนานกว่านี้ = บอกพนักงานให้ใช้กุญแจ ไม่ถือคิวต่อ (งานพิมพ์ที่ตามมามีเวลาหมดของตัวเอง)
+const DRAWER_MSG = 'ลิ้นชักไม่เปิด — ใช้กุญแจเปิด';
+const drawerOn = () => SETTINGS.drawer !== false;           // ค่าเริ่มต้น = ใช้
+const drawerPin = () => SETTINGS.drawerPin === 5 ? 5 : 2;   // ขา 2 = ปกติ (ESC p 0) · ขา 5 = ESC p 1
+function kickDrawer(why){
+  if(!usbPrinter || !usbPrinter.connected){ plog('ลิ้นชัก', null, `${why} · ไม่ได้เชื่อมปริ้นเตอร์`); return Promise.resolve('nocon'); }
+  const gen = printGen;
+  return printQueue = printQueue.then(async () => {
+    if(gen !== printGen || !usbPrinter.connected){ plog('ลิ้นชัก', null, `${why} · หลุดก่อนส่ง`); return 'nocon'; }
+    const bad = asbLive() && UsbPrinter.asbTrouble(usbPrinter.asb);
+    if(bad){ plog('ลิ้นชัก', null, `${why} · ไม่ส่ง (${bad})`); return 'trouble'; }
+    if(usbPrinter.dirty){ const r = await recoverFirst(null); if(r !== 'ok'){ plog('ลิ้นชัก', null, `${why} · ล้างคำสั่งค้างไม่ได้ (${r})`); return r; } }
+    const pin = drawerPin(), r = await sendJob(jobBytes([ESCPOS.drawer(pin === 5 ? 1 : 0)]), null, DRAWER.timeout);
+    plog('ลิ้นชัก', null, `${why} · ขา ${pin} · ${r === true ? 'ส่งแล้ว' : r === 'timeout' ? 'ไม่ตอบ' : 'ส่งไม่ได้'}`);
+    return r === true ? 'ok' : r === 'timeout' ? 'timeout' : 'error';
+  }).catch(e => { console.warn('drawer', e); return 'error'; });
 }
 async function disconnectPrinter(){ closeModal(); try{ await usbPrinter.close(); }catch(e){ usbPrinter.forget(); } renderPrinterBtn(); }
 
@@ -5463,8 +5495,11 @@ function confirmPay(){
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}
+    ${sale.method === 'cash' && drawerOn() ? drawerLine() : ''}
     ${doneHtml(sale)}`);
-  /* บันทึกบิลแล้วจึงพิมพ์ (ไม่รอ UI ไม่ค้าง) · ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (Tee 2026-10-17) */
+  /* บันทึกบิลแล้วจึงพิมพ์ (ไม่รอ UI ไม่ค้าง) · ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (Tee 2026-10-17)
+     เงินสด: เปิดลิ้นชักก่อน (ต่อคิวก่อนตั๋วครัว · Tee 2026-10-23) · ครั้งเดียวต่อบิล พิมพ์ซ้ำ/ใบแทนไม่เปิดอีก */
+  saleDrawer(sale);
   printSale(sale, receiptMode() === 'all' ? 'both' : 'kitchen');
 }
 $('btnPay').onclick = $('btnPay2').onclick = openPay;
@@ -5516,13 +5551,13 @@ function cashTable(){
     : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ที่หัวหน้าต่าง</p>`);
 }
 function tabPay(R){
-  if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
+  if(!R.bills) return {html:EMPTY + cashTable() + drawerTable(), csv:drawerCsv().slice(1)};
   const H = [['ช่องทางชำระเงิน'], ['จำนวนบิล', 1], ['ยอดขาย', 1], ['เฉลี่ย/บิล', 1], ['สัดส่วนยอดขาย']];
   const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [esc(m.name), v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
   return {
     html: tbl(H, rows, ['รวม', R.bills, baht(R.total), baht(Math.round(R.total / R.bills)), '']) +
-          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable(),
-    csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }))
+          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable() + drawerTable(),
+    csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }), drawerCsv())
   };
 }
 function tabOpts(R){
@@ -5702,7 +5737,7 @@ function exportCsv(){ downloadCsv(`geek-popup-sales-all-${dateKey(new Date())}.c
 </script>
 <script>
 /* ===== js/ui/settings-ui.js ===== */
-/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด (หน้าย่อย) · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, พนักงาน/รหัส, รหัสกู้คืน ---------- */
+/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด (หน้าย่อย) · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, ลิ้นชัก (drawer.js), พนักงาน/รหัส, รหัสกู้คืน ---------- */
 $('btnSettings').onclick = () => { if(needUser()) openSettings(); };
 
 /* สวิตช์ มี/หมด · กดแล้วใช้ทันที ไม่ต้องกดบันทึก · หมด = ทั้งแถวเป็นสีเทาอ่อน */
@@ -5721,12 +5756,13 @@ function openSettings(){
   if(can('printMode')) h += `<div class="q2">พิมพ์ใบเสร็จ <small>(ตั๋วครัวพิมพ์เองทุกบิลเสมอ)</small></div>
     <div class="row">${[['all', 'ทุกบิล'], ['ask', 'เมื่อลูกค้าขอ']].map(([m, t]) => `<button class="opt ${receiptMode() === m ? 'on' : ''}" data-rcpt="${m}" aria-pressed="${receiptMode() === m}">${t}</button>`).join('')}</div>
     <p class="note2">${receiptMode() === 'all' ? 'ใบเสร็จพิมพ์ออกเองทุกบิลหลังชำระเงิน' : 'ใบเสร็จไม่ออกเอง · ลูกค้าขอ ให้กด "พิมพ์ใบเสร็จ" บนหน้าหลังชำระเงิน'}</p>`;
+  if(can('drawer')) h += drawerSettingsHtml();
   if(can('users')) h += `<div class="q2">พนักงานและรหัส</div><div class="slist">` + users().map(u =>
       `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
         <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
     <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${recoveryHash() ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
-  else h += `<p class="note2" style="margin-top:0">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
+  else h += `<p class="note2" style="margin-top:0">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ ลิ้นชัก และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
     ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;
@@ -5975,10 +6011,12 @@ function askFloat(){
   if(dayFloat(bizDate(new Date())) !== null) return;
   openModal(`<h3>${icon('cash', 22)} เปิดร้าน · เงินทอนตั้งต้น</h3>
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
+    ${drawerOn() ? drawerLine() : ''}
     <div class="cashgrid"><div class="cashl"><div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
     <label class="recvrow"><span>เงินทอนตั้งต้น <small>บาท</small></span>${moneyField('floatIn', '', true)}</label></div>${moneyPadHtml()}</div>
     <div class="row payrow"><button class="tbtn" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
   $('floatIn').oninput = floatInput;
+  autoDrawer('open');   // ใส่เงินทอน: เปิดลิ้นชักให้ 1 ครั้ง (Tee 2026-10-23)
 }
 function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
 function floatSave(){
@@ -5994,10 +6032,12 @@ function openClose(){
   const date = bizDate(new Date());
   closeDraft = {date, float:dayFloat(date), counted:null};
   renderClose();
+  autoDrawer('close');  // นับเงิน: เปิดลิ้นชักให้ 1 ครั้งต่อการเปิดหน้านี้ (Tee 2026-10-23)
 }
 function renderClose(){
   const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
   openModal(`<div class="note2" style="margin-top:0"><b>${roundLabel(d.date, d.date)}</b></div>
+    ${drawerOn() ? drawerLine() : ''}
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
     <div class="cashgrid"><div class="cashl"><div class="cashbox">
       <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span>${moneyField('clFloat', d.float === null ? '' : d.float, d.float === null, 'cnum')}</div>
@@ -6107,6 +6147,109 @@ $('login').addEventListener('click', e => {
   if(id === 'rsApply') restoreApply();
   else if(id === 'rsCancel'){ RS = null; showLogin(); }
 });
+</script>
+<script>
+/* ===== js/ui/drawer.js ===== */
+/* ---------- ลิ้นชักเก็บเงิน: หน้าจอ (Tee 2026-10-23) · คำสั่งเปิดอยู่ใน print.js (kickDrawer ต่อคิวงานพิมพ์) ----------
+   เปิดเอง: ยืนยันรับเงินสด (ก่อนตั๋วครัว) · เปิดร้าน (ถามเงินทอนตั้งต้น) · ปิดร้าน/นับเงิน · PromptPay / ไทยช่วยไทย ไม่เปิด
+   เปิดด้วยปุ่ม "เปิดลิ้นชัก" บนแถบหัว (ทุกคน) ต้องเลือกเหตุผล · ทดสอบจากหน้าตั้งค่า (เจ้าของ)
+   ไม่เปิด (ไม่ได้เชื่อม / ปริ้นเตอร์ไม่พร้อม) = ขายต่อได้ บอก DRAWER_MSG ให้ใช้กุญแจ
+   log: ทุกครั้งที่แอปสั่งเปิด ยกเว้นตอนขาย (บิลคือบันทึกอยู่แล้ว) เก็บต่อท้ายในบันทึกเงินสด (cash.js) {type:'drawer', reason, ok, why} → อยู่ในไฟล์สำรองด้วย
+   เบราว์เซอร์ที่ไม่มี WebUSB เปิดลิ้นชักไม่ได้เลย: ไม่มีปุ่มบนแถบหัว ไม่บันทึก log แต่ยังบอก DRAWER_MSG ตอนรับเงินสด/เปิด/ปิดร้าน */
+const DRAWER_WHY = {change:'แลกเงิน', count:'นับเงิน', other:'อื่นๆ', open:'เปิดร้าน', close:'ปิดร้าน / นับเงิน', test:'ทดสอบ'};
+const DRAWER_ASK = ['change', 'count', 'other'];   // เหตุผลที่พนักงานเลือกตอนกดปุ่มบนแถบหัว
+const DRAWER_HINT = {nocon:'ยังไม่ได้เชื่อมปริ้นเตอร์', trouble:'ปริ้นเตอร์ไม่พร้อม (ฝาเปิดหรือกระดาษหมด)', timeout:'ปริ้นเตอร์ไม่ตอบ', error:'ส่งไปปริ้นเตอร์ไม่ได้'};
+const drawerFailHtml = r => `<span>${icon('alert', 18)} ${esc(DRAWER_MSG)}${DRAWER_HINT[r] ? ` · ${esc(DRAWER_HINT[r])}` : ''}</span>`;
+/* แถบในหน้าต่าง (หน้าสำเร็จ / เงินทอนตั้งต้น / นับเงิน) · ว่าง = ซ่อน (.prstatus:empty) */
+const drawerLine = () => '<div id="drStatus" class="prstatus" role="status" aria-live="polite"></div>';
+function drawerShow(r){
+  const el = $('drStatus'); if(!el) return false;
+  el.className = 'prstatus' + (r === 'ok' || r === 'wait' ? '' : ' warn');
+  el.innerHTML = r === 'ok' || r === 'wait' ? '' : drawerFailHtml(r);
+  return true;
+}
+/* สั่งเปิดแล้วเรียก done(ผล) · ไม่ได้เชื่อม = รู้ผลทันที (บอกพร้อมหน้าต่างที่เพิ่งเปิด ไม่รอ) */
+function drawerRun(why, done){
+  if(!usbPrinter || !usbPrinter.connected){ kickDrawer(why); done('nocon'); return; }
+  kickDrawer(why).then(done);
+}
+/* สั่งเปิด + บันทึก (ไม่ใช่ตอนขาย) · done(ผล) ok / nocon / trouble / timeout / error */
+function drawerOpen(reason, done){
+  drawerRun(DRAWER_WHY[reason] || reason, r => {
+    if(usbPrinter) addCash({type:'drawer', reason, ok:r === 'ok', ...(r !== 'ok' && {why:r})});
+    done(r);
+  });
+}
+/* รับเงินสด: เปิดก่อนตั๋วครัว (เรียกก่อน printSale) · แสดงผลบนหน้าสำเร็จของบิลนี้ · ไปออเดอร์ถัดไปแล้ว = ข้อความลอย */
+function saleDrawer(s){
+  if(s.method !== 'cash' || !drawerOn()) return;
+  drawerRun(`ขายเงินสด #${pad(s.no, 3)}`, r => {
+    const here = lastSale && lastSale.id === s.id && drawerShow(r);
+    if(!here && r !== 'ok') toast(`${DRAWER_MSG} (#${pad(s.no, 3)})`, 'alert', 6000);
+  });
+}
+/* เปิดร้าน / ปิดร้าน: เปิดให้ 1 ครั้งต่อการเปิดหน้าต่าง ผลแสดงในหน้าต่างนั้น */
+function autoDrawer(reason){
+  if(!drawerOn()) return;
+  drawerOpen(reason, r => { if(!drawerShow(r) && r !== 'ok') toast(DRAWER_MSG, 'alert', 6000); });
+}
+
+/* ---------- ปุ่มบนแถบหัว (ปุ่มรอง) · แสดงเมื่อเบราว์เซอร์มี WebUSB และเจ้าของเปิดใช้ลิ้นชัก ---------- */
+function renderDrawerBtn(){
+  const b = $('btnDrawer'); if(!b) return;
+  b.style.display = usbPrinter && drawerOn() ? '' : 'none';
+  b.innerHTML = icon('cash', 18) + ' เปิดลิ้นชัก';
+}
+$('btnDrawer').onclick = () => { if(needUser()) openDrawerAsk(); };
+function openDrawerAsk(){
+  openModal(`<p class="note2" style="margin:0 0 var(--s2)">เลือกเหตุผล ลิ้นชักจะเปิดทันที · ระบบบันทึกชื่อและเวลาไว้</p>
+    <div class="row">${DRAWER_ASK.map(k => `<button class="opt" data-drwhy="${k}">${DRAWER_WHY[k]}</button>`).join('')}</div>
+    <p class="note2">รับเงินสด เปิดร้าน และปิดร้าน ลิ้นชักเปิดเอง ไม่ต้องกดปุ่มนี้</p>`, {title:`${icon('cash', 22)} เปิดลิ้นชัก`, key:'drawer'});
+}
+function drawerAsked(reason){
+  closeModal();
+  drawerOpen(reason, r => toast(r === 'ok' ? `เปิดลิ้นชักแล้ว · ${DRAWER_WHY[reason]}` : `${DRAWER_MSG}${DRAWER_HINT[r] ? ' · ' + DRAWER_HINT[r] : ''}`, r === 'ok' ? 'check' : 'alert', r === 'ok' ? 1400 : 6000));
+}
+
+/* ---------- ตั้งค่า (เจ้าของ): ใช้/ไม่ใช้ · ทดสอบ · ขั้นสูง = ขาที่ต่อ (2 / 5) ---------- */
+let drawerAdvOpen = false;   // เปลี่ยนขาแล้ววาดหน้าตั้งค่าใหม่ ส่วนขั้นสูงยังเปิดค้าง
+function drawerSettingsHtml(){
+  const on = drawerOn(), adv = drawerAdvOpen; drawerAdvOpen = false;
+  return `<div class="q2">ลิ้นชักเก็บเงิน</div>
+    <div class="slist"><div class="srow"><span class="nm">ใช้ลิ้นชักเก็บเงิน<small>${on ? 'เปิดเองเมื่อรับเงินสด เปิดร้าน และปิดร้าน · มีปุ่ม "เปิดลิ้นชัก" บนแถบหัว' : 'ปิดอยู่ · ลิ้นชักไม่เปิดเอง ไม่มีปุ่มบนแถบหัว'}</small></span>` +
+      `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="ใช้ลิ้นชักเก็บเงิน" id="drSwitch"><span></span></button></div>` +
+    (on ? `<div class="srow"><span class="nm">ทดสอบ<small>ต่อปริ้นเตอร์แล้ว กดแล้วลิ้นชักต้องเปิด</small></span><button class="ghost" id="drTest">ทดสอบเปิดลิ้นชัก</button></div>` : '') + `</div>` +
+    (on ? `<details class="plog" id="drAdv"${adv ? ' open' : ''}><summary>ขั้นสูง</summary>
+      <div class="q2" style="margin-top:0">ขาที่ต่อลิ้นชัก</div>
+      <div class="row">${[2, 5].map(p => `<button class="opt ${drawerPin() === p ? 'on' : ''}" data-drpin="${p}" aria-pressed="${drawerPin() === p}">ขา ${p}${p === 2 ? ' (ปกติ)' : ''}</button>`).join('')}</div>
+      <p class="note2">เปลี่ยนเฉพาะเมื่อกดทดสอบแล้วลิ้นชักไม่เปิด (ลิ้นชักบางรุ่นต่อขา 5)</p></details>` : '');
+}
+function setDrawer(next){
+  if(!can('drawer')) return false;
+  if(!saveSettings(next)){ toast('บันทึกไม่สำเร็จ', 'alert'); return false; }
+  renderDrawerBtn(); return true;
+}
+$('modal').addEventListener('click', e => {
+  const w = e.target.closest('[data-drwhy]'); if(w) return drawerAsked(w.dataset.drwhy);
+  const p = e.target.closest('[data-drpin]');
+  if(p){ const n = Number(p.dataset.drpin), next = {...SETTINGS}; if(n === 5) next.drawerPin = 5; else delete next.drawerPin; if(setDrawer(next)){ toast(`ลิ้นชักต่อขา ${n}`, 'check'); drawerAdvOpen = true; openSettings(); } return; }
+  const id = (e.target.closest('button') || {}).id;
+  if(id === 'drSwitch'){ const next = {...SETTINGS}; if(drawerOn()) next.drawer = false; else delete next.drawer; if(setDrawer(next)){ toast(drawerOn() ? 'ใช้ลิ้นชักเก็บเงิน' : 'ไม่ใช้ลิ้นชักเก็บเงิน', 'check'); openSettings(); } }
+  else if(id === 'drTest' && can('drawer')) drawerOpen('test', r => toast(r === 'ok' ? `ส่งคำสั่งเปิดลิ้นชักแล้ว (ขา ${drawerPin()}) · ไม่เปิด ลองเปลี่ยนขาในขั้นสูง` : `${DRAWER_MSG}${DRAWER_HINT[r] ? ' · ' + DRAWER_HINT[r] : ''}`, r === 'ok' ? 'check' : 'alert', 6000));
+});
+
+/* ---------- สรุปยอด แท็บชำระเงิน: การเปิดลิ้นชักของช่วงที่เลือก (ใคร เวลา เหตุผล) ---------- */
+const drawerLog = () => cashLog().filter(c => c.type === 'drawer' && c.date >= REP.from && c.date <= REP.to).sort((a, b) => b.at.localeCompare(a.at));
+const drawerResult = c => c.ok ? 'เปิดแล้ว' : 'ไม่เปิด' + (DRAWER_HINT[c.why] ? ` (${DRAWER_HINT[c.why]})` : '');
+function drawerTable(){
+  const rows = drawerLog(), multi = REP.from !== REP.to;
+  return `<div class="sec2">เปิดลิ้นชัก</div>` + (rows.length
+    ? tbl([['เวลา'], ['เหตุผล'], ['คนเปิด'], ['ผล']], rows.map(c => [multi ? fmtDT(c.at) : fmtDT(c.at).slice(-5), esc(DRAWER_WHY[c.reason] || c.reason), esc(c.by), c.ok ? 'เปิดแล้ว' : `<span style="color:var(--bad)">${esc(drawerResult(c))}</span>`]))
+    : `<p class="note2">ยังไม่มีการเปิดลิ้นชักด้วยปุ่มหรือตอนเปิด/ปิดร้านในช่วงนี้</p>`) +
+    `<p class="note2">ตอนรับเงินสด ลิ้นชักเปิดเองและไม่บันทึกแยก (ดูได้จากบิลเงินสด)</p>`;
+}
+const drawerCsv = () => { const rows = drawerLog(); return rows.length ? [[], ['วันที่รอบขาย', 'เวลาเปิดลิ้นชัก', 'เหตุผล', 'คนเปิด', 'ผล']].concat(rows.map(c => [c.date, fmtDT(c.at), DRAWER_WHY[c.reason] || c.reason, c.by, drawerResult(c)])) : []; };
+renderDrawerBtn();
 </script>
 <script>
 /* ===== js/ui/tablock.js ===== */

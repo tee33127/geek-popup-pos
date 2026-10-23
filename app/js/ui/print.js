@@ -19,9 +19,10 @@ function slipBytes(blockSets, talk = printerTalks()){
    แล้วเชื่อมใหม่เอง · แถบแจ้งพร้อมปุ่มพิมพ์ซ้ำเฉพาะใบที่ยังไม่ออก · ข้อมูลที่ปริ้นเตอร์รับไปแล้วบางส่วนแอปล้างไม่ได้ (อาจออกมาตอนเติมกระดาษ) */
 const usbPrinter = UsbPrinter.supported() ? new UsbPrinter() : null;
 let printQueue = Promise.resolve();
-/* เวลาหมดต่องาน: ไม่ต่ำกว่า 15 วิ · งานใหญ่คิดตามขนาด (อัตราที่วัดจริง 109,434 byte ≈ 2.1 วิ → ~52 KB/วิ) เผื่อ 3 เท่า
-   ตั๋วครัวบิลยาว 5 แก้ว ≈ 141 KB ≈ 2.7 วิ จึงได้ 15 วิ ไม่โดนตัดผิด */
-const PRINT_TIMEOUT = {min:15000, rate:52000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
+/* เวลาหมดต่องาน: ไม่ต่ำกว่า 15 วิ · งานใหญ่คิดตามขนาด เผื่อ 3 เท่า
+   rate = ช้าสุดที่เครื่องรับได้ตอนบัฟเฟอร์เต็ม = ความเร็วหัวพิมพ์ (ES-8805U 2026-10-23: พิมพ์จริง ≈ 40 KB/วิ · รับ 172,830 byte ใน ~3.5 วิ ≈ 50 KB/วิ · เดิม XP-Q807K ~52 KB/วิ)
+   ตั๋วครัวบิลยาว 5 แก้ว ≈ 141 KB ≈ 3.5 วิ → ได้ 15 วิ ไม่โดนตัดผิด · ใบที่ยาวกว่า ~200 KB ได้เวลาเพิ่มตามขนาด */
+const PRINT_TIMEOUT = {min:15000, rate:40000, factor:3, close:3000};   // close = รอปิด/เชื่อมใหม่หลังหมดเวลา
 const jobTimeout = n => Math.max(PRINT_TIMEOUT.min, Math.ceil(n / PRINT_TIMEOUT.rate * 1000 * PRINT_TIMEOUT.factor));
 const STUCK_MSG = 'ปริ้นเตอร์ไม่ตอบ — เช็กกระดาษและฝาปิด แล้วกดพิมพ์ซ้ำ';
 /* เหตุที่พิมพ์ไม่ออกล่าสุด (แถบส้ม + หน้าสำเร็จ) · cover/paper = อ่านสถานะได้ (ep2 IN) จึงไม่ส่งงาน (Tee 2026-10-17)
@@ -137,11 +138,7 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
     };
     if(PRINT_EST.lost){ PRINT_EST.end = Math.max(PRINT_EST.end, Date.now() + PRINT_EST.lost / PRINT_WATCH.rate * 1000); PRINT_EST.lost = 0; }   // หลังสะดุด เครื่องอาจยังพิมพ์ของเก่าที่ค้างในบัฟเฟอร์
     if(usbPrinter.connected && gen === printGen){
-      if(usbPrinter.dirty){
-        plog('recover', sid, usbPrinter.dirty);
-        const r = await sendJob(jobBytes([ESCPOS.recover(usbPrinter.dirty === 'fail'), ...(printerTalks() ? [ESCPOS.asb(true)] : [])]));
-        if(r === true) usbPrinter.dirty = null; else res = r === 'timeout' ? 'timeout' : 'error';
-      }
+      if(usbPrinter.dirty) res = await recoverFirst(sid);
       if(res === 'ok') res = await check();
     }
     for(const [i, [k, bl]] of jobs.entries()){
@@ -185,15 +182,23 @@ function printJobs(jobs, st, resumed, sid){   // resumed = แอปพิมพ
     return res;
   }).catch(e => { console.warn('print', e); jobs.forEach(([k]) => { if(st[k] === 'wait') st[k] = 'fail'; }); return 'error'; });
 }
+/* เครื่องอาจค้างกลางคำสั่งภาพ (usbPrinter.dirty): ส่ง ESCPOS.recover ก่อนงานถัดไป (ใบ หรือคำสั่งลิ้นชัก) · ESC @ ในนั้นอาจปิด ASB จึงเปิดซ้ำ · คืน ok / timeout / error */
+async function recoverFirst(sid){
+  plog('recover', sid, usbPrinter.dirty);
+  const r = await sendJob(jobBytes([ESCPOS.recover(usbPrinter.dirty === 'fail'), ...(printerTalks() ? [ESCPOS.asb(true)] : [])]));
+  if(r === true){ usbPrinter.dirty = null; return 'ok'; }
+  return r === 'timeout' ? 'timeout' : 'error';
+}
 /* ---------- ใบที่สะดุดกลางคัน → พิมพ์ใหม่ทั้งใบเป็น "ใบแทน" (Tee 2026-10-17 · บั๊ก H33 เครื่องจริง) ----------
    ส่งครบ ≠ ออกแล้ว: เครื่องรับข้อมูลเข้าบัฟเฟอร์แล้วยังพิมพ์ไม่เสร็จ ถ้าฝาเปิด/หมดเวลา/สายหลุดตอนนั้น ท้ายใบหายได้ (ตั๋วครัว #017 จบที่หัวข้อ Banana Choco)
    UNCONF = ใบที่ส่งครบแต่ยังไม่ยืนยัน · ยืนยัน = อ่านสถานะได้ "พร้อม" เมื่อผ่านไป ≥ PRINT_CONFIRM.ms หลังส่งครบ
    สะดุด (หมดเวลา / ฝาเปิด / กระดาษหมด / สายหลุด) → ใบที่ยังไม่ยืนยันและส่งไม่นานก่อนจุดสะดุด = fail + redo (ใบแทน) · ใบที่ไม่สะดุดไม่พิมพ์ซ้ำ
    อ่านสถานะได้: ใบที่ยังไม่ถูกยืนยันทุกใบ (ไม่เกิน stale ms) · อ่านสถานะไม่ได้: ยืนยันด้วยเวลา (ส่งครบนานกว่า PRINT_CONFIRM.ms ก่อนจุดสะดุด = ถือว่าออกแล้ว) */
 const PRINT_CONFIRM = {ms:500, stale:20000};   // ms = เผื่อหลังเวลาพิมพ์จบที่คาด (PRINT_WATCH.rate)
-/* เฝ้าระหว่างพิมพ์: ถามสถานะทุก ms · ก้อน 4 KB ปกติ ~80 ms (วัดจริง 109 KB ≈ 2.1 วิ) ค้างเกิน stall ms = เครื่องหยุดรับ
-   rate = ความเร็วหัวพิมพ์โดยประมาณ (byte/วิ ต่ำกว่าที่วัดได้ 52 KB/วิ เผื่อไว้) ใช้คาดว่าใบไหนพิมพ์จบเมื่อไร */
-const PRINT_WATCH = {ms:300, stall:500, rate:45000};
+/* เฝ้าระหว่างพิมพ์ (ไม่มี ASB เท่านั้น): ถามสถานะทุก ms · ก้อน 4 KB ปกติ ~80–100 ms ค้างเกิน stall ms = เครื่องหยุดรับ
+   rate = ความเร็วหัวพิมพ์โดยประมาณ (byte/วิ) ใช้คาดว่าใบไหนพิมพ์จบเมื่อไร · ต่ำกว่าที่วัดได้ เผื่อไว้ (ES-8805U GS r 2026-10-23: 57,884 byte ตอบหลังเริ่มส่ง 1,444 ms ≈ 40 KB/วิ · เดิม XP-Q807K 52 KB/วิ → 45000)
+   ES-8805U รับข้อมูลช้ากว่าเครื่องเดิม (บัฟเฟอร์เล็กกว่า ตอนเต็มรับได้เท่าที่พิมพ์ออก) = ปกติ ไม่ใช่สะดุด: มี ASB ไม่ดูก้อนค้างเลย (watch) · ไม่มี ASB ก้อนค้างตอนเครื่องยังพิมพ์ของเก่าไม่นับ (PRINT_EST) */
+const PRINT_WATCH = {ms:300, stall:500, rate:36000};
 /* GS r (Tee 2026-10-17): ใบที่ส่งครบนับว่า "ออกแล้ว" เมื่อเครื่องตอบ GS r ท้ายใบ (พิมพ์ + ตัดจบจริง ไม่ต้องเดาเวลา)
    เครื่องไม่ตอบ (ไม่รองรับ) = นับด้วยเวลาพิมพ์จบที่คาด + grace โดยระหว่างนั้น ASB ไม่แจ้งปัญหา · ไม่ตอบ 2 ใบ = เลิกส่ง GS r จนเชื่อมใหม่
    max = เครื่องเคยตอบแล้วแต่ใบนี้ยังไม่ตอบ รอได้นานสุดเท่านี้หลังเวลาที่คาด (ช้ากว่าที่คาด) */
@@ -392,7 +397,7 @@ function resumePoll(){
     PRINT_FAILS.slice().forEach(f => { const ks = failedSlips(f), s = all.find(x => x.id === f.id); if(s && ks.length) printSale(s, ks.length === 2 ? 'both' : ks[0], false, true); });
   }, e => { resumeBusy = false; console.warn('resume status', e); });
 }
-/* ---------- ASB: เครื่องแจ้งสถานะเอง (Tee 2026-10-17 · XP-Q807K ยืนยันแล้ว: ฝาเปิด/ปิด แจ้งภายใน ~1 วิ) ----------
+/* ---------- ASB: เครื่องแจ้งสถานะเอง (Tee 2026-10-17 · ยืนยันบนเครื่องจริงทั้ง XP-Q807K และ ES-8805U: ฝาเปิด/ปิด แจ้งภายใน ~1 วิ) ----------
    เปิดตอนเชื่อม (ล้างคำสั่งค้างก่อน) · อ่านแยกจากคิวส่งข้อมูล จึงรู้แม้ช่องส่งค้างตอนฝาเปิด
    มีปัญหา (ฝาเปิด / กระดาษหมด / ออฟไลน์) ตอนมีใบที่ยังพิมพ์ไม่จบ → ใบนั้นสะดุด (ส่งครบแล้ว = ใบแทนทันที · กำลังส่ง = printJobs หยุดเองที่ก้อนถัดไป)
    กลับมาปกติ = เครื่องพร้อม → ตัดเศษ + พิมพ์ใบแทนทันที (resumeKick) */
@@ -476,6 +481,28 @@ function printTest(){
   printJobs([['test', [{text:CONFIG.shopName, size:32, bold:true, align:'center'}, {box:'single', text:'ทดสอบปริ้นเตอร์', size:40, bold:true},
     {text:fmtDT(new Date().toISOString()), align:'center'}, {rule:'dash'}, {text:'ภาษาไทย: กี่ ปู่ ญี่ปุ่น ปั๊ม น้ำ ๑๒๓', align:'center'}]]], {})
     .then(res => { if(res === 'ok') toast('ส่งงานพิมพ์แล้ว', 'check'); });
+}
+/* ---------- ลิ้นชักเก็บเงิน (Tee 2026-10-23 · CD330 ต่อช่อง RJ11 ของปริ้นเตอร์) ----------
+   ESC p ต่อคิวเดียวกับงานพิมพ์: เรียกก่อน printSale = ออกก่อนตั๋วครัวของบิลนั้นเสมอ (ล้างคำสั่งค้างก่อนถ้าต้อง)
+   ไม่ใช่ "ใบ": ไม่มี GS r ไม่อยู่ใน PRINTED / UNCONF ไม่มีใบแทน ไม่พิมพ์ต่อเอง · พิมพ์ซ้ำ/ใบแทน/พิมพ์ต่อ ไม่เรียกที่นี่ = ไม่เปิดซ้ำ
+   ASB บอกฝาเปิด/กระดาษหมด = ไม่ส่ง (เครื่องหยุดทำคำสั่ง ลิ้นชักจะเด้งเองตอนปิดฝาทีหลัง) ให้ใช้กุญแจ
+   คืน ok / nocon (ไม่ได้เชื่อม หรือเบราว์เซอร์ไม่มี WebUSB) / trouble / timeout / error */
+const DRAWER = {timeout:3000};   // ส่ง 5 byte ปกติ 11–16 ms (ES-8805U) · ค้างนานกว่านี้ = บอกพนักงานให้ใช้กุญแจ ไม่ถือคิวต่อ (งานพิมพ์ที่ตามมามีเวลาหมดของตัวเอง)
+const DRAWER_MSG = 'ลิ้นชักไม่เปิด — ใช้กุญแจเปิด';
+const drawerOn = () => SETTINGS.drawer !== false;           // ค่าเริ่มต้น = ใช้
+const drawerPin = () => SETTINGS.drawerPin === 5 ? 5 : 2;   // ขา 2 = ปกติ (ESC p 0) · ขา 5 = ESC p 1
+function kickDrawer(why){
+  if(!usbPrinter || !usbPrinter.connected){ plog('ลิ้นชัก', null, `${why} · ไม่ได้เชื่อมปริ้นเตอร์`); return Promise.resolve('nocon'); }
+  const gen = printGen;
+  return printQueue = printQueue.then(async () => {
+    if(gen !== printGen || !usbPrinter.connected){ plog('ลิ้นชัก', null, `${why} · หลุดก่อนส่ง`); return 'nocon'; }
+    const bad = asbLive() && UsbPrinter.asbTrouble(usbPrinter.asb);
+    if(bad){ plog('ลิ้นชัก', null, `${why} · ไม่ส่ง (${bad})`); return 'trouble'; }
+    if(usbPrinter.dirty){ const r = await recoverFirst(null); if(r !== 'ok'){ plog('ลิ้นชัก', null, `${why} · ล้างคำสั่งค้างไม่ได้ (${r})`); return r; } }
+    const pin = drawerPin(), r = await sendJob(jobBytes([ESCPOS.drawer(pin === 5 ? 1 : 0)]), null, DRAWER.timeout);
+    plog('ลิ้นชัก', null, `${why} · ขา ${pin} · ${r === true ? 'ส่งแล้ว' : r === 'timeout' ? 'ไม่ตอบ' : 'ส่งไม่ได้'}`);
+    return r === true ? 'ok' : r === 'timeout' ? 'timeout' : 'error';
+  }).catch(e => { console.warn('drawer', e); return 'error'; });
 }
 async function disconnectPrinter(){ closeModal(); try{ await usbPrinter.close(); }catch(e){ usbPrinter.forget(); } renderPrinterBtn(); }
 

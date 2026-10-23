@@ -91,8 +91,11 @@ function confirmPay(){
   openModal(`<div class="big">${icon('checkCircle', 64)}</div>
     <h3 style="text-align:center">ออเดอร์ #${pad(no, 3)} · ${DINE[sale.dining].name}</h3>
     ${sale.method === 'cash' ? `<div class="change">เงินทอน ${baht(sale.change)}</div>` : `<div class="change" style="color:var(--blue)">ชำระด้วย ${esc(METHOD[sale.method].name)} แล้ว</div>`}
+    ${sale.method === 'cash' && drawerOn() ? drawerLine() : ''}
     ${doneHtml(sale)}`);
-  /* บันทึกบิลแล้วจึงพิมพ์ (ไม่รอ UI ไม่ค้าง) · ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (Tee 2026-10-17) */
+  /* บันทึกบิลแล้วจึงพิมพ์ (ไม่รอ UI ไม่ค้าง) · ตั๋วครัวทุกบิล · ใบเสร็จตามตั้งค่า (Tee 2026-10-17)
+     เงินสด: เปิดลิ้นชักก่อน (ต่อคิวก่อนตั๋วครัว · Tee 2026-10-23) · ครั้งเดียวต่อบิล พิมพ์ซ้ำ/ใบแทนไม่เปิดอีก */
+  saleDrawer(sale);
   printSale(sale, receiptMode() === 'all' ? 'both' : 'kitchen');
 }
 $('btnPay').onclick = $('btnPay2').onclick = openPay;

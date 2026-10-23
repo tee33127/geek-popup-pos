@@ -1,4 +1,4 @@
-/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด (หน้าย่อย) · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, พนักงาน/รหัส, รหัสกู้คืน ---------- */
+/* ---------- ตั้งค่า (ปุ่มบนแถบหัว) · ทุกคน: ของหมด (หน้าย่อย) · เจ้าของ: เลข PromptPay, พิมพ์ใบเสร็จ, ลิ้นชัก (drawer.js), พนักงาน/รหัส, รหัสกู้คืน ---------- */
 $('btnSettings').onclick = () => { if(needUser()) openSettings(); };
 
 /* สวิตช์ มี/หมด · กดแล้วใช้ทันที ไม่ต้องกดบันทึก · หมด = ทั้งแถวเป็นสีเทาอ่อน */
@@ -17,12 +17,13 @@ function openSettings(){
   if(can('printMode')) h += `<div class="q2">พิมพ์ใบเสร็จ <small>(ตั๋วครัวพิมพ์เองทุกบิลเสมอ)</small></div>
     <div class="row">${[['all', 'ทุกบิล'], ['ask', 'เมื่อลูกค้าขอ']].map(([m, t]) => `<button class="opt ${receiptMode() === m ? 'on' : ''}" data-rcpt="${m}" aria-pressed="${receiptMode() === m}">${t}</button>`).join('')}</div>
     <p class="note2">${receiptMode() === 'all' ? 'ใบเสร็จพิมพ์ออกเองทุกบิลหลังชำระเงิน' : 'ใบเสร็จไม่ออกเอง · ลูกค้าขอ ให้กด "พิมพ์ใบเสร็จ" บนหน้าหลังชำระเงิน'}</p>`;
+  if(can('drawer')) h += drawerSettingsHtml();
   if(can('users')) h += `<div class="q2">พนักงานและรหัส</div><div class="slist">` + users().map(u =>
       `<div class="srow"><span class="nm">${esc(u.name)}${USER && u.id === USER.id ? ' <small class="me">(คุณ)</small>' : ''}<small class="role ${u.role}">${ROLE_NAME[u.role]}</small></span>
         <button class="ghost" data-uedit="${esc(u.id)}">แก้ไข</button>${USER && u.id === USER.id ? '' : `<button class="ghost danger" data-udel="${esc(u.id)}">ลบ</button>`}</div>`).join('') +
       `</div><button class="ghost wide" id="usrAdd">${icon('user', 18)} เพิ่มพนักงาน</button>
     <div class="q2">รหัสกู้คืน</div><div class="slist"><div class="srow"><span class="nm">${recoveryHash() ? 'ตั้งไว้แล้ว' : '<span style="color:var(--bad)">ยังไม่มี</span>'}<small>ใช้ตั้งรหัสเจ้าของใหม่ถ้าลืม</small></span><button class="ghost" id="rcNew">สร้างใหม่</button></div></div>`;
-  else h += `<p class="note2" style="margin-top:0">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
+  else h += `<p class="note2" style="margin-top:0">${icon('lock', 14)} เลข PromptPay การพิมพ์ใบเสร็จ ลิ้นชัก และรายชื่อพนักงาน เจ้าของเป็นคนตั้ง</p>`;
   h += `<div class="q2">ข้อมูล</div><div class="slist">
     <div class="srow"><span class="nm">สำรองข้อมูล<small style="${SETTINGS.lastBackup ? '' : 'color:var(--bad)'}">${backupLabel()}</small></span><button class="ghost" id="bkSet">สำรองตอนนี้</button></div>
     ${can('users') ? `<div class="srow"><span class="nm">นำข้อมูลกลับ<small>จากไฟล์สำรอง (เช่นเปลี่ยนเครื่อง)</small></span><button class="ghost" id="rsOpen">เลือกไฟล์</button></div>` : ''}</div>`;

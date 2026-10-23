@@ -1,5 +1,6 @@
 /* เงินในลิ้นชัก (ไม่แตะ DOM): เงินทอนตั้งต้นตอนเปิดร้าน + นับเงินตอนปิดร้าน · เก็บต่อท้ายอย่างเดียว ไม่แก้ของเดิม
    รายการ = {type:'open', date, at, by, float} หรือ {type:'close', date, at, by, float, cashSales, cashBills, expected, counted, diff, note}
+   หรือ {type:'drawer', date, at, by, reason, ok, why} แอปสั่งเปิดลิ้นชัก (drawer.js · ไม่มี float จึงไม่กระทบเงินทอนตั้งต้น)
    ใช้ค่าล่าสุดของแต่ละรอบขาย (นับซ้ำได้ เช่นขายต่อหลังนับ) */
 const CASH_KEY = SETTINGS_KEY + '_cash';
 let CASH_MEM = [];   // เบราว์เซอร์บล็อกที่เก็บข้อมูล

@@ -30,6 +30,9 @@ header h1 span{color:var(--orange)}
 #nextNo b{font-size:max(12px, calc(20px * var(--ui-scale)));font-weight:700;margin-left:2px}
 .hbtn{background:transparent;color:#fff;border:var(--bw) solid rgba(255,255,255,.55);padding:var(--s2) var(--s3);border-radius:var(--r-btn);font-size:max(12px, calc(15px * var(--ui-scale)));min-height:max(44px, calc(48px * var(--ui-scale)))}
 .hbtn .ic{vertical-align:-3px}
+.hbtn{white-space:nowrap}   /* ข้อความในปุ่มห้ามตัดกลางคำ ("สรุป/ยอด") */
+/* แท็บเล็ตแนวตั้ง (800px · มีปุ่มเปิดลิ้นชักเพิ่ม Tee 2026-10-23): ระยะห่างและขอบในปุ่มแคบลง ปุ่มทั้งหมดยังอยู่บรรทัดเดียว */
+@media(max-width:900px){ header{gap:var(--s1);padding:var(--s2) var(--s3)} .hbtn{padding:var(--s2)} }
 .hbtn.off{background:var(--orange);border-color:var(--orange);color:var(--blue);font-weight:700}   /* ยังไม่เชื่อมปริ้นเตอร์: เด่นให้พนักงานเห็น */
 main{display:grid;grid-template-columns:1fr calc(390px * var(--ui-scale));gap:var(--s4);padding:var(--s3) var(--s4) var(--s4);max-width:1440px;margin:0 auto;align-items:start}
 .card{background:#fff;border-radius:var(--r-card);padding:var(--s3) var(--s4);box-shadow:0 1px 3px rgba(20,0,120,.08)}

@@ -43,13 +43,13 @@ function cashTable(){
     : `<p class="note2">ยังไม่ได้นับเงินปิดร้านในช่วงนี้ · กด "ปิดร้าน / นับเงิน" ที่หัวหน้าต่าง</p>`);
 }
 function tabPay(R){
-  if(!R.bills) return {html:EMPTY + cashTable(), csv:[]};
+  if(!R.bills) return {html:EMPTY + cashTable() + drawerTable(), csv:drawerCsv().slice(1)};
   const H = [['ช่องทางชำระเงิน'], ['จำนวนบิล', 1], ['ยอดขาย', 1], ['เฉลี่ย/บิล', 1], ['สัดส่วนยอดขาย']];
   const rows = CONFIG.methods.map(m => { const v = R.methods[m.id]; return [esc(m.name), v.bills, baht(v.rev), v.bills ? baht(Math.round(v.rev / v.bills)) : '–', shareCell(pct(v.rev, R.total))]; });
   return {
     html: tbl(H, rows, ['รวม', R.bills, baht(R.total), baht(Math.round(R.total / R.bills)), '']) +
-          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable(),
-    csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }))
+          `<p class="note2">เงินสดจากการขาย (ไม่รวมเงินทอนตั้งต้น) = ${baht(R.methods.cash ? R.methods.cash.rev : 0)}</p>` + cashTable() + drawerTable(),
+    csv: [['ช่องทางชำระเงิน','จำนวนบิล','ยอดขาย','เฉลี่ย/บิล','สัดส่วนยอดขาย %']].concat(CONFIG.methods.map(m => { const v = R.methods[m.id]; return [m.name, v.bills, v.rev, v.bills ? Math.round(v.rev / v.bills) : 0, pct(v.rev, R.total)]; }), drawerCsv())
   };
 }
 function tabOpts(R){

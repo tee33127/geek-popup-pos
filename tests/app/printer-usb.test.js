@@ -71,8 +71,8 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     eq('fonts: first slip drawn only after fonts loaded', timeline.indexOf('loaded') >= 0 && timeline.indexOf('loaded') < timeline.indexOf('draw'), true);
     const R0 = w.eval('ESCPOS.recover(false).length'), z = R0 - 2;
     eq('first job after connecting: clears any half-received image command first (zeros ≥ one band, then ESC @), no extra cut', [sent.slice(0, z).every(b => b === 0), sent.slice(z, R0), z >= 8 + 72 * w.eval('PRINTER.band')], [true, [0x1B, 0x40], true]);
-    eq('then turns ASB on (GS a 14) and asks status via ep2 IN (DLE EOT 2, DLE EOT 4 · this fake printer sends no ASB)', [w.eval('usbPrinter.epIn'), sent.slice(R0, R0 + 9)], [2, [0x1D, 0x61, 0x0E, 0x10, 0x04, 0x02, 0x10, 0x04, 0x04]]);
-    const S0 = R0 + 9;
+    eq('then turns ASB on (GS a 14) · cash bill: opens the drawer (ESC p 0 = pin 2) before the kitchen ticket · then asks status via ep2 IN (DLE EOT 2, DLE EOT 4 · this fake printer sends no ASB)', [w.eval('usbPrinter.epIn'), sent.slice(R0, R0 + 14)], [2, [0x1D, 0x61, 0x0E, 0x1B, 0x70, 0x00, 25, 250, 0x10, 0x04, 0x02, 0x10, 0x04, 0x04]]);
+    const S0 = R0 + 14;
     eq('2 slips: 2 cuts', count(sent, [0x1D, 0x56, 0x42, 0x00]), 2);
     eq('slip starts with ESC @ + ASB on again (ESC @ may turn it off) · raster image 576 dots wide (72 bytes) · short bands', [sent.slice(S0, S0 + 2), sent.slice(S0 + 2, S0 + 5), sent.slice(S0 + 5, S0 + 11), sent[S0 + 11], sent[S0 + 12]], [[0x1B, 0x40], [0x1D, 0x61, 0x0E], [0x1D, 0x76, 0x30, 0x00, 72, 0], w.eval('PRINTER.band'), 0]);
     const tail = (() => { let e = sent.length; while(e >= 3 && sent[e - 3] === 0x10 && sent[e - 2] === 0x04) e -= 3; return sent.slice(e - 7, e); })();   // ท้ายสุดอาจเป็นคำถามสถานะยืนยันหลังพิมพ์
@@ -128,7 +128,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     usbListeners.disconnect({device:dev}); eq('unplug resets button', $('#btnPrinter').textContent.trim(), 'เชื่อมปริ้นเตอร์');
 
     // ---------- ปริ้นเตอร์ไม่ตอบ: หมดเวลาต่องาน (Tee 2026-10-16) ----------
-    eq('timeout per job: min 15 s · long 5-cup kitchen ticket (141,472 byte ≈ 2.7 s) still 15 s · huge job scales with bytes',
+    eq('timeout per job: min 15 s · long 5-cup kitchen ticket (141,472 byte ≈ 3.5 s at 40 KB/s, ES-8805U) still 15 s · huge job scales with bytes',
       w.eval('[jobTimeout(64760), jobTimeout(141472), jobTimeout(2000000) > 15000]'), [15000, 15000, true]);
     $('#btnPrinter').click(); await printDone();   // เชื่อมกลับหลังถอดสาย
     w.eval('PRINT_TIMEOUT.min = 300; PRINT_TIMEOUT.rate = 1e9; PRINT_TIMEOUT.close = 300');   // เทสต์เร็ว: หมดเวลา 300 ms w.eval('closeModal()');
@@ -176,7 +176,7 @@ JSDOM.fromFile(path.join(APP, 'index.html'), {runScripts:'dangerously', resource
     const pages = emu.pages, last2 = pages.slice(-2).map(p => EscPosEmu.ink(p).join());
     eq('H29 reprint after mid-image stop: no garbage text anywhere · kitchen then receipt complete and exact · old fragment cut off as its own piece',
       [pages.map(p => p.text).join('') + emu.page.text, last2[0] === want('kitchen'), last2[1] === want('receipt'), EscPosEmu.ink(pages[pages.length - 3]).length > 0], ['', true, true, true]);
-    // ---------- H30 สถานะก่อนพิมพ์ (DLE EOT 2/4) เฉพาะเครื่องที่มี bulk IN · XP-Q807K ที่วัดจริงมีแต่ ep1 OUT จึงข้ามข้อนี้บนเครื่องจริง ----------
+    // ---------- H30 สถานะก่อนพิมพ์ (DLE EOT 2/4) เฉพาะเครื่องที่มี bulk IN (เครื่องจริงมี ep2 IN · ใช้เมื่อไม่มี ASB) ----------
     eq('H30 parse: normal 0x12 · lid 0x16 · paper stop 0x32 / sensor 0x72 · near end 0x1E · bad shapes invalid', w.eval(`[[0x12, 0x12], [0x16, 0x12], [0x32, 0x12], [0x12, 0x72], [0x12, 0x1E], [0xFF, 0x12], [0x12, null]].map(([a, b]) => { const p = UsbPrinter.parseStatus(a, b); return [p.valid, p.cover, p.paper, p.near]; })`),
       [[true, false, false, false], [true, true, false, false], [true, false, true, false], [true, false, true, false], [true, false, false, true], [false, false, false, false], [false, false, false, false]]);
     w.eval('usbPrinter.forget(); renderPrinterBtn()'); $('#btnPrinter').click(); await printDone();

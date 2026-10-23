@@ -5,10 +5,12 @@ function askFloat(){
   if(dayFloat(bizDate(new Date())) !== null) return;
   openModal(`<h3>${icon('cash', 22)} เปิดร้าน · เงินทอนตั้งต้น</h3>
     <p class="note2" style="margin-top:-6px">นับเงินในลิ้นชักก่อนเริ่มขาย ใช้เทียบตอนปิดร้าน</p>
+    ${drawerOn() ? drawerLine() : ''}
     <div class="cashgrid"><div class="cashl"><div class="quick">${[0, 500, 1000, 2000].map(v => `<button data-fq="${v}">${v}</button>`).join('')}</div>
     <label class="recvrow"><span>เงินทอนตั้งต้น <small>บาท</small></span>${moneyField('floatIn', '', true)}</label></div>${moneyPadHtml()}</div>
     <div class="row payrow"><button class="tbtn" id="floatSkip">ข้ามไปก่อน</button><button class="pay" id="floatOk" disabled>บันทึก</button></div>`, {cls:'mid'});
   $('floatIn').oninput = floatInput;
+  autoDrawer('open');   // ใส่เงินทอน: เปิดลิ้นชักให้ 1 ครั้ง (Tee 2026-10-23)
 }
 function floatInput(){ const i = $('floatIn'); i.value = i.value.replace(/\D/g, ''); $('floatOk').disabled = i.value === ''; }
 function floatSave(){
@@ -24,10 +26,12 @@ function openClose(){
   const date = bizDate(new Date());
   closeDraft = {date, float:dayFloat(date), counted:null};
   renderClose();
+  autoDrawer('close');  // นับเงิน: เปิดลิ้นชักให้ 1 ครั้งต่อการเปิดหน้านี้ (Tee 2026-10-23)
 }
 function renderClose(){
   const d = closeDraft, c = cashCount(d.date, d.float, 0), last = lastCash(d.date, 'close');
   openModal(`<div class="note2" style="margin-top:0"><b>${roundLabel(d.date, d.date)}</b></div>
+    ${drawerOn() ? drawerLine() : ''}
     ${last ? `<div class="note2">${icon('alert', 14)} นับไปแล้วเมื่อ ${fmtDT(last.at)} โดย ${esc(last.by)} (${diffText(last.diff)}) · นับใหม่ได้ รายงานใช้ครั้งล่าสุด</div>` : ''}
     <div class="cashgrid"><div class="cashl"><div class="cashbox">
       <div class="crow"><span>เงินทอนตั้งต้น${d.float === null ? ' <small class="need">ยังไม่ได้ใส่</small>' : ''}</span>${moneyField('clFloat', d.float === null ? '' : d.float, d.float === null, 'cnum')}</div>
