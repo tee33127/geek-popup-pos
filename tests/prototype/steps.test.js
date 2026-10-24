@@ -160,6 +160,15 @@ const {eq, done, open} = require('../qa/qa-helper');
   eq('back to none then some again: flashes again', !!$('.cupsum .xtra.flash'), true);
   ev('backToMenu()');
 
+  // ---------- UI34 กดเมนูรัวๆ แล้วกดขนาดทันที: state ตรง ขั้นไม่ซ้อน (ไม่มี el.animate ใน jsdom = ทางเปลี่ยนทันที · ทาง animation อยู่ใน e2e UI34) ----------
+  for(const id of ['greek', 'acai', 'banana', 'greek', 'acai', 'greek']) click(`[data-menu="${id}"]`);
+  eq('UI34 rapid menu taps: last menu wins, one highlighted card, steps once each, picks cleared', [ev('sel.menu'), $$('.base.on').map(b => b.dataset.menu), steps(), ev('sel.picks.length'), ev('sel.size')],
+    ['greek', ['greek'], ['menu', 'size'], 0, null]);
+  size('g2'); click('[data-pick="Banana"]'); click('[data-pick="Mango"]'); click('[data-pick="Kiwi"]'); click('[data-honey="normal"]'); click('#btnAdd');
+  eq('UI34 menu then size right away: order correct (Greek 2 สกู๊ป ฟรี 3 อย่าง = 129)', ev('JSON.stringify(cart.slice(-1).map(i => [i.menu, i.sizeName, i.tops.map(t => t.name), i.honey, i.unit]))'),
+    JSON.stringify([['greek', '2 สกู๊ป', ['Banana', 'Mango', 'Kiwi'], 'normal', 129]]));
+  clearCart();
+
   eq('no runtime errors', p.errors, []);
   p.close(); done();
 })().catch(e => { console.error('TEST CRASH', e); process.exit(2); });

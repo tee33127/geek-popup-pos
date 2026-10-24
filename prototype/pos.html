@@ -378,8 +378,10 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 .sec.inline .sb{flex:1;min-width:0;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
 .sec.inline .sb > .bases,.sec.inline .sb > .sizes,.sec.inline .sb > .honey{flex:1}
 .stitle small{margin-left:var(--s2)}
-/* เมนูแบบย่อ: รูปเล็ก + ชื่อ เรียงแถวเดียว */
-.base .pic{transition:width .2s,height .2s}
+/* เมนูแบบย่อ: รูปเล็ก + ชื่อ เรียงแถวเดียว · ย่อ/ขยายตอนเลือกเมนูเล่นด้วย transform ใน builder.js (menuMove) ห้าม transition width/height */
+.bases > .base,.bases > .base > *,#builder > .sec{transform-origin:0 0}
+/* ขั้นเมนูอยู่บนขั้นอื่น: ระหว่างย่อ/ขยาย การ์ดที่เห็นทับขั้นใหม่ (ยังจางอยู่) ต้องเป็นสิ่งที่แตะโดน ไม่ใช่ขั้นที่มองไม่เห็น */
+#builder > .sec[data-step="menu"]{position:relative;z-index:1}
 .bases.compact .base{display:flex;align-items:center;gap:var(--s2);padding:var(--s1) var(--s2) var(--s1) var(--s1);min-height:44px;text-align:left;border-radius:var(--r-btn)}
 .bases.compact .base .pic{width:calc(40px * var(--ui-scale));height:calc(40px * var(--ui-scale));flex:none;border-radius:var(--r-btn)}
 .bases.compact .base .nm{margin:0;line-height:1.4}
@@ -411,7 +413,6 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 @media(max-width:900px){
   .comps{grid-template-columns:1fr}
 }
-@media(prefers-reduced-motion:reduce){.base .pic{transition:none}}
 .sh{min-height:calc(30px * var(--ui-scale))}
 /* ช่องตัวเลขในหน้าต่าง: ชื่อซ้าย ช่องขวา บรรทัดเดียว (placeholder สั้น "0" ไม่ล้น) */
 .recvrow{display:flex;align-items:center;gap:var(--s3);font-weight:700;margin:calc(4px * var(--ui-scale)) 0}
@@ -668,7 +669,7 @@ main > .card:first-child{padding-top:var(--s2)}
 <script>
 /* ===== js/version.js ===== */
 /* สร้างโดย npm run build:prototype ห้ามแก้มือ · VERSION ตรงกับ app/sw.js · built = เวลาที่ build เวอร์ชันนี้ */
-const APP_VERSION = {v:'b586a0e1ca8f', built:'2026-10-23T07:45:30.629Z'};
+const APP_VERSION = {v:'99d68f31e383', built:'2026-10-24T09:43:13.004Z'};
 </script>
 <script>
 /* ===== js/config.js ===== */
@@ -5009,7 +5010,7 @@ slipFontsReady();   // โหลดฟอนต์ตั๋วไว้ตั้
    ลำดับการเปิด: Greek เมนู → ขนาด → (ท็อปปิ้ง + น้ำผึ้ง พร้อมกัน) · Acai เมนู → (ท็อปปิ้งตามสูตร + น้ำผึ้ง) · Banana Choco เมนู → ท็อปปิ้งตามสูตร
    ขั้นใหม่เลื่อนลงมาต่อท้าย (slide down + fade) แล้วเลื่อนจอให้อยู่ในจอ เฉพาะตอนเพิ่งเปิด · กดท็อปปิ้งไม่เลื่อน
    ปุ่มหลักหน้าที่เดียว "เพิ่มลงออเดอร์" · ยังไม่ครบ = สีเทา (class off) บอกสิ่งที่ขาด กดแล้วพาไปขั้นที่ขาด */
-let sel, tallyHad = false, shownKeys = ['menu'];   // tallyHad: ช่องสรุปเคยมีส่วน "คิดเพิ่ม" (กะพริบครั้งเดียวตอนเปลี่ยนจากไม่มีเป็นมี) · shownKeys: ขั้นที่แสดงอยู่ (หาขั้นใหม่)
+let sel, tallyHad = false, shownKeys = ['menu'], drawnMenu = null;   // tallyHad: ช่องสรุปเคยมีส่วน "คิดเพิ่ม" (กะพริบครั้งเดียวตอนเปลี่ยนจากไม่มีเป็นมี) · shownKeys: ขั้นที่แสดงอยู่ (หาขั้นใหม่) · drawnMenu: เมนูของรอบ render ก่อน (เมนูเปลี่ยน = เล่น menuMove)
 function resetSel(){ sel = {menu:null, size:null, picks:[], comps:[], honey:CONFIG.honeyDefault, sep:false, adds:[], note:'', noteOpen:false}; tallyHad = false; }
 resetSel();
 const curMenu = () => sel.menu ? MENU[sel.menu] : null;
@@ -5019,8 +5020,7 @@ const lastStep = () => { const s = stepsShown(curMenu()); return s[s.length - 1]
 /* กลับขั้นเลือกเมนู + เลื่อนหน้าขายขึ้นบนสุด · ใช้หลัง "เพิ่มลงออเดอร์" และ "ออเดอร์ถัดไป" (Tee 2026-10-13)
    เดิมไม่เลื่อนเลย ที่ดูเหมือนขึ้นบนเพราะหน้าสั้นลง · แนวตั้งตะกร้ายาว หน้าค้างกลางจอ และจ่ายเงินแล้วเมนูที่เลือกค้างไว้ยังอยู่ */
 function backToMenu(){
-  resetSel(); renderBuilder();
-  (document.scrollingElement || document.documentElement).scrollTop = 0;
+  resetSel(); renderBuilder({top:true});   // เลื่อนขึ้นก่อนเล่น menuMove: กล่องเมนูขยายจากที่ที่เห็นอยู่ไปที่ใหม่บนจอ
 }
 /* น้ำผึ้งไม่มีค่าเริ่มต้น ต้องเลือกก่อนเพิ่มลงออเดอร์ (ยกเว้นเมนูที่ไม่มีน้ำผึ้ง)
    ขนาดก็ไม่มีค่าเริ่มต้น (Tee 2026-10-13 กันพนักงานลืมถามขนาด) */
@@ -5046,6 +5046,55 @@ function scrollToStep(id){
   const hd = document.querySelector('header');
   el.style.scrollMarginTop = ((hd ? hd.offsetHeight : 0) + 12) + 'px';   // แถบหัวติดจอ ไม่ให้บังหัวขั้น
   el.scrollIntoView({behavior: calm() ? 'auto' : 'smooth', block:'start'});
+}
+/* เลือก / เปลี่ยน / กลับเมนู: ค่อยๆ ย้ายแทนการกระโดด (Tee 2026-10-24)
+   กล่องเมนูย่อ/ขยายไปที่ใหม่แบบ FLIP (วัดก่อน render → วัดหลัง → เล่นจากที่เดิมมาที่ใหม่) · ขั้นใหม่ค่อยๆ โผล่ออกมาจากเมนูที่กด
+   ขยับเฉพาะ transform + opacity ด้วย el.animate (ไม่ใช้ View Transitions: ระหว่างเล่น จอเป็นภาพนิ่งที่กดไม่ได้)
+   ไม่ล็อกการกด: ปุ่มของ layout ใหม่อยู่ใน DOM แล้ว กดขนาด/เมนูอื่นได้ทันที · กดซ้ำระหว่างเล่น = render ใหม่ทั้งชุด animation เก่าหายไปกับกล่องเก่า
+   รอบใหม่เริ่มจากตำแหน่งที่เห็นอยู่ (getBoundingClientRect รวม transform) จึงไม่กระตุก ไม่ซ้อน · reduced motion / ไม่มี el.animate = เปลี่ยนทันทีเหมือนเดิม
+   transform-origin 0 0 อยู่ใน pos.css · ลูกในการ์ดหักล้าง scale ของการ์ด: รูปย่อ/ขยายเป็นสี่เหลี่ยมจัตุรัสเสมอ ตัวหนังสือขนาดเดิม ไม่ยืด */
+const MOVE_MS = 180, MOVE_AT = [0, .1, .25, .45, .7, 1], MOVE_PARTS = ['.pic', '.nm', 'small'];
+const easeOut = t => 1 - Math.pow(1 - t, 3);   // เล่นเป็นช่วงๆ แบบ linear แล้วคำนวณ ease เอง การ์ดกับลูกจึงตรงกันทุกเฟรม
+const boxOf = el => { const r = el.getBoundingClientRect(); return {l:r.left, t:r.top, w:r.width, h:r.height}; };
+/* ความจางตอนวัด: กำลังเล่นอยู่ = ค่าที่เห็นตอนนี้ (กดซ้ำไม่กะพริบ) · นิ่งอยู่ = 0 (ตัวหนังสือจางเข้าใหม่) */
+const fadeOf = el => el.getAnimations && el.getAnimations().length ? Number(getComputedStyle(el).opacity) : 0;
+const menuCards = () => [...document.querySelectorAll('#builder .bases > .base')];
+function menuRects(){
+  if(calm() || !Element.prototype.animate) return null;
+  const cards = menuCards(); if(!cards.length || !cards[0].getBoundingClientRect().width) return null;
+  return cards.map(c => ({card:boxOf(c), parts:MOVE_PARTS.map(s => { const e = c.querySelector(s); return e && {...boxOf(e), o:fadeOf(e)}; })}));
+}
+function menuMove(first, freshIds){
+  const cards = menuCards(), opt = {duration:MOVE_MS, easing:'linear'};
+  /* วัดทุกอย่างก่อนเริ่มเล่น (animation ที่เริ่มแล้วทำให้ getBoundingClientRect ของลูกเพี้ยน) */
+  const last = cards.map(c => ({card:boxOf(c), parts:MOVE_PARTS.map(s => { const e = c.querySelector(s); return e && boxOf(e); })}));
+  const on = cards.find(c => c.classList.contains('on'));
+  const secs = freshIds.map(id => document.querySelector(`#builder [data-step="${id}"]`)).filter(Boolean), secBox = secs.map(boxOf), from = on && boxOf(on);
+  let moved = false;
+  if(first.length === cards.length) cards.forEach((c, i) => {
+    const A = first[i].card, B = last[i].card; if(!B.w || !B.h) return;
+    const sx = A.w / B.w, sy = A.h / B.h, dx = A.l - B.l, dy = A.t - B.t;
+    if(Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < .01 && Math.abs(sy - 1) < .01) return;
+    moved = true;
+    const at = p => ({x:dx * (1 - p), y:dy * (1 - p), sx:sx + (1 - sx) * p, sy:sy + (1 - sy) * p});
+    c.animate(MOVE_AT.map(t => { const k = at(easeOut(t)); return {offset:t, transform:`translate(${k.x}px,${k.y}px) scale(${k.sx},${k.sy})`}; }), opt);
+    MOVE_PARTS.forEach((s, j) => {
+      const e = c.querySelector(s), a = first[i].parts[j], b = last[i].parts[j]; if(!e || !a || !b || !b.w || !b.h) return;
+      const pic = s === '.pic', ox = b.l - B.l, oy = b.t - B.t;   // ตำแหน่งในการ์ด (layout ใหม่)
+      e.animate(MOVE_AT.map(t => { const p = easeOut(t), k = at(p);
+        /* รูป: บินจากที่เดิม ย่อ/ขยายเป็นจัตุรัส · ตัวหนังสือ: อยู่ที่ใหม่ขนาดเดิม จางเข้าครึ่งหลัง (บินข้ามรูปแล้วดูรก) */
+        const L = pic ? a.l + (b.l - a.l) * p : b.l, T = pic ? a.t + (b.t - a.t) * p : b.t, W = pic ? a.w + (b.w - a.w) * p : b.w, H = pic ? a.h + (b.h - a.h) * p : b.h;
+        const f = {offset:t, transform:`translate(${(L - B.l - k.x) / k.sx - ox}px,${(T - B.t - k.y) / k.sy - oy}px) scale(${W / (k.sx * b.w)},${H / (k.sy * b.h)})`};
+        if(!pic) f.opacity = a.o + (1 - a.o) * Math.max(0, (t - .4) / .6);
+        return f; }), opt);
+    });
+  });
+  /* ขั้นใหม่: ขยายออกจากใต้เมนูที่กด (scale รอบจุดกึ่งกลางการ์ดที่ขอบบนขั้น) · การ์ดย้าย = จางเข้าหลังการ์ดย่อไปเกือบถึงที่ ไม่ทับกัน
+     เปลี่ยนเมนู (การ์ดไม่ย้าย) = จางเข้าทันที ไม่มีช่วงว่าง · จางอยู่ก็กดได้ (opacity ไม่ปิดการกด) */
+  secs.forEach((el, i) => {
+    const r = secBox[i], px = from ? Math.min(Math.max(from.l + from.w / 2 - r.l, 0), r.w) : r.w / 2, s = .94;
+    el.animate([{opacity:0, transform:`translate(${px * (1 - s)}px,-6px) scale(${s})`}, {opacity:0, offset:moved ? .35 : 0, easing:'cubic-bezier(.2,.8,.2,1)'}, {opacity:1, transform:'none'}], {duration:MOVE_MS, easing:'linear'});
+  });
 }
 /* กดปุ่มหลักตอนยังไม่ครบ: พาไปขั้นที่ขาด แล้วกรอบกะพริบ 1 ครั้ง */
 function flashStep(id){
@@ -5184,8 +5233,10 @@ $('modal').addEventListener('click', e => {
   else if(el = g('aless')){ const i = sel.adds.lastIndexOf(el.dataset.aless); if(i >= 0) sel.adds.splice(i, 1); renderBuilder(); openAdds(); }
   else if(e.target.closest('#addsDone')) closeModal();
 });
-function renderBuilder(){
+/* o.top = เลื่อนหน้าขายขึ้นบนสุด (backToMenu) */
+function renderBuilder(o){
   const m = curMenu(), P = priceSel();
+  const first = sel.menu !== drawnMenu ? menuRects() : null; drawnMenu = sel.menu;   // เมนูเปลี่ยน = วัดกล่องเมนูก่อนแทนที่ (menuMove)
   const body = {
     menu: () => `<div class="bases ${sel.menu ? 'compact' : ''}">` + CONFIG.menus.map(x =>
       (x.out && sel.menu !== x.id ? `<button class="base out" disabled><img class="pic" src="${x.img}" alt=""><div class="nm">${esc(x.name)}</div><small>หมด</small></button>`
@@ -5207,7 +5258,7 @@ function renderBuilder(){
   const steps = stepsShown(m), keys = steps.map(id => id === 'menu' ? 'menu' : sel.menu + ':' + id);
   const fresh = steps.filter((id, i) => !shownKeys.includes(keys[i]));
   shownKeys = keys;
-  $('builder').innerHTML = steps.map((id, i) => sec(id, i + 1, title[id], body[id](), fresh.includes(id), inline[id])).join('');
+  $('builder').innerHTML = steps.map((id, i) => sec(id, i + 1, title[id], body[id](), fresh.includes(id) && !first, inline[id])).join('');   // เล่น menuMove = ไม่ใช้ .enter ซ้อน
 
   /* ปุ่มหลัก: หน้าที่เดียว · ยังไม่ครบ = สีเทา (ยังกดได้ เพื่อพาไปขั้นที่ขาด) */
   const add = $('btnAdd'), miss = missingStep();
@@ -5218,6 +5269,8 @@ function renderBuilder(){
   add.classList.toggle('off', !!miss); add.disabled = false;   // ไม่ใช้ aria-disabled: ปุ่มเทายังทำงาน (พาไปขั้นที่ขาด) ข้อความบนปุ่มบอกสิ่งที่ขาดอยู่แล้ว
   $('tally').innerHTML = cupSummaryHtml(m, P);
   cartMode(); placeActBar(); fitNames($('builder'));   // cartMode ก่อน: ความกว้างกล่องเลือกขึ้นกับกล่องออเดอร์ยุบหรือไม่
+  if(o && o.top) (document.scrollingElement || document.documentElement).scrollTop = 0;
+  if(first) menuMove(first, fresh);   // หลังจัด layout และเลื่อนจอแล้ว: วัดที่ใหม่ตรงกับที่จะเห็น
   if(fresh.length) scrollToStep(fresh[0]);
 }
 /* แถบล่าง (position fixed) วางตรงกับกล่องเลือก · หน้าตา/ความสูงเดียวทุกขั้น */
