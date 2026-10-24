@@ -28,8 +28,7 @@ const server = http.createServer((q, r) => {
   const watch = (page, tag) => { page.on('pageerror', e => consoleErrors.push(`${tag}: ${e.message}`)); page.on('console', m => { if(m.type() === 'error') consoleErrors.push(`${tag}: ${m.text()}`); }); };
   const enter = async (page, code) => { for(const c of code) await page.click(`[data-kp="${c}"]`); await page.click('#lgGo'); };
   const skipFloat = async page => { if(await page.$('#floatSkip')) await page.click('#floatSkip'); };
-  /* ทุก context ปิด animation (reducedMotion:'reduce') ยกเว้น UI34 ข. ที่ตรวจ animation เลือกเมนูเอง (หยุดนาฬิกา animation ด้วย CDP ไม่รอเวลา)
-     รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง)
+  /* รอเหตุการณ์จริง ไม่รอเวลา (Tee 2026-10-18 · เทสต์ต้องผลนิ่ง)
      settle = จอนิ่งแล้ว: ไม่มี animation/transition กำลังเล่น (ทุกตัวในแอปจบในตัว) + ตำแหน่งเลื่อน (หน้า และทุกกล่องที่เลื่อนได้) ขนาดจอ visualViewport เท่าเดิม 3 เฟรมติด (requestAnimationFrame)
      vvFit = แอปจัดหน้าต่างตามจอที่มองเห็นแล้ว (--vvh = visualViewport.height · fitViewport ทำทันทีตอนจอเปลี่ยนขนาด ทำซ้ำได้ผลเดิม) แล้วรอจอนิ่ง */
   const settle = pg => pg.evaluate(() => new Promise(done => {
@@ -46,7 +45,7 @@ const server = http.createServer((q, r) => {
   const small = new Map();
   const layouts = {};
   for(const [label, vp, br] of SCREENS){
-    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true, deviceScaleFactor: label.startsWith('ipad') ? 2 : 1.5, reducedMotion:'reduce'});
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true, deviceScaleFactor: label.startsWith('ipad') ? 2 : 1.5});
     await ctx.addInitScript(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
     const page = await ctx.newPage(); watch(page, label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]');
@@ -125,7 +124,7 @@ const server = http.createServer((q, r) => {
   fs.writeFileSync(path.join(SHOTS, 'ui02-small-buttons.json'), JSON.stringify(smallList, null, 1));
   // ---------- UI10 หลัง "เพิ่มลงออเดอร์" / "ออเดอร์ถัดไป" กลับขั้นเลือกเมนู + เลื่อนขึ้นบนสุด (Tee เจอบน iPad 2026-10-13) ----------
   for(const [label, vp, br] of SCREENS){
-    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true, reducedMotion:'reduce'});
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:true});
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui10-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
@@ -245,7 +244,7 @@ const server = http.createServer((q, r) => {
   // WebKit โหมดมือถือส่ง wheel ไม่ได้ จอ iPad จึงใช้ WebKit แบบไม่ isMobile (Safari บน iPad รายงานตัวเป็นเดสก์ท็อปอยู่แล้ว)
   for(const [label, vp, br] of SCREENS){
     const mobile = !label.startsWith('ipad');
-    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:mobile, reducedMotion:'reduce'});
+    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:mobile});
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'ui15-' + label);
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1234'); await skipFloat(page);
@@ -560,7 +559,7 @@ const server = http.createServer((q, r) => {
 
   // ---------- iPad เครื่องใหม่: ตั้งเจ้าของครั้งแรกด้วยแป้นของแอป ----------
   {
-    const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2, reducedMotion:'reduce'});
+    const ctx = await safari.newContext({viewport:{width:820, height:1180}, hasTouch:true, isMobile:true, deviceScaleFactor:2});
     const page = await ctx.newPage(); watch(page, 'ipad-setup');
     await page.goto(`${BASE}/prototype/pos.html`); await page.waitForSelector('#lgName');
     const focus0 = await page.evaluate(() => document.activeElement.id);
@@ -582,7 +581,7 @@ const server = http.createServer((q, r) => {
 
   // ---------- C06 กดยืนยันชำระเงินรัวๆ · E01 ส่งออกไม่ออกจากหน้า ----------
   {
-    const ctx = await browser.newContext({viewport:{width:1280, height:800}, hasTouch:true, isMobile:true, acceptDownloads:true, reducedMotion:'reduce'});
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}, hasTouch:true, isMobile:true, acceptDownloads:true});
     await ctx.addInitScript(() => { window.print = () => {}; });
     const page = await ctx.newPage(); watch(page, 'c06');
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1234'); await skipFloat(page);
@@ -623,7 +622,7 @@ const server = http.createServer((q, r) => {
 
   // ---------- D03 เปิดแอป 2 แท็บพร้อมกัน (app/ แบบติดตั้ง ใช้ IndexedDB จริง) · ขายได้ทีละหน้า (tablock.js, Tee 2026-10-16) · UI08 ----------
   {
-    const ctx = await browser.newContext({viewport:{width:1280, height:800}, reducedMotion:'reduce'});
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}});
     await ctx.addInitScript(() => { window.print = () => {}; });
     /* นับ transaction IndexedDB ที่ยังไม่จบ (UI08 รอบันทึก 5,000 บิลเสร็จจริงก่อนจับเวลา ไม่รอเวลา) */
     await ctx.addInitScript(() => { const t0 = IDBDatabase.prototype.transaction; window.__idbOpen = 0;
@@ -750,7 +749,7 @@ const server = http.createServer((q, r) => {
       await ctx.close();
     }
     // H28 แอปจริง (app/index.html) · เจ้าของตั้ง "เมื่อลูกค้าขอ" → ตั๋วครัวออกเอง ใบเสร็จออกเมื่อกด
-    const ctx = await browser.newContext({viewport:{width:1280, height:800}, hasTouch:true, isMobile:true, reducedMotion:'reduce'});
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}, hasTouch:true, isMobile:true});
     await ctx.addInitScript(fakeUsb);
     const page = await ctx.newPage(); watch(page, 'h28');
     await page.goto(`${BASE}/app/index.html`); await page.waitForSelector('#lgName');
@@ -887,74 +886,10 @@ const server = http.createServer((q, r) => {
       Object.fromEntries(Object.keys(steady).map(k => [k, true])));
   }
 
-  // ---------- UI34 เลือกเมนู: กล่องเมนูค่อยๆ ย่อ ขั้นใหม่โผล่จากเมนูที่กด (Tee 2026-10-24 · builder.js menuMove) ----------
-  // ก. reduced motion (ทุก context อื่นในไฟล์นี้) = เปลี่ยนทันที ไม่มี animation ในหน้าขาย · ทั้ง 4 จอ
-  // ข. เปิด animation (Redmi 2 จอ · Chromium): หยุดนาฬิกา animation ด้วย CDP (Animation.setPlaybackRate 0) แล้วตั้งทุกตัวไว้กลางทาง
-  //    จึงแตะ "ระหว่าง animation" ได้แน่นอนทุกรอบ โดยไม่ต้องรอเวลา · เลื่อนจอแบบทันที (scrollIntoView ไม่ smooth) ให้พิกัดที่วัดตรงกับตอนแตะ
-  //    ตรวจ: ยาว 150–200ms · ขยับแค่ transform/opacity · แตะขนาดกลางทางได้ ออเดอร์ถูก (Greek 2 สกู๊ป ฟรี 3 อย่าง = 129 ตาม business-rules)
-  //    กดรัว 6 เมนูกลางทาง: state ตรง ขั้นไม่ซ้อน ไม่มี transform/opacity ค้าง · เพิ่มลงออเดอร์ = ขยายกลับแบบเดียวกัน
-  for(const [label, vp, br] of SCREENS){
-    const ctx = await br.newContext({viewport:vp, hasTouch:true, isMobile:!label.startsWith('ipad'), reducedMotion:'reduce'});
-    await ctx.addInitScript(() => { window.print = () => {}; });
-    const page = await ctx.newPage(); watch(page, 'ui34a-' + label);
-    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page);
-    const r = await page.evaluate(() => { document.querySelector('[data-menu="greek"]').click();
-      return document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest('#builder')).length; });
-    await page.tap('[data-size="g1"]');
-    eq(`UI34 ${label}: reduced motion = เลือกเมนูแล้วเปลี่ยนทันที (ไม่มี animation ในหน้าขาย) กดขนาดต่อได้`, [r, await page.evaluate(() => sel.size)], [0, 'g1']);
-    await ctx.close();
-  }
-  for(const [label, vp] of SCREENS.filter(s => s[2] === browser && !s[0].startsWith('ipad'))){
-    const ctx = await browser.newContext({viewport:vp, hasTouch:true, isMobile:true, reducedMotion:'no-preference'});
-    await ctx.addInitScript(() => { window.print = () => {};
-      const into = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function(o){ return into.call(this, {...(o || {}), behavior:'auto'}); }; });
-    const page = await ctx.newPage(); watch(page, 'ui34b-' + label);
-    await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]'); await enter(page, '1111'); await skipFloat(page); await settle(page);
-    const cdp = await ctx.newCDPSession(page); await cdp.send('Animation.enable'); await cdp.send('Animation.setPlaybackRate', {playbackRate:0});
-    /* ทุก animation ในหน้าขายไปไว้ที่ ms แล้วคืน: จำนวน · ความยาว · property ที่ขยับ · จุดกลางของ sel (รวม transform = ที่ที่เห็นบนจอ) และสิ่งที่อยู่ใต้จุดนั้นจริง */
-    const freeze = (sel, ms, top) => page.evaluate(([sel, ms, top]) => {
-      if(top) scrollTo(0, 0);
-      const A = document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest('#builder'));
-      A.forEach(a => { a.pause(); a.currentTime = ms; });
-      const props = [...new Set(A.flatMap(a => a.effect.getKeyframes().flatMap(k => Object.keys(k).filter(p => !['offset', 'computedOffset', 'easing', 'composite'].includes(p)))))].sort();
-      const ms2 = [...new Set(A.map(a => a.effect.getTiming().duration))];
-      const el = sel && document.querySelector(sel), b = el && el.getBoundingClientRect(), x = b && b.left + b.width / 2, y = b && b.top + b.height / 2;
-      return {n:A.length, base:A.filter(a => a.effect.target.closest('.base')).length, props, ms:ms2, x, y, hit: !!el && el.contains(document.elementFromPoint(x, y))};
-    }, [sel, ms, top]);
-    await page.tap('[data-menu="greek"]');
-    const f1 = await freeze('[data-size="g2"]', 90);
-    await page.touchscreen.tap(f1.x, f1.y);   // แตะขนาดตอนทุกอย่างค้างกลางทาง
-    const s1 = await page.evaluate(() => ({menu:sel.menu, size:sel.size, honey:!!document.querySelector('[data-step="honey"]')}));
-    eq(`UI34 ${label}: เลือกเมนูแล้วกล่องเมนูเล่น animation ยาว 150–200ms ขยับแค่ transform/opacity`,
-      [f1.base > 0, f1.n > f1.base, f1.ms.every(d => d >= 150 && d <= 200), f1.props], [true, true, true, ['opacity', 'transform']]);
-    eq(`UI34 ${label}: แตะขนาดระหว่าง animation ได้ทันที (จุดที่เห็นคือปุ่มขนาดจริง) ขั้นถัดไปเปิด`, [f1.hit, s1], [true, {menu:'greek', size:'g2', honey:true}]);
-    for(const t of ['Banana', 'Mango', 'Kiwi']) await page.tap(`[data-pick="${t}"]`);
-    await page.tap('[data-honey="normal"]'); await page.tap('#btnAdd');
-    const f2 = await freeze(null, 90);
-    const c1 = await page.evaluate(() => cart.map(i => ({menu:i.menu, size:i.sizeName, tops:i.tops.map(t => t.name), honey:i.honey, unit:i.unit, qty:i.qty})));
-    eq(`UI34 ${label}: กดเมนูแล้วกดขนาดทันที ได้ออเดอร์ถูก (Greek 2 สกู๊ป ฟรี 3 อย่าง = 129)`, c1, [{menu:'greek', size:'2 สกู๊ป', tops:['Banana', 'Mango', 'Kiwi'], honey:'normal', unit:129, qty:1}]);
-    eq(`UI34 ${label}: เพิ่มลงออเดอร์แล้วกล่องเมนูขยายกลับแบบเดียวกัน (มี animation · transform/opacity)`, [f2.base > 0, f2.props], [true, ['opacity', 'transform']]);
-    /* กดรัว: ทุกครั้งแตะกลางทางของรอบก่อน (ตำแหน่งที่เห็น) · แนวตั้งขั้นใหม่เลื่อนจอจนแถวเมนูอยู่ใต้แถบหัว (พฤติกรรมเดิม) จึงเลื่อนขึ้นบนสุดก่อนแตะ แบบที่พนักงานทำ */
-    const seq = ['acai', 'banana', 'greek', 'acai', 'greek', 'banana'], hits = [];
-    for(const id of seq){ const f = await freeze(`[data-menu="${id}"]`, 60, true); hits.push(f.hit); await page.touchscreen.tap(f.x, f.y); }
-    await cdp.send('Animation.setPlaybackRate', {playbackRate:1}); await page.evaluate(() => document.getAnimations().forEach(a => a.finish())); await settle(page);
-    const s2 = await page.evaluate(() => {
-      const ids = [...document.querySelectorAll('#builder .sec')].map(s => s.dataset.step);
-      /* สิ่งที่ menuMove ขยับ: การ์ด รูป ชื่อ ราคา และขั้น · รูปการ์ดเมนูหมดจางโดยตั้งใจ (.base.out .pic) จึงตรวจ opacity เฉพาะที่ไม่ใช่รูป */
-      const left = [...document.querySelectorAll('.bases > .base, .bases > .base > *, #builder > .sec')].filter(e => e.getAnimations().length || e.style.transform || e.style.opacity
-        || getComputedStyle(e).transform !== 'none' || (!e.matches('.pic') && getComputedStyle(e).opacity !== '1')).map(e => e.className);
-      return {menu:sel.menu, size:sel.size, picks:sel.picks.length, on:[...document.querySelectorAll('#builder .base.on')].map(b => b.dataset.menu), bases:document.querySelectorAll('#builder .bases').length,
-        ids, want:stepsShown(curMenu()), left, running:document.getAnimations().filter(a => a.playState === 'running').length};
-    });
-    eq(`UI34 ${label}: กดรัว 6 เมนูกลางทาง: แตะโดนทุกครั้ง · เมนูสุดท้ายถูก · การ์ดเลือกใบเดียว · ขั้นไม่ซ้อน · ไม่มี transform/opacity ค้าง`,
-      [hits, s2.menu, s2.size, s2.picks, s2.on, s2.bases, s2.ids, s2.left, s2.running], [seq.map(() => true), 'banana', null, 0, ['banana'], 1, s2.want, [], 0]);
-    await ctx.close();
-  }
-
   // ---------- S01 ตั๋วตัวอย่างในเบราว์เซอร์จริง (ฟอนต์จริง) → PNG ขาวดำแบบที่ส่งไปปริ้นเตอร์ ----------
   {
     const SL = path.join(SHOTS, 'slips'); fs.mkdirSync(SL, {recursive:true});
-    const ctx = await browser.newContext({viewport:{width:1280, height:800}, reducedMotion:'reduce'});
+    const ctx = await browser.newContext({viewport:{width:1280, height:800}});
     const page = await ctx.newPage(); watch(page, 'slips');
     await page.goto(`${BASE}/prototype/pos-demo.html`); await page.waitForSelector('[data-kp="1"]');
     const res = await page.evaluate(async () => {

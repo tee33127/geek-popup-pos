@@ -359,10 +359,8 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 .sec.inline .sb{flex:1;min-width:0;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2)}
 .sec.inline .sb > .bases,.sec.inline .sb > .sizes,.sec.inline .sb > .honey{flex:1}
 .stitle small{margin-left:var(--s2)}
-/* เมนูแบบย่อ: รูปเล็ก + ชื่อ เรียงแถวเดียว · ย่อ/ขยายตอนเลือกเมนูเล่นด้วย transform ใน builder.js (menuMove) ห้าม transition width/height */
-.bases > .base,.bases > .base > *,#builder > .sec{transform-origin:0 0}
-/* ขั้นเมนูอยู่บนขั้นอื่น: ระหว่างย่อ/ขยาย การ์ดที่เห็นทับขั้นใหม่ (ยังจางอยู่) ต้องเป็นสิ่งที่แตะโดน ไม่ใช่ขั้นที่มองไม่เห็น */
-#builder > .sec[data-step="menu"]{position:relative;z-index:1}
+/* เมนูแบบย่อ: รูปเล็ก + ชื่อ เรียงแถวเดียว */
+.base .pic{transition:width .2s,height .2s}
 .bases.compact .base{display:flex;align-items:center;gap:var(--s2);padding:var(--s1) var(--s2) var(--s1) var(--s1);min-height:44px;text-align:left;border-radius:var(--r-btn)}
 .bases.compact .base .pic{width:calc(40px * var(--ui-scale));height:calc(40px * var(--ui-scale));flex:none;border-radius:var(--r-btn)}
 .bases.compact .base .nm{margin:0;line-height:1.4}
@@ -394,6 +392,7 @@ textarea.csvbox{width:100%;height:calc(180px * var(--ui-scale));font:calc(13px *
 @media(max-width:900px){
   .comps{grid-template-columns:1fr}
 }
+@media(prefers-reduced-motion:reduce){.base .pic{transition:none}}
 .sh{min-height:calc(30px * var(--ui-scale))}
 /* ช่องตัวเลขในหน้าต่าง: ชื่อซ้าย ช่องขวา บรรทัดเดียว (placeholder สั้น "0" ไม่ล้น) */
 .recvrow{display:flex;align-items:center;gap:var(--s3);font-weight:700;margin:calc(4px * var(--ui-scale)) 0}
